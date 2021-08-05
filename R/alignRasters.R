@@ -1,3 +1,17 @@
+#' @title Align rasters
+#'
+#' @description Aligns the grid and projection of multiple input rasters with a
+#' reference raster. In input raster will be aligned if it doesn't match the
+#' dimensions, resolution, extent, origin, or CRS projection of the reference
+#' raster.
+#'
+#' @param referenceRaster A \code{SpatRaster} object to use as a guide for
+#' alignment.
+#' @param inputRasters A list of \code{SpatRaster} objects to be aligned.
+#'
+#' @return A list of \code{SpatRaster} objects that share the same grid and
+#' projection as \code{referenceRaster}.
+
 alignRasters <- function(referenceRaster, inputRasters) {
 
   alignedRasters <- list()
