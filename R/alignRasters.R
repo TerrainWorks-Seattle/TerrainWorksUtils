@@ -3,16 +3,30 @@
 #' @title Align Rasters
 #'
 #' @description Aligns the grid and projection of multiple input rasters with a
-#' reference raster. In input raster will be aligned if it doesn't match the
+#' reference raster. An input raster will be aligned if it doesn't match the
 #' dimensions, resolution, extent, origin, or CRS projection of the reference
 #' raster.
 #'
-#' @param referenceRaster A \code{SpatRaster} object to use as a guide for
-#' alignment.
-#' @param inputRasters A list of \code{SpatRaster} objects to be aligned.
+#' @param referenceRaster A \code{SpatRaster} object to be aligned with.
+#' @param inputRasters A list of \code{SpatRaster} objects to align with the
+#' \code{referenceRaster}.
 #'
 #' @return A list of \code{SpatRaster} objects that share the same grid and
 #' projection as \code{referenceRaster}.
+#'
+#' @examples
+#' \donttest{
+#' library(WetlandTools)
+#'
+#' referenceRaster <- terra::rast("C:/Work/netmapdata/Puyallup/grad_50.tif")
+#'
+#' inputRasters <- list(
+#'   aligned = terra::rast("C:/Work/netmapdata/Puyallup/dev_50.tif"),
+#'   unaligned = terra::rast("C:/Work/netmapdata/Puyallup/elev_puy.flt")
+#' )
+#'
+#' alignedRasters <- alignRasters(referenceRaster, inputRasters)
+#' }
 
 alignRasters <- function(referenceRaster, inputRasters) {
 
