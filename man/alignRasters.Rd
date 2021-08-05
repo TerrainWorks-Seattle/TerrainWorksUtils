@@ -34,7 +34,5 @@ inputRasters <- list(
 )
 
 alignedRasters <- alignRasters(referenceRaster, inputRasters)
-
-alignedRasters <- alignRasters(referenceRaster, list(NULL, NULL))
 }
 }
