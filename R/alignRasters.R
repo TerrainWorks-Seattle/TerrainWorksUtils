@@ -28,7 +28,7 @@
 #' alignedRasters <- alignRasters(referenceRaster, inputRasters)
 #' }
 
-alignRasters <- function(referenceRaster, inputRasters) {
+alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 
   # Validate parameters --------------------------------------------------------
 

@@ -4,7 +4,7 @@
 \alias{alignRasters}
 \title{Align Rasters}
 \usage{
-alignRasters(referenceRaster, inputRasters)
+alignRasters(referenceRaster = NULL, inputRasters = NULL)
 }
 \arguments{
 \item{referenceRaster}{A \code{SpatRaster} object to be aligned with.}
