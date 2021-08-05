@@ -1,4 +1,6 @@
-#' @title Align rasters
+#' @export
+#'
+#' @title Align Rasters
 #'
 #' @description Aligns the grid and projection of multiple input rasters with a
 #' reference raster. In input raster will be aligned if it doesn't match the
