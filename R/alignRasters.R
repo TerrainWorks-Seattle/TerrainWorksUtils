@@ -16,7 +16,7 @@
 #'
 #' @examples
 #' \donttest{
-#' library(WetlandTools)
+#' library(TerrainWorksUtils)
 #'
 #' referenceRaster <- terra::rast("C:/Work/netmapdata/Puyallup/elev_puy.flt")
 #'

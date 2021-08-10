@@ -6,8 +6,8 @@
 #' and a wetland probability raster. ROC statistics include: ROC, area under ROC
 #' curve (AUC), precision, accuracy.
 #'
-#' @param wetlandProbabilityRaster A \code{SpatRaster} object where each cell
-#' value represents the probability of a wetland being there.
+#' @param wetProbRaster A \code{SpatRaster} object where each cell value
+#' represents the probability of a wetland being there.
 #' @param classifiedPoints A \code{??} object of points which are classified as
 #' either "wetland" or "non-wetland" with the class names \code{wetlandClass}
 #' and \code{nonWetlandClass}.
@@ -18,7 +18,7 @@
 #'
 #' @examples
 #' \donttest{
-#' library(WetlandTools)
+#' library(TerrainWorksUtils)
 #'
 #' wetProbRaster <- terra::rast("C:/Work/netmapdata/Puyallup/puy_prob.tif")
 #'
@@ -49,7 +49,7 @@ calcRocStats <- function(
   pointValues <- pointValues[,-1]
 
   # Remove points with NA values
-  pointValues <- na.omit(pointValues)
+  pointValues <- stats::na.omit(pointValues)
 
   # Remove points that aren't classified as either "wetland" or "non-wetland"
   wetlandPointIndices <- pointValues$class == wetlandClass
@@ -82,13 +82,13 @@ calcRocStats <- function(
   # Calculate the accuracy
   accuracy <- ROCR::performance(prediction, measure = "acc")
 
-  idx <- which.max(slot(precision, "y.values")[[1]])
-  prbe <- slot(precision, "y.values")[[1]][idx]
-  precisionCutoff <- slot(precision, "x.values")[[1]][idx]
+  idx <- which.max(methods::slot(precision, "y.values")[[1]])
+  prbe <- methods::slot(precision, "y.values")[[1]][idx]
+  precisionCutoff <- methods::slot(precision, "x.values")[[1]][idx]
 
-  idx <- which.max(slot(accuracy, "y.values")[[1]])
-  maxAccuracy <- slot(accuracy, "y.values")[[1]][idx]
-  accuracyCutoff <- slot(accuracy, "x.values")[[1]][idx]
+  idx <- which.max(methods::slot(accuracy, "y.values")[[1]])
+  maxAccuracy <- methods::slot(accuracy, "y.values")[[1]][idx]
+  accuracyCutoff <- methods::slot(accuracy, "x.values")[[1]][idx]
 
   # Return ---------------------------------------------------------------------
 

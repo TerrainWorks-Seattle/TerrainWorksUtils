@@ -1,6 +1,6 @@
-Package: WetlandTools
+Package: TerrainWorksUtils
 Type: Package
-Title: Shared Functions For Wetland Tool
+Title: General utility functions for TerrainWorks
 Version: 0.1.0
 Author: TerrainWorks
 Maintainer: The package maintainer <yourself@somewhere.net>
@@ -10,5 +10,8 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports:
+  methods,
+  ROCR,
+  stats,
   terra
 RoxygenNote: 7.1.1

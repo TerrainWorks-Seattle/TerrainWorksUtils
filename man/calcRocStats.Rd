@@ -12,6 +12,9 @@ calcRocStats(
 )
 }
 \arguments{
+\item{wetProbRaster}{A \code{SpatRaster} object where each cell value
+represents the probability of a wetland being there.}
+
 \item{classifiedPoints}{A \code{??} object of points which are classified as
 either "wetland" or "non-wetland" with the class names \code{wetlandClass}
 and \code{nonWetlandClass}.}
@@ -19,9 +22,6 @@ and \code{nonWetlandClass}.}
 \item{wetlandClass}{Name of the class indicating wetlands.}
 
 \item{nonWetlandClass}{Name of the class indicating non-wetlands.}
-
-\item{wetlandProbabilityRaster}{A \code{SpatRaster} object where each cell
-value represents the probability of a wetland being there.}
 }
 \value{
 A list of ROC statistic objects and values.
@@ -33,13 +33,13 @@ curve (AUC), precision, accuracy.
 }
 \examples{
 \donttest{
-library(WetlandTools)
+library(TerrainWorksUtils)
 
 wetProbRaster <- terra::rast("C:/Work/netmapdata/Puyallup/puy_prob.tif")
 
 allPoints <- terra::vect("C:/Work/netmapdata/Puyallup/wetlandPnts.shp")
 classifiedPoints <- allPoints[, "NEWCLASS"]
 
-calcRocStats(wetProbRaster, classifiedPoints, "WET", "UPL")
+rocStats <- calcRocStats(wetProbRaster, classifiedPoints, "WET", "UPL")
 }
 }
