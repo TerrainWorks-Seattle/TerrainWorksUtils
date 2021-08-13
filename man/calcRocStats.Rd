@@ -4,30 +4,24 @@
 \alias{calcRocStats}
 \title{Calculate ROC Statistics}
 \usage{
-calcRocStats(
-  wetProbRaster = NULL,
-  classifiedPoints = NULL,
-  wetlandClass = NULL,
-  nonWetlandClass = NULL
-)
+calcRocStats(classes = NULL, probs = NULL, posClass = NULL, negClass = NULL)
 }
 \arguments{
-\item{wetProbRaster}{A \code{SpatRaster} object where each cell value
-represents the probability of a wetland being there.}
+\item{classes}{A character vector of classifications.}
 
-\item{classifiedPoints}{A \code{??} object of points which are classified as
-either "wetland" or "non-wetland" with the class names \code{wetlandClass}
-and \code{nonWetlandClass}.}
+\item{probs}{A numeric vector of probability values corresponding to the
+elements of \code{classes}.}
 
-\item{wetlandClass}{Name of the class indicating wetlands.}
+\item{posClass}{Name of the positive class.}
 
-\item{nonWetlandClass}{Name of the class indicating non-wetlands.}
+\item{negClass}{Name of the negative class.}
 }
 \value{
 A list of ROC statistic objects and values.
 }
 \description{
-Calculates ROC statistics from a set of wetland-classified data
+Calculates ROC statistics for a set of classes and their
+probabilities data
 and a wetland probability raster. ROC statistics include: ROC, area under ROC
 curve (AUC), precision, accuracy.
 }
@@ -35,11 +29,10 @@ curve (AUC), precision, accuracy.
 \donttest{
 library(TerrainWorksUtils)
 
-wetProbRaster <- terra::rast("C:/Work/netmapdata/Puyallup/puy_prob.tif")
+# Generate test data with a bit of class probability overlap
+classes <- c(rep("WET", 40), rep("UPL", 60))
+probs <- c(runif(40, 0.4, 1.0), runif(60, 0.0, 0.6))
 
-allPoints <- terra::vect("C:/Work/netmapdata/Puyallup/wetlandPnts.shp")
-classifiedPoints <- allPoints[, "NEWCLASS"]
-
-rocStats <- calcRocStats(wetProbRaster, classifiedPoints, "WET", "UPL")
+rocStats <- calcRocStats(classes, probs, "WET", "UPL")
 }
 }
