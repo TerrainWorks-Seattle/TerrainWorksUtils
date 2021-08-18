@@ -34,8 +34,8 @@ library(TerrainWorksUtils)
 referenceRaster <- terra::rast("C:/Work/netmapdata/Puyallup/elev_puy.flt")
 
 inputRasters <- list(
-  aligned = terra::rast("C:/Work/netmapdata/Puyallup/dev_50.tif"),
-  unaligned = terra::rast("C:/Work/netmapdata/Puyallup/grad_50.tif")
+  gradient = terra::rast("C:/Work/netmapdata/Puyallup/grad_15.tif"),
+  lithology = terra::rast("C:/Work/netmapdata/Puyallup/litho.tif")
 )
 
 alignedRasters <- alignRasters(referenceRaster, inputRasters)
