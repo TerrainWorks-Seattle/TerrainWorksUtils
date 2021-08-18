@@ -17,10 +17,15 @@ A list of \code{SpatRaster} objects that share the same grid and
 projection as \code{referenceRaster}.
 }
 \description{
-Aligns the grid and projection of multiple input rasters with a
-reference raster. An input raster will be aligned if it doesn't match the
-dimensions, resolution, extent, origin, or CRS projection of the reference
-raster.
+Aligns multiple rasters with a single reference raster. A raster
+will be aligned if it doesn't match the dimensions, resolution, extent,
+origin, or CRS projection of the reference raster.
+}
+\details{
+Projecting a raster requires that its cell values be estimated in
+accordance with its new projection. Continuous variable rasters will use
+bilinear interpolation while categorical (factor) rasters will use
+nearest-neighbor sampling.
 }
 \examples{
 \donttest{

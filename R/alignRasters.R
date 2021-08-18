@@ -2,10 +2,14 @@
 #'
 #' @title Align Rasters
 #'
-#' @description Aligns the grid and projection of multiple input rasters with a
-#' reference raster. An input raster will be aligned if it doesn't match the
-#' dimensions, resolution, extent, origin, or CRS projection of the reference
-#' raster.
+#' @description Aligns multiple rasters with a single reference raster. A raster
+#' will be aligned if it doesn't match the dimensions, resolution, extent,
+#' origin, or CRS projection of the reference raster.
+#'
+#' @details Projecting a raster requires that its cell values be estimated in
+#' accordance with its new projection. Continuous variable rasters will use
+#' bilinear interpolation while categorical (factor) rasters will use
+#' nearest-neighbor sampling.
 #'
 #' @param referenceRaster A \code{SpatRaster} object to be aligned with.
 #' @param inputRasters A list of \code{SpatRaster} objects to align with the
@@ -21,8 +25,8 @@
 #' referenceRaster <- terra::rast("C:/Work/netmapdata/Puyallup/elev_puy.flt")
 #'
 #' inputRasters <- list(
-#'   aligned = terra::rast("C:/Work/netmapdata/Puyallup/dev_50.tif"),
-#'   unaligned = terra::rast("C:/Work/netmapdata/Puyallup/grad_50.tif")
+#'   gradient = terra::rast("C:/Work/netmapdata/Puyallup/grad_15.tif"),
+#'   lithology = terra::rast("C:/Work/netmapdata/Puyallup/litho.tif")
 #' )
 #'
 #' alignedRasters <- alignRasters(referenceRaster, inputRasters)
@@ -97,7 +101,9 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
     # Reproject the input raster if it doesn't align with the reference raster
     if (!extentMatch || !dimensionMatch || !resolutionMatch || !originMatch || !crsMatch) {
       tryCatch({
-        inputRaster <- terra::project(inputRaster, referenceRaster)
+        # Determine what estimation method to use based on variable type (continuous/categorical)
+        estimationMethod <- ifelse(terra::is.factor(inputRaster), "near", "bilinear")
+        inputRaster <- terra::project(inputRaster, referenceRaster, method = estimationMethod)
       },
       error = function(err) {
         message("Error trying to project inputRaster[[", i, "]] onto referenceRaster:")
