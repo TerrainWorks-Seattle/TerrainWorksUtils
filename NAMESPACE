@@ -2,3 +2,4 @@
 
 export(alignRasters)
 export(calcRocStats)
+export(extractRasterValues)
