@@ -54,15 +54,6 @@ extractRasterValues <- function(
     layer <- raster[[i]]
 
     if (terra::is.factor(layer)) {
-      # NOTE:
-      # terra seems to have problems reading values from some factor
-      # raster files. Extracting points from a factor raster (made using the
-      # 'polygon to raster' tool in ArcGIS) with factor=TRUE returns the Count
-      # field values instead of the specified 'value field'. The Count values
-      # also seem to be misleveled by 1 row when you look at the
-      # terra::cats() table for the raster. Therefore, extracting the desired
-      # char factor has to be done in this roundabout way:
-
       # Extract numeric factor value at each point
       values <- terra::extract(
         layer,
@@ -78,11 +69,14 @@ extractRasterValues <- function(
       factorDf <- terra::cats(layer)[[1]]
       factorNamesCol <- which(sapply(factorDf, class) == "character")
       factorNames <- factorDf[,factorNamesCol]
-      values <- factorNames[values]
 
-      # Format values
+      # Convert numeric factor value to character values
+      indices <- values + 1
+      values <- factorNames[indices]
+
+      # Store values in dataframe
       df <- data.frame(values, stringsAsFactors = stringsAsFactors)
-      names(df) <- colnames(factorDf)[factorNamesCol]
+      names(df) <- names(layer)
 
       # Add values to full dataset
       allValues <- cbind(allValues, df)

@@ -3,3 +3,4 @@
 export(alignRasters)
 export(calcRocStats)
 export(extractRasterValues)
+export(factorizeRaster)
