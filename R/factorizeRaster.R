@@ -1,31 +1,58 @@
 #' @export
 #'
-#' @title Properly format a factor raster
+#' @title Fix a misfactored raster
 #'
-#' @details terra seems to have problems reading values from some factor raster
-#' files. A factor raster made using the ArcGIS 'Polygon to Raster' tool will
-#' only show a 'Count' field when loaded in terra, and even that seems to be
-#' misleveled by 1 row when you look at the terra::cats() table for the raster.
+#' @description Creates a correctly-factored version of a misfactored
+#' \code{SpatRast} object.
+#'
+#' @details terra seems to have issues loading some factor raster files. For
+#' instance, a factor raster made using the ArcGIS 'Polygon to Raster' tool and
+#' then loaded with \code{terra::rast()} will only show a 'Count' field instead
+#' of the field specified in 'Polygon to Raster'. Additionally, the 'Count'
+#' value assigned to each cell appears to be misleveled by 1 row when inspected
+#' in the raster's \code{terra::cats()} table. The \code{fixFactorRaster()}
+#' function attempts to take a faulty raster and map its values to the correct
+#' field, as it still exists in the \code{terra::cats()} table.
+#'
+#' @param raster The faulty factor \code{SpatRast} object.
+#'
+#' @examples
+#' \donttest{
+#' library(TerrainWorksUtils)
+#'
+#' faultyRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
+#' faultyRaster
+#' terra::cats(faultyRaster)
+#'
+#' fixedRaster <- fixFactorRaster(faultyRaster)
+#' fixedRaster
+#' terra::cats(fixedRaster)
+#' }
 
-factorizeRaster <- function(raster) {
+fixFactorRaster <- function(
+  raster = NULL
+) {
 
   if (!terra::is.factor(raster))
     return(raster)
 
+  if (terra::nlyr(raster) != 1)
+    stop("Can only fix single-band rasters")
+
   # Determine factor levels
-  levelsDf <- terra::cats(r)[[1]]
+  levelsDf <- terra::cats(raster)[[1]]
   levelsCol <- which(sapply(levelsDf, class) == "character")
   levels <- levelsDf[,levelsCol]
 
   # Map numeric factor values to their corresponding char values
-  numericValues <- terra::values(r)[,1]
+  numericValues <- terra::values(raster)[,1]
   factorValues <- levels[numericValues]
 
   # Fill a new factor raster with the character factor values
   factorRaster <- terra::rast(
-    extent = terra::ext(r),
-    crs = terra::crs(r),
-    resolution = terra::res(r),
+    extent = terra::ext(raster),
+    crs = terra::crs(raster),
+    resolution = terra::res(raster),
     vals = factorValues,
     names = colnames(levelsDf)[levelsCol]
   )
