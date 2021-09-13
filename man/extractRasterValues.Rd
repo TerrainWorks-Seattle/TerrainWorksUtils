@@ -4,14 +4,12 @@
 \alias{extractRasterValues}
 \title{Extract raster values}
 \usage{
-extractRasterValues(raster = NULL, points = NULL, stringsAsFactors = TRUE)
+extractRasterValues(raster = NULL, points = NULL)
 }
 \arguments{
 \item{raster}{A \code{SpatRaster} object to extract values from.}
 
 \item{points}{A \code{SpatVector} object of points.}
-
-\item{stringsAsFactors}{Whether to convert character values to factors.}
 }
 \value{
 A \code{data.frame} of values.
@@ -26,14 +24,15 @@ library(TerrainWorksUtils)
 points <- terra::vect("C:/Work/netmapdata/pack_forest/PF_trainingdata.shp")
 
 # Single-band rasters
-rasterContinuous <- terra::rast("C:/Work/netmapdata/pack_forest/pf_dtm3.flt")
-rasterFactor <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
+continuousRaster <- terra::rast("C:/Work/netmapdata/pack_forest/pf_dtm3.flt")
+factorRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
+factorRaster <- fixFactorRaster(factorRaster)
 
-v1 <- extractRasterValues(rasterContinuous, points)
-v2 <- extractRasterValues(rasterFactor, points)
+v1 <- extractRasterValues(continuousRaster, points)
+v2 <- extractRasterValues(factorRaster, points)
 
 # Multi-band raster
-alignedRasters <- alignRasters(rasterContinuous, list(rasterContinuous, rasterFactor))
+alignedRasters <- alignRasters(continuousRaster, list(continuousRaster, factorRaster))
 rasterStack <- c(alignedRasters[[1]], alignedRasters[[2]])
 
 v3 <- extractRasterValues(rasterStack, points)

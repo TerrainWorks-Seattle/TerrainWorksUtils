@@ -6,7 +6,6 @@
 #'
 #' @param raster A \code{SpatRaster} object to extract values from.
 #' @param points A \code{SpatVector} object of points.
-#' @param stringsAsFactors Whether to convert character values to factors.
 #'
 #' @return A \code{data.frame} of values.
 #'
@@ -17,14 +16,15 @@
 #' points <- terra::vect("C:/Work/netmapdata/pack_forest/PF_trainingdata.shp")
 #'
 #' # Single-band rasters
-#' rasterContinuous <- terra::rast("C:/Work/netmapdata/pack_forest/pf_dtm3.flt")
-#' rasterFactor <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
+#' continuousRaster <- terra::rast("C:/Work/netmapdata/pack_forest/pf_dtm3.flt")
+#' factorRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
+#' factorRaster <- fixFactorRaster(factorRaster)
 #'
-#' v1 <- extractRasterValues(rasterContinuous, points)
-#' v2 <- extractRasterValues(rasterFactor, points)
+#' v1 <- extractRasterValues(continuousRaster, points)
+#' v2 <- extractRasterValues(factorRaster, points)
 #'
 #' # Multi-band raster
-#' alignedRasters <- alignRasters(rasterContinuous, list(rasterContinuous, rasterFactor))
+#' alignedRasters <- alignRasters(continuousRaster, list(continuousRaster, factorRaster))
 #' rasterStack <- c(alignedRasters[[1]], alignedRasters[[2]])
 #'
 #' v3 <- extractRasterValues(rasterStack, points)
@@ -32,8 +32,7 @@
 
 extractRasterValues <- function(
   raster = NULL,
-  points = NULL,
-  stringsAsFactors = TRUE
+  points = NULL
 ) {
 
   # Validate parameters --------------------------------------------------------
@@ -59,23 +58,14 @@ extractRasterValues <- function(
         layer,
         projectedPoints,
         method = "simple",
-        factor = FALSE
+        factor = TRUE
       )
 
       # Remove 'ID' column
       values <- values[,-1]
 
-      # Map numeric factor values to their corresponding char values
-      factorDf <- terra::cats(layer)[[1]]
-      factorNamesCol <- which(sapply(factorDf, class) == "character")
-      factorNames <- factorDf[,factorNamesCol]
-
-      # Convert numeric factor value to character values
-      indices <- values + 1
-      values <- factorNames[indices]
-
       # Store values in dataframe
-      df <- data.frame(values, stringsAsFactors = stringsAsFactors)
+      df <- data.frame(values)
       names(df) <- names(layer)
 
       # Add values to full dataset
