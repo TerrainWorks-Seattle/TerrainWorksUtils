@@ -23,8 +23,8 @@
 #'
 #' @param raster The factor \code{SpatRast} object to apply the given
 #' \code{cats} to.
-#' @param cats A \code{data.frame} with an integer "ID" column and a
-#' "category" character column (the output of \code{terra::cats()}).
+#' @param cats A \code{data.frame} that includes a "category" character column
+#' (the output of \code{terra::cats()}).
 #'
 #' @examples
 #' \donttest{
@@ -58,8 +58,8 @@ applyCats <- function(raster, cats) {
 
   # Define shared-level ID translation matrix (from ID -> to ID)
   trans <- matrix(data <- rep(NA, 2 * length(sharedLevelNames)), ncol = 2)
-  trans[,1] <- rasterCats[rasterCats$category %in% sharedLevelNames,]$ID
-  trans[,2] <- cats[cats$category %in% sharedLevelNames,]$ID
+  trans[,1] <- which(rasterCats$category %in% sharedLevelNames) - 1
+  trans[,2] <- which(cats$category %in% sharedLevelNames) - 1
 
   # Re-classify input raster values according to the translation matrix
   raster <- terra::classify(raster, rcl = trans, othersNA = TRUE)

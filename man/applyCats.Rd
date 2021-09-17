@@ -10,8 +10,8 @@ applyCats(raster, cats)
 \item{raster}{The factor \code{SpatRast} object to apply the given
 \code{cats} to.}
 
-\item{cats}{A \code{data.frame} with an integer "ID" column and a
-"category" character column (the output of \code{terra::cats()}).}
+\item{cats}{A \code{data.frame} that includes a "category" character column
+(the output of \code{terra::cats()}).}
 }
 \description{
 Applies a given set of "cats" (factor level ID-name pairs) to a
