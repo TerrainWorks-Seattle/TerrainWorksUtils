@@ -27,7 +27,7 @@ field, as it still exists in the \code{terra::cats()} table.
 \donttest{
 library(TerrainWorksUtils)
 
-faultyRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
+faultyRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geounit.tif")
 faultyRaster
 terra::cats(faultyRaster)
 
