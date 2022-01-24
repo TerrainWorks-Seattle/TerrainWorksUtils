@@ -1,3 +1,5 @@
+
+
 log_err <- function(...) {
   stop(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
 }
@@ -14,8 +16,249 @@ log_obj <- function(obj) {
   )
 }
 
+#' @export
+#'
+#' @title Align Rasters
+#'
+#' @description Aligns multiple rasters with a single reference raster. A raster
+#' will be aligned if it doesn't match the dimensions, resolution, extent,
+#' origin, or CRS projection of the reference raster.
+#'
+#' @details Projecting a raster requires that its cell values be estimated in
+#' accordance with its new projection. Continuous variable rasters will use
+#' bilinear interpolation while categorical (factor) rasters will use
+#' nearest-neighbor sampling.
+#'
+#' @param referenceRaster A \code{SpatRaster} object to be aligned with.
+#' @param inputRasters A list of \code{SpatRaster} objects to align with the
+#' \code{referenceRaster}.
+#'
+#' @return A list of \code{SpatRaster} objects that share the same grid and
+#' projection as \code{referenceRaster}.
+#'
+#' @examples
+#' \donttest{
+#' library(TerrainWorksUtils)
+#'
+#' referenceRaster <- terra::rast("C:/Work/netmapdata/Puyallup/elev_puy.flt")
+#'
+#' inputRasters <- list(
+#'   gradient = terra::rast("C:/Work/netmapdata/Puyallup/grad_15.tif"),
+#'   lithology = terra::rast("C:/Work/netmapdata/Puyallup/litho.tif")
+#' )
+#'
+#' alignedRasters <- alignRasters(referenceRaster, inputRasters)
+#' }
+
+alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
+
+  # Validate parameters --------------------------------------------------------
+
+  if (!("SpatRaster" %in% class(referenceRaster)))
+    stop("Argument 'referenceRaster' must be a 'SpatRaster' object.")
+
+  if (!("list" %in% class(inputRasters)))
+    stop("Argument 'inputRasters' must be a list")
+
+  # Align rasters --------------------------------------------------------------
+
+  alignedRasters <- list()
+
+  # For each input raster
+  for (i in seq_along(inputRasters)) {
+    inputRaster <- inputRasters[[i]]
+
+    if (!("SpatRaster" %in% class(inputRaster)))
+      stop("inputRaster[[", i, "]] must be a 'SpatRaster' object.")
+
+    # Compare raster extents
+    tryCatch({
+      extentMatch <- terra::ext(inputRaster) == terra::ext(referenceRaster)
+    },
+    error = function(err) {
+      message("Error comparing extent of inputRaster[[", i, "]] with referenceRaster:")
+      stop(err)
+    })
+
+    # Compare raster dimensions
+    tryCatch({
+      dimensionMatch <- all(dim(inputRaster) == dim(referenceRaster))
+    },
+    error = function(err) {
+      message("Error comparing dimensions of inputRaster[[", i, "]] with referenceRaster:")
+      stop(err)
+    })
+
+    # Compare raster resolutions
+    tryCatch({
+      resolutionMatch <- all(terra::res(inputRaster) == terra::res(referenceRaster))
+    },
+    error = function(err) {
+      message("Error comparing resolutions of inputRaster[[", i, "]] with referenceRaster:")
+      stop(err)
+    })
+
+    # Compare raster resolutions
+    tryCatch({
+      originMatch <- all(terra::origin(inputRaster) == terra::origin(referenceRaster))
+    },
+    error = function(err) {
+      message("Error comparing origins of inputRaster[[", i, "]] with referenceRaster:")
+      stop(err)
+    })
+
+    # Compare raster coordinate reference systems
+    tryCatch({
+      crsMatch <- terra::crs(inputRaster) == terra::crs(referenceRaster)
+    },
+    error = function(err) {
+      message("Error comparing coordinate reference systems of inputRaster[[", i, "]] with referenceRaster:")
+      stop(err)
+    })
+
+    # Reproject the input raster if it doesn't align with the reference raster
+    if (!extentMatch || !dimensionMatch || !resolutionMatch || !originMatch || !crsMatch) {
+      log_msg("Aligning input raster", i)
+      tryCatch({
+        # Determine what estimation method to use based on variable type (continuous/categorical)
+        estimationMethod <- ifelse(terra::is.factor(inputRaster), "near", "bilinear")
+        inputRaster <- terra::project(inputRaster, referenceRaster, method = estimationMethod)
+      },
+      error = function(err) {
+        message("Error trying to project inputRaster[[", i, "]] onto referenceRaster:")
+        stop(err)
+      })
+    }
+    log_msg("Raster ", i, " aligned.")
+
+    # Store the aligned input raster
+    alignedRasters[[i]] <- inputRaster
+  }
+
+  # Return ---------------------------------------------------------------------
+
+  return(alignedRasters)
+
+}
+
+
+#' @export
+#'
+#' @title Extract raster values
+#'
+#' @description Extracts all raster variable values at specified locations.
+#'
+#' @param raster A \code{SpatRaster} object to extract values from.
+#' @param points A \code{SpatVector} object of points.
+#'
+#' @return A \code{data.frame} of values.
+#'
+#' @examples
+#' \donttest{
+#' library(TerrainWorksUtils)
+#'
+#' points <- terra::vect("C:/Work/netmapdata/pack_forest/PF_trainingdata.shp")
+#'
+#' # Single-band rasters
+#' continuousRaster <- terra::rast("C:/Work/netmapdata/pack_forest/pf_dtm3.flt")
+#' factorRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
+#' factorRaster <- fixFactorRaster(factorRaster)
+#'
+#' v1 <- extractRasterValues(continuousRaster, points)
+#' v2 <- extractRasterValues(factorRaster, points)
+#'
+#' # Multi-band raster
+#' alignedRasters <- alignRasters(continuousRaster, list(continuousRaster, factorRaster))
+#' rasterStack <- c(alignedRasters[[1]], alignedRasters[[2]])
+#'
+#' v3 <- extractRasterValues(rasterStack, points)
+#' }
+
+extractRasterValues <- function(
+  raster = NULL,
+  points = NULL
+) {
+
+  # Validate parameters --------------------------------------------------------
+
+  if (terra::nlyr(raster) == 0)
+    stop("Cannot extract values from a non-single-layer raster")
+
+  # Extract values -------------------------------------------------------------
+
+  # Project the points into the same CRS as the raster
+  projectedPoints <- terra::project(points, raster)
+
+  # Define a data frame to store all layer values
+  allValues <- data.frame(dummy = rep(NA, length(points)))
+  removeDummy <- TRUE
+
+  for (i in seq_len(terra::nlyr(raster))) {
+    layer <- raster[[i]]
+
+    if (terra::is.factor(layer)) {
+      # Extract numeric factor value at each point
+      values <- terra::extract(
+        layer,
+        projectedPoints,
+        method = "simple",
+        factor = TRUE
+      )
+
+      # Remove 'ID' column
+      values <- values[,-1]
+
+      # Store values in dataframe
+      df <- data.frame(values)
+      names(df) <- names(layer)
+
+      # Add values to full dataset
+      allValues <- cbind(allValues, df)
+    } else {
+      # Extract continuous value at each point
+      values <- terra::extract(
+        layer,
+        projectedPoints,
+        method = "simple"
+      )
+
+      # Remove 'ID' column
+      values <- values[,-1]
+
+      # Format values
+      df <- data.frame(values)
+      names(df) <- names(layer)
+      allValues <- cbind(allValues, df)
+    }
+
+    # Remove the 'dummy' column as soon as a real value column is added
+    if (removeDummy) {
+      allValues[,1] <- NULL
+      removeDummy <- FALSE
+    }
+  }
+
+  # Return ---------------------------------------------------------------------
+
+  return(allValues)
+
+}
+
+
+#' @export
+#'
+#' @title Sample points from polygons
+#'
+#' @description Given a set of polygons, randomly sample points
+#' from within polygons.
+#'
+#' @param polys SpatVector object containing polygons
+#' @param sampleRate Number of points per kilometer to sample
+#'
+#' @return coordinates at sample points
 samplePolys <- function(polys,
                         sampleRate) {
+
   # Collect sample coordinates
   coords <- NULL
   for (i in seq_len(length(polys))) {
@@ -110,3 +353,67 @@ applyCats <- function(raster, cats) {
 
   return(raster)
 }
+
+#' @export
+#'
+#' @title Fix a misfactored raster
+#'
+#' @description Creates a correctly-factored version of a misfactored
+#' \code{SpatRast} object.
+#'
+#' @details terra seems to have issues loading some factor raster files. For
+#' instance, a factor raster made using the ArcGIS 'Polygon to Raster' tool and
+#' then loaded with \code{terra::rast()} will only show a 'Count' field instead
+#' of the field specified in 'Polygon to Raster'. Additionally, the 'Count'
+#' value assigned to each cell appears to be misleveled by 1 row when inspected
+#' in the raster's \code{terra::cats()} table. The \code{fixFactorRaster()}
+#' function attempts to take a faulty raster and map its values to the correct
+#' field, as it still exists in the \code{terra::cats()} table.
+#'
+#' @param raster The faulty factor \code{SpatRast} object.
+#'
+#' @examples
+#' \donttest{
+#' library(TerrainWorksUtils)
+#'
+#' faultyRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geounit.tif")
+#' faultyRaster
+#' terra::cats(faultyRaster)
+#'
+#' fixedRaster <- fixFactorRaster(faultyRaster)
+#' fixedRaster
+#' terra::cats(fixedRaster)
+#' }
+
+fixFactorRaster <- function(
+  raster = NULL
+) {
+
+  if (!terra::is.factor(raster))
+    return(raster)
+
+  if (terra::nlyr(raster) != 1)
+    stop("Can only fix single-band rasters")
+
+  # Determine factor levels
+  levelsDf <- terra::cats(raster)[[1]]
+  levelsCol <- which(sapply(levelsDf, class) == "character")
+  levels <- levelsDf[,levelsCol]
+
+  # Map numeric factor values to their corresponding char values
+  numericValues <- terra::values(raster)[,1]
+  factorValues <- levels[numericValues]
+
+  # Fill a new factor raster with the character factor values
+  factorRaster <- terra::rast(
+    extent = terra::ext(raster),
+    crs = terra::crs(raster),
+    resolution = terra::res(raster),
+    vals = factorValues,
+    names = colnames(levelsDf)[levelsCol]
+  )
+
+  return(factorRaster)
+
+}
+

@@ -3,5 +3,8 @@
 export(alignRasters)
 export(applyCats)
 export(calcRocStats)
+export(createTrainingDataFromPoints)
 export(extractRasterValues)
 export(fixFactorRaster)
+export(samplePoints)
+export(samplePolys)
