@@ -100,6 +100,7 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 
     # Reproject the input raster if it doesn't align with the reference raster
     if (!extentMatch || !dimensionMatch || !resolutionMatch || !originMatch || !crsMatch) {
+      log_msg("Aligning input raster", i)
       tryCatch({
         # Determine what estimation method to use based on variable type (continuous/categorical)
         estimationMethod <- ifelse(terra::is.factor(inputRaster), "near", "bilinear")
@@ -110,6 +111,7 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
         stop(err)
       })
     }
+    log_msg("Raster ", i, " aligned.")
 
     # Store the aligned input raster
     alignedRasters[[i]] <- inputRaster

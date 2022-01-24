@@ -1,3 +1,41 @@
+log_err <- function(...) {
+  stop(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
+}
+
+log_msg <-  function(...) {
+  message(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
+}
+
+log_obj <- function(obj) {
+  message(sprintf("[%s] \n    %s\n",
+                  Sys.time(),
+                  paste0(capture.output(obj),
+                         collapse = "\n    "))
+  )
+}
+
+samplePolys <- function(polys,
+                        sampleRate) {
+  # Collect sample coordinates
+  coords <- NULL
+  for (i in seq_len(length(polys))) {
+    poly <- polys[i]
+
+    # Determine the number of samples to take from the polygon's area
+    polyArea <- terra::expanse(poly, unit = "km")
+    if (polyArea == 0) next
+    sampleSize <- ceiling(polyArea * sampleRate)
+
+    # Sample the polygon
+    samplePoints <- terra::spatSample(poly, size = sampleSize)
+    sampleCoords <- terra::crds(samplePoints)
+
+    coords <- rbind(coords, sampleCoords)
+  }
+
+  return(coords)
+}
+
 #' @export
 #'
 #' @title Apply a set of "cats" to a factor raster

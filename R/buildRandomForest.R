@@ -1,15 +1,8 @@
-log_err <- function(...) {
-  stop(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
-}
 
-log_msg <-  function(...) {
-  message(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
-}
 
 #' Build Random Forest
 #'
-#' @param workingDir Working directory where model files will be stored
-#' @param referenceRasterFile Raster to use as a grid reference
+#' @param referenceRaster Raster to use as a grid reference
 #' @param inputRasterList list of input rasters
 #' @param inputPolygonList list of input polygons
 #' @param trainingPoints Point feature classified by wetland type
@@ -20,17 +13,16 @@ log_msg <-  function(...) {
 #' @param calcStats Calculate ROC statistics for the built model?
 #' @param probRasterName Filename of the generated wetland probability raster
 buildRandomForest <- function(
-  workingDir,
   referenceRaster,
   inputRasterList,
-  inputPolygonList,
+  inputPolygonList = list(),
   trainingPoints,
   classFieldName,
   wetlandClass,
   nonwetlandClass,
   modelName,
-  calcStats,
-  probRasterName
+  calcStats  = FALSE,
+  plotDir = NULL
 ) {
 
   # Validate parameters --------------------------------------------------------
@@ -53,28 +45,31 @@ buildRandomForest <- function(
   # input polygon:          lithology.shp
   # output polygon raster:  non-factor raster with name "elev_mashel"
 
-  # Rasterize each polygon
+  # Rasterize each input polygon
   polygonRasterList <- list()
   for (polygon in inputPolygonList) {
     polygon <- terra::project(polygon, referenceRaster)
     for (varName in names(polygon)) {
       raster <- terra::rasterize(polygon, referenceRaster, field = varName)
-      polygonRasterList[[i]] <- raster
+      polygonRasterList <- c(polygonRasterList, raster)
     }
   }
 
   # Load input rasters
 
+  log_msg("aligning rasters...")
   # Align rasters with the reference raster
-  rasterList <- TerrainWorksUtils::alignRasters(referenceRaster, inputRasterList)
+  rasterList <- TerrainWorksUtils::alignRasters(referenceRaster,
+                                                inputRasterList)
 
   # Make sure factor rasters are factored correctly (use character level names
   # rather than numeric level names)
-  rasterList <- lapply(rasterList, function(raster) {
+  for (i in seq_along(rasterList)) {
+    raster <- rasterList[[i]]
     if (terra::is.factor(raster)) {
-      return(TerrainWorksUtils::fixtFactorRaster(raster))
+      rasterList[[i]] <- TerrainWorksUtils::fixFactorRaster(raster)
     }
-  })
+  }
 
   rasterList <- c(rasterList, polygonRasterList)
 
@@ -138,8 +133,8 @@ buildRandomForest <- function(
   # Remove unused class levels
   trainingDf$class <- droplevels(trainingDf$class)
 
-  cat("Ground-truth classifications:\n", file = logFilename, append = TRUE)
-  capture.output(summary(trainingDf$class), file = logFilename, append = TRUE)
+  log_msg("Ground-truth classifications:")
+  log_msg("\n", paste0(capture.output(summary(trainingDf$class)), collapse = "\n"))
 
   # Build Random Forest model --------------------------------------------------
 
@@ -151,51 +146,64 @@ buildRandomForest <- function(
     importance = TRUE
   )
 
-  return(rfModel)
-}
+  rfModelInfo <- list(rfModel = rfModel,
+                      inputVars = inputVars)
 
-writeModelStats <- function(rfModel) {
+  if (calcStats) {
+    writeModelStats(rfModelInfo,
+                    trainingDf,
+                    modelName,
+                    plotDir = plotDir)
+  }
 
-  # Log model information
-  capture.output(rfModel, file = logFilename, append = TRUE)
-  capture.output(randomForest::importance(rfModel), file = logFilename, append = TRUE)
-
-  # Save model file ------------------------------------------------------------
-
-  # Store the model and its input variables
-  modelInfo <- list(
-    model = rfModel,
-    inputVars = inputVars
+  probRaster <- generateWetlandProbabilityRaster(
+    rasterList,
+    rfModel
   )
 
-  # Save the model information to a file
-  modelFilename <- paste0(modelName, ".RFmodel")
-  save(modelInfo, file = modelFilename)
 
-  cat(paste0("Model saved in: ", modelFilename, "\n"), file = logFilename, append = TRUE)
+}
+
+
+
+#' display model stats
+#'
+#' @param rfModelInfo list with random forest model and metadata about inputs,
+#' as returned by buildRandomForest()
+writeModelStats <- function(rfModelInfo,
+                            trainingDf,
+                            modelName = "",
+                            plotDir = NULL) {
+
+  log_msg(" ----- Model statistics ----- ")
+  # Log model information
+  log_obj(rfModelInfo)
+  rfModel <- rfModelInfo$rfModel
+  log_obj(randomForest::importance(rfModel))
 
   # Plot model statistics ----------------------------------------------------
 
   # Display model error rates plot
   errorRateNames <- colnames(rfModel$err.rate)
-  dev.new()
+  if (!interactive()) dev.new()
   plot(rfModel, main = paste0(modelName, "_rfclass"))
   legend("topright", errorRateNames, col = seq_along(errorRateNames), cex = 0.8, fill = seq_along(errorRateNames))
-  dev.copy(jpeg, paste0(modelName, "_rfclass.jpg"))
-  dev.off()
+  if (!is.null(plotDir)) {
+    dev.copy(jpeg, file.path(plotDir, paste0(modelName, "_rfclass.jpg")))
+  }
 
   # Display model variable importance plot (if multiple variables were given)
-  varCount <- ncol(trainingDf) - 1 # Don't count the class variable
+  varCount <- length(rfModelInfo$inputVars)
   if (varCount > 1) {
-    dev.new()
+    if (!interactive()) dev.new()
     randomForest::varImpPlot(rfModel, sort = TRUE, main = paste0(modelName, "_importance"))
-    dev.copy(jpeg, paste0(modelName, "_importance.jpg"))
-    dev.off()
+    if (!is.null(plotDir)) {
+      dev.copy(jpeg, file.path(plotDir, paste0(modelName, "_importance.jpg")))
+    }
   }
 
   # Calculate ROC statistics ---------------------------------------------------
 
-  if (calcStats) {
 
     testDf <- trainingDf
 
@@ -215,28 +223,30 @@ writeModelStats <- function(rfModel) {
     )
 
     # Log ROC statistics
-    cat(paste0("AUROC: ", rocStats$auc@y.values, "\n"), file = logFilename, append = TRUE)
-    capture.output(c(PRBE = rocStats$prbe, cutoff = rocStats$maxPrecisionCutoff), file = logFilename, append = TRUE)
-    capture.output(c(accuracy = rocStats$maxAccuracy, cutoff = rocStats$maxAccuracyCutoff), file = logFilename, append = TRUE)
+    log_msg("AUROC: ", rocStats$auc@y.values)
+    log_obj(c(PRBE = rocStats$prbe, cutoff = rocStats$maxPrecisionCutoff))
+    log_obj(c(accuracy = rocStats$maxAccuracy, cutoff = rocStats$maxAccuracyCutoff))
 
     # Display ROC plot
-    dev.new()
+    if (!interactive()) dev.new()
     ROCR::plot(rocStats$roc, colorize = TRUE, main = paste0(modelName, "_roc"))
     abline(a = 0, b = 1, lty = 2)
-    dev.copy(jpeg, paste0(modelName, "_roc.jpg"))
-    dev.off()
+    if (!is.null(plotDir)) {
+      dev.copy(jpeg, paste0(modelName, "_roc.jpg"))
+    }
 
     # Display precision-recall plot
-    dev.new()
+    if (!interactive()) dev.new()
     ROCR::plot(rocStats$precision, colorize = TRUE, main = paste0(modelName, "_prc"))
-    dev.copy(jpeg, paste0(modelName, "_prc.jpg"))
-    dev.off()
+    if (!is.null(plotDir)) {
+      dev.copy(jpeg, paste0(modelName, "_prc.jpg"))
+    }
 
     # Display accuracy plot
-    dev.new()
+    if (!interactive()) dev.new()
     ROCR::plot(rocStats$accuracy, main = paste0(modelName, "_acc"))
-    dev.copy(jpeg, paste0(modelName, "_acc.jpg"))
-    dev.off()
+    if (!is.null(plotDir)) {
+      dev.copy(jpeg, paste0(modelName, "_acc.jpg"))
   }
 }
 
@@ -246,12 +256,7 @@ generateWetlandProbabilityRaster <- function(rasterList,
   # Generate wetland probability raster ----------------------------------------
 
   # Combine individual input rasters into a single multi-layered raster
-  inputRaster <- rasterList[[1]]
-  if (length(rasterList) > 1) {
-    for (i in 2:length(rasterList)) {
-      inputRaster <- c(inputRaster, rasterList[[i]])
-    }
-  }
+  inputRaster <- Reduce(c, rasterList)
 
   # Generate probability rasters for wetland and non-wetland
   probRaster <- terra::predict(
@@ -264,67 +269,3 @@ generateWetlandProbabilityRaster <- function(rasterList,
   return(probRaster[[wetlandClass]])
 }
 
-
-
-# Tests
-if (FALSE) {
-
-  # Test in Pack Forest region (BIGLAPTOP)
-  tool_exec(
-    in_params = list(
-      workingDir = "C:/Work/netmapdata/pack_forest",
-      referenceRasterFile = "pf_dem.tif",
-      inputRasterFiles = list("grad_15.tif", "geounit.tif"),
-      inputPolygonFiles = list("lithology.shp"),
-      trainingDatasetFile = "trainingPoints.shp",
-      classFieldName = "class",
-      wetlandClass = "WET",
-      nonwetlandClass = "UPL",
-      modelName = "pf_grad15_geounit_lithology",
-
-    ),
-    out_params = list(
-      calcStats = FALSE,
-      probRasterName = "prob"
-    )
-  )
-
-  # Test in Pack Forest region (WORK2)
-  tool_exec(
-    in_params = list(
-      workingDir = "C:/Work/Data/pack_forest",
-      referenceRasterFile = "pf_elev.tif",
-      inputRasterFiles = list("grad_15.tif", "geounit.tif"),
-      inputPolygonFiles = list("lithology.shp"),
-      trainingDatasetFile = "training_points.shp",
-      classFieldName = "class",
-      wetlandClass = "WET",
-      nonwetlandClass = "UPL",
-      modelName = "pf_grad_geounit_lithology"
-    ),
-    out_params = list(
-      calcStats = FALSE,
-      probRasterName = "prob"
-    )
-  )
-
-  # Test in Mashel region (WORK2)
-  tool_exec(
-    in_params = list(
-      workingDir = "E:/NetmapData/Mashel",
-      referenceRasterFile = "elev_mashel.flt",
-      inputRasterFiles = list("grad_15.tif", "geounit.tif"),
-      inputPolygonFiles = list("lithology.shp"),
-      trainingDatasetFile = "training_points.shp",
-      classFieldName = "class",
-      wetlandClass = "WET",
-      nonwetlandClass = "UPL",
-      modelName = "pf_grad15_geounit_lithology"
-    ),
-    out_params = list(
-      calcStats = FALSE,
-      probRasterName = "prob"
-    )
-  )
-
-}

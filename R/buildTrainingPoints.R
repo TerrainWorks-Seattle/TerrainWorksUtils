@@ -1,26 +1,3 @@
-samplePolys <- function(polys,
-                        sampleRate) {
-  # Collect sample coordinates
-  coords <- NULL
-  for (i in seq_len(length(polys))) {
-    poly <- polys[i]
-
-    # Determine the number of samples to take from the polygon's area
-    polyArea <- terra::expanse(poly, unit = "km")
-    if (polyArea == 0) next
-    sampleSize <- ceiling(polyArea * sampleRate)
-
-    # Sample the polygon
-    samplePoints <- terra::spatSample(poly, size = sampleSize)
-    sampleCoords <- terra::crds(samplePoints)
-
-    coords <- rbind(coords, sampleCoords)
-  }
-
-  return(coords)
-}
-
-
 #' Build training points from polygons
 #'
 #' @param regionPoly SpatVector polygon defining the region from which
