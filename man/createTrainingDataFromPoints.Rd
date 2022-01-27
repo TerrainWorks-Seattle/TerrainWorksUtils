@@ -10,7 +10,7 @@ createTrainingDataFromPoints(
   analysisRegionMask = NULL,
   bufferRadius = 15,
   negativeProportion = 1,
-  extractionMethod = "center",
+  extractionMethod = "centroid",
   extractionLayer = NULL
 )
 }

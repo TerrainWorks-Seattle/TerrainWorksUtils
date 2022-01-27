@@ -52,4 +52,5 @@ r2New <- applyCats(r2, cats)
 
 terra::plot(r2New)
 }
+
 }

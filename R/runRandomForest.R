@@ -12,24 +12,25 @@
 #' @param calcStats Calculate ROC statistics for the built model?
 #' @param probRasterName Filename of the generated wetland probability raster
 
-runRandomForest <- function(
-  workingDir,
-  modelFile,
-  referenceRasterFile,
-  inputRasterFiles,
-  inputPolygonFiles,
-  testPointsFile,
-  classFieldName,
-  wetlandClass,
-  nonwetlandClass,
-  calcStats,
-  probRasterName) {
+runRandomForest <- function(workingDir,
+                            modelFile,
+                            referenceRasterFile,
+                            inputRasterFiles,
+                            inputPolygonFiles,
+                            testPointsFile,
+                            classFieldName,
+                            wetlandClass,
+                            nonwetlandClass,
+                            calcStats,
+                            probRasterName) {
 
   # Define helper functions ----------------------------------------------------
 
   baseFilename <- function(file) {
-    if (is.null(file)) return(NULL)
-    return(gsub(basename(file), pattern="\\..*$", replacement=""))
+    if (is.null(file)) {
+      return(NULL)
+    }
+    return(gsub(basename(file), pattern = "\\..*$", replacement = ""))
   }
 
   # Setup ----------------------------------------------------------------------
@@ -56,26 +57,31 @@ runRandomForest <- function(
   # Validate parameters --------------------------------------------------------
 
   # Make sure reference raster file exists
-  if (!file.exists(referenceRasterFile))
+  if (!file.exists(referenceRasterFile)) {
     log_err("Could not find reference raster: '", referenceRasterFile, "'")
+  }
 
   # Make sure model file exists
-  if (!file.exists(modelFile))
+  if (!file.exists(modelFile)) {
     log_err("Could not find model file: '", modelFile)
+  }
 
   # Make sure at least one input raster or polygon was given
-  if (length(inputRasterFiles) == 0 && length(inputPolygonFiles) == 0)
+  if (length(inputRasterFiles) == 0 && length(inputPolygonFiles) == 0) {
     log_err("Must provide at least one input raster or polygon")
+  }
 
   # Make sure all input raster files exist
   lapply(inputRasterFiles, function(inputRasterFile) {
-    if (!file.exists(inputRasterFile))
+    if (!file.exists(inputRasterFile)) {
       log_err("Could not find input raster: '", inputRasterFile)
+    }
   })
 
   # Make sure test points file exists
-  if (!file.exists(testPointsFile))
+  if (!file.exists(testPointsFile)) {
     log_err("Could not find test points dataset: '", testPointsFile)
+  }
 
   # Load model -----------------------------------------------------------------
 
@@ -122,11 +128,14 @@ runRandomForest <- function(
   expectedInputVars <- names(modelInfo$inputVars)
   givenInputVars <- sapply(c(polygonRasterList, rasterList), names)
 
-  if (!setequal(expectedInputVars, givenInputVars))
-    log_err(paste0("Input variables (",
-                      paste0(givenInputVars, collapse = ", "),
-                      ") do not match those expected by the model (",
-                      paste0(expectedInputVars, collapse = ", "), ")\n"))
+  if (!setequal(expectedInputVars, givenInputVars)) {
+    log_err(paste0(
+      "Input variables (",
+      paste0(givenInputVars, collapse = ", "),
+      ") do not match those expected by the model (",
+      paste0(expectedInputVars, collapse = ", "), ")\n"
+    ))
+  }
 
   log_msg("Aligning rasters...")
   # Align rasters with the reference raster
@@ -140,8 +149,9 @@ runRandomForest <- function(
   for (i in seq_along(rasterList)) {
     raster <- rasterList[[i]]
     if (terra::is.factor(raster)) {
-      if (ncol(terra::cats(raster)[[1]]) > 2)
+      if (ncol(terra::cats(raster)[[1]]) > 2) {
         raster <- TerrainWorksUtils::fixFactorRaster(raster)
+      }
       expectedCats <- modelInfo$inputVars[[names(raster)]]$cats
       rasterList[[i]] <- TerrainWorksUtils::applyCats(raster, expectedCats)
     }
@@ -179,19 +189,24 @@ runRandomForest <- function(
   # Make sure there are at least some points classified with the given
   # wetland/non-wetland class names
   correctlyLabeledPointIndices <- testDf$class == wetlandClass | testDf$class == nonwetlandClass
-  if (sum(correctlyLabeledPointIndices) == 0)
-    log_err(paste0("No points in the dataset with the given
+  if (sum(correctlyLabeledPointIndices) == 0) {
+    log_err(paste0(
+      "No points in the dataset with the given
                       wetland/non-wetland classes: '", wetlandClass, "'/'",
-                      nonwetlandClass, "'."))
+      nonwetlandClass, "'."
+    ))
+  }
 
   # Remove points that aren't labeled wetland/non-wetland
-  testDf <- testDf[correctlyLabeledPointIndices,]
+  testDf <- testDf[correctlyLabeledPointIndices, ]
 
   # Remove unused class levels
   testDf$class <- droplevels(testDf$class)
 
-  log_msg("Ground-truth classifications:\n",
-             paste0(capture.output(summary(testDf$class)), collapse = "\n"))
+  log_msg(
+    "Ground-truth classifications:\n",
+    paste0(capture.output(summary(testDf$class)), collapse = "\n")
+  )
 
   # Predict classes with model -------------------------------------------------
 
@@ -215,7 +230,7 @@ runRandomForest <- function(
       rfModel,
       type = "prob",
       newdata = testDf
-    )[,wetlandClass]
+    )[, wetlandClass]
 
     # Calculate ROC stats
     rocStats <- TerrainWorksUtils::calcRocStats(
@@ -279,7 +294,5 @@ runRandomForest <- function(
     )
 
     log_msg("Created probability raster: ", probRasterName, ".tif")
-
   }
-
 }

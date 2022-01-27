@@ -19,15 +19,13 @@
 #' }
 #' @param trainingPointsFile Name of training points file
 #'
-build_training_points <- function(
-  regionPolygon,
-  wetlandPolys,
-  wetlandSmpleRate,
-  nonwetlandSampleRate,
-  regionMargin,
-  trainingPointsFile,
-  wetlandTypes
-) {
+build_training_points <- function(regionPolygon,
+                                  wetlandPolys,
+                                  wetlandSmpleRate,
+                                  nonwetlandSampleRate,
+                                  regionMargin,
+                                  trainingPointsFile,
+                                  wetlandTypes) {
 
   # Validate parameters --------------------------------------------------------
 
@@ -36,25 +34,29 @@ build_training_points <- function(
 
   if (class(wetlandPolys) != "SpatVector") stop("wetlandPolys must be SpatVector")
 
-  if (!(is.numeric(wetlandSampleRate) && length(wetlandSampleRate) == 1))
+  if (!(is.numeric(wetlandSampleRate) && length(wetlandSampleRate) == 1)) {
     stop("Wetland sample rate must be a single numeric value")
+  }
 
-  if (!(is.numeric(nonwetlandSampleRate) && length(nonwetlandSampleRate) == 1))
+  if (!(is.numeric(nonwetlandSampleRate) && length(nonwetlandSampleRate) == 1)) {
     stop("Non-wetland sample rate must be a single numeric value")
+  }
 
   # Prepare the region ---------------------------------------------------------
 
 
   # Shrink region by applying an interior margin. This ensures that training
   # points will not be sampled near the region's edges
-  if (regionMargin != 0)
+  if (regionMargin != 0) {
     regionPoly <- terra::buffer(regionPoly, width = -abs(regionMargin))
+  }
 
   # Sample wetlands ------------------------------------------------------------
 
   wetlandPolys <- wetlandPolys[wetlandPolys$WETLAND_TY %in% wetlandTypes]
-  if (length(wetlandPolys) == 0)
+  if (length(wetlandPolys) == 0) {
     stop("No wetlands to sample")
+  }
 
   # Crop the wetland polygons to the region
   wetlandPolys <- terra::project(wetlandPolys, regionPoly)
@@ -78,10 +80,9 @@ build_training_points <- function(
   trainingAtts <- data.frame(class = factor(c(rep("WET", nrow(wetlandCoords)), rep("UPL", nrow(nonwetlandCoords)))))
   trainingPoints <- terra::vect(trainingCoords, atts = trainingAtts, crs = terra::crs(regionPoly))
 
-  #terra::polys(regionPoly, lty = 2)
-  #terra::polys(wetlandPolys, border = "cyan")
-  #terra::points(trainingPoints, col = c(rep("blue", nrow(wetlandCoords)), rep("red", nrow(nonwetlandCoords))))
+  # terra::polys(regionPoly, lty = 2)
+  # terra::polys(wetlandPolys, border = "cyan")
+  # terra::points(trainingPoints, col = c(rep("blue", nrow(wetlandCoords)), rep("red", nrow(nonwetlandCoords))))
 
   return(trainingPoints)
-
 }

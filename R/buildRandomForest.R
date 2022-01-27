@@ -12,26 +12,25 @@
 #' @param modelName Name for the random forest model
 #' @param calcStats Calculate ROC statistics for the built model?
 #' @param probRasterName Filename of the generated wetland probability raster
-buildRandomForest <- function(
-  referenceRaster,
-  inputRasterList,
-  inputPolygonList = list(),
-  trainingPoints,
-  classFieldName,
-  wetlandClass,
-  nonwetlandClass,
-  modelName,
-  calcStats  = FALSE,
-  plotDir = NULL
-) {
+buildRandomForest <- function(referenceRaster,
+                              inputRasterList,
+                              inputPolygonList = list(),
+                              trainingPoints,
+                              classFieldName,
+                              wetlandClass,
+                              nonwetlandClass,
+                              modelName,
+                              calcStats = FALSE,
+                              plotDir = NULL) {
 
   # Validate parameters --------------------------------------------------------
 
   if (!class(referenceRaster) == "SpatRaster") stop("referenceRaster must be SpatRaster")
 
   # Make sure at least one input raster or polygon was given
-  if (length(inputRasterList) == 0 && length(inputPolygonList) == 0)
+  if (length(inputRasterList) == 0 && length(inputPolygonList) == 0) {
     log_err("Must provide at least one input raster or polygon")
+  }
 
   # Load input variables -------------------------------------------------------
 
@@ -59,8 +58,10 @@ buildRandomForest <- function(
 
   log_msg("aligning rasters...")
   # Align rasters with the reference raster
-  rasterList <- TerrainWorksUtils::alignRasters(referenceRaster,
-                                                inputRasterList)
+  rasterList <- TerrainWorksUtils::alignRasters(
+    referenceRaster,
+    inputRasterList
+  )
 
   # Make sure factor rasters are factored correctly (use character level names
   # rather than numeric level names)
@@ -121,14 +122,17 @@ buildRandomForest <- function(
   # Check that at least some training data are classified with the given
   # wetland/non-wetland class names
   correctlyLabeledPointIndices <- trainingDf$class == wetlandClass | trainingDf$class == nonwetlandClass
-  if (sum(correctlyLabeledPointIndices) == 0)
-    logAndStop(paste0("No entries in the training dataset have the given
+  if (sum(correctlyLabeledPointIndices) == 0) {
+    logAndStop(paste0(
+      "No entries in the training dataset have the given
                      wetland/non-wetland classes: '", wetlandClass, "'/'",
-                     nonwetlandClass, "'."))
+      nonwetlandClass, "'."
+    ))
+  }
 
   # Remove training data that aren't classified with the given
   # wetland/non-wetland class names
-  trainingDf <- trainingDf[correctlyLabeledPointIndices,]
+  trainingDf <- trainingDf[correctlyLabeledPointIndices, ]
 
   # Remove unused class levels
   trainingDf$class <- droplevels(trainingDf$class)
@@ -146,22 +150,23 @@ buildRandomForest <- function(
     importance = TRUE
   )
 
-  rfModelInfo <- list(rfModel = rfModel,
-                      inputVars = inputVars)
+  rfModelInfo <- list(
+    rfModel = rfModel,
+    inputVars = inputVars
+  )
 
   if (calcStats) {
     writeModelStats(rfModelInfo,
-                    trainingDf,
-                    modelName,
-                    plotDir = plotDir)
+      trainingDf,
+      modelName,
+      plotDir = plotDir
+    )
   }
 
   probRaster <- generateWetlandProbabilityRaster(
     rasterList,
     rfModel
   )
-
-
 }
 
 
@@ -174,7 +179,6 @@ writeModelStats <- function(rfModelInfo,
                             trainingDf,
                             modelName = "",
                             plotDir = NULL) {
-
   log_msg(" ----- Model statistics ----- ")
   # Log model information
   log_obj(rfModelInfo)
@@ -205,48 +209,48 @@ writeModelStats <- function(rfModelInfo,
   # Calculate ROC statistics ---------------------------------------------------
 
 
-    testDf <- trainingDf
+  testDf <- trainingDf
 
-    # Calculate wetland probability for each test dataset entry
-    wetProb <- predict(
-      rfModel,
-      type = "prob",
-      newdata = testDf
-    )[,wetlandClass]
+  # Calculate wetland probability for each test dataset entry
+  wetProb <- predict(
+    rfModel,
+    type = "prob",
+    newdata = testDf
+  )[, wetlandClass]
 
-    # Calculate ROC stats
-    rocStats <- TerrainWorksUtils::calcRocStats(
-      classes = testDf$class,
-      probs = wetProb,
-      wetlandClass,
-      nonwetlandClass
-    )
+  # Calculate ROC stats
+  rocStats <- TerrainWorksUtils::calcRocStats(
+    classes = testDf$class,
+    probs = wetProb,
+    wetlandClass,
+    nonwetlandClass
+  )
 
-    # Log ROC statistics
-    log_msg("AUROC: ", rocStats$auc@y.values)
-    log_obj(c(PRBE = rocStats$prbe, cutoff = rocStats$maxPrecisionCutoff))
-    log_obj(c(accuracy = rocStats$maxAccuracy, cutoff = rocStats$maxAccuracyCutoff))
+  # Log ROC statistics
+  log_msg("AUROC: ", rocStats$auc@y.values)
+  log_obj(c(PRBE = rocStats$prbe, cutoff = rocStats$maxPrecisionCutoff))
+  log_obj(c(accuracy = rocStats$maxAccuracy, cutoff = rocStats$maxAccuracyCutoff))
 
-    # Display ROC plot
-    if (!interactive()) dev.new()
-    ROCR::plot(rocStats$roc, colorize = TRUE, main = paste0(modelName, "_roc"))
-    abline(a = 0, b = 1, lty = 2)
-    if (!is.null(plotDir)) {
-      dev.copy(jpeg, paste0(modelName, "_roc.jpg"))
-    }
+  # Display ROC plot
+  if (!interactive()) dev.new()
+  ROCR::plot(rocStats$roc, colorize = TRUE, main = paste0(modelName, "_roc"))
+  abline(a = 0, b = 1, lty = 2)
+  if (!is.null(plotDir)) {
+    dev.copy(jpeg, paste0(modelName, "_roc.jpg"))
+  }
 
-    # Display precision-recall plot
-    if (!interactive()) dev.new()
-    ROCR::plot(rocStats$precision, colorize = TRUE, main = paste0(modelName, "_prc"))
-    if (!is.null(plotDir)) {
-      dev.copy(jpeg, paste0(modelName, "_prc.jpg"))
-    }
+  # Display precision-recall plot
+  if (!interactive()) dev.new()
+  ROCR::plot(rocStats$precision, colorize = TRUE, main = paste0(modelName, "_prc"))
+  if (!is.null(plotDir)) {
+    dev.copy(jpeg, paste0(modelName, "_prc.jpg"))
+  }
 
-    # Display accuracy plot
-    if (!interactive()) dev.new()
-    ROCR::plot(rocStats$accuracy, main = paste0(modelName, "_acc"))
-    if (!is.null(plotDir)) {
-      dev.copy(jpeg, paste0(modelName, "_acc.jpg"))
+  # Display accuracy plot
+  if (!interactive()) dev.new()
+  ROCR::plot(rocStats$accuracy, main = paste0(modelName, "_acc"))
+  if (!is.null(plotDir)) {
+    dev.copy(jpeg, paste0(modelName, "_acc.jpg"))
   }
 }
 
@@ -268,4 +272,3 @@ generateWetlandProbabilityRaster <- function(rasterList,
 
   return(probRaster[[wetlandClass]])
 }
-

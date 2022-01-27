@@ -4,19 +4,26 @@ log_err <- function(...) {
   stop(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
 }
 
-log_msg <-  function(...) {
+log_msg <- function(...) {
   message(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
 }
 
 log_obj <- function(obj) {
-  message(sprintf("[%s] \n    %s\n",
-                  Sys.time(),
-                  paste0(capture.output(obj),
-                         collapse = "\n    "))
-  )
+  message(sprintf(
+    "[%s] \n    %s\n",
+    Sys.time(),
+    paste0(capture.output(obj),
+      collapse = "\n    "
+    )
+  ))
 }
 
 #' @export
+#'
+#' @import terra
+#' @import methods
+#' @import ROCR
+#' @import stats
 #'
 #' @title Align Rasters
 #'
@@ -49,16 +56,18 @@ log_obj <- function(obj) {
 #'
 #' alignedRasters <- alignRasters(referenceRaster, inputRasters)
 #' }
-
+#'
 alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 
   # Validate parameters --------------------------------------------------------
 
-  if (!("SpatRaster" %in% class(referenceRaster)))
+  if (!("SpatRaster" %in% class(referenceRaster))) {
     stop("Argument 'referenceRaster' must be a 'SpatRaster' object.")
+  }
 
-  if (!("list" %in% class(inputRasters)))
+  if (!("list" %in% class(inputRasters))) {
     stop("Argument 'inputRasters' must be a list")
+  }
 
   # Align rasters --------------------------------------------------------------
 
@@ -68,66 +77,79 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
   for (i in seq_along(inputRasters)) {
     inputRaster <- inputRasters[[i]]
 
-    if (!("SpatRaster" %in% class(inputRaster)))
+    if (!("SpatRaster" %in% class(inputRaster))) {
       stop("inputRaster[[", i, "]] must be a 'SpatRaster' object.")
+    }
 
     # Compare raster extents
-    tryCatch({
-      extentMatch <- terra::ext(inputRaster) == terra::ext(referenceRaster)
-    },
-    error = function(err) {
-      message("Error comparing extent of inputRaster[[", i, "]] with referenceRaster:")
-      stop(err)
-    })
+    tryCatch(
+      {
+        extentMatch <- terra::ext(inputRaster) == terra::ext(referenceRaster)
+      },
+      error = function(err) {
+        message("Error comparing extent of inputRaster[[", i, "]] with referenceRaster:")
+        stop(err)
+      }
+    )
 
     # Compare raster dimensions
-    tryCatch({
-      dimensionMatch <- all(dim(inputRaster) == dim(referenceRaster))
-    },
-    error = function(err) {
-      message("Error comparing dimensions of inputRaster[[", i, "]] with referenceRaster:")
-      stop(err)
-    })
+    tryCatch(
+      {
+        dimensionMatch <- all(dim(inputRaster) == dim(referenceRaster))
+      },
+      error = function(err) {
+        message("Error comparing dimensions of inputRaster[[", i, "]] with referenceRaster:")
+        stop(err)
+      }
+    )
 
     # Compare raster resolutions
-    tryCatch({
-      resolutionMatch <- all(terra::res(inputRaster) == terra::res(referenceRaster))
-    },
-    error = function(err) {
-      message("Error comparing resolutions of inputRaster[[", i, "]] with referenceRaster:")
-      stop(err)
-    })
+    tryCatch(
+      {
+        resolutionMatch <- all(terra::res(inputRaster) == terra::res(referenceRaster))
+      },
+      error = function(err) {
+        message("Error comparing resolutions of inputRaster[[", i, "]] with referenceRaster:")
+        stop(err)
+      }
+    )
 
     # Compare raster resolutions
-    tryCatch({
-      originMatch <- all(terra::origin(inputRaster) == terra::origin(referenceRaster))
-    },
-    error = function(err) {
-      message("Error comparing origins of inputRaster[[", i, "]] with referenceRaster:")
-      stop(err)
-    })
+    tryCatch(
+      {
+        originMatch <- all(terra::origin(inputRaster) == terra::origin(referenceRaster))
+      },
+      error = function(err) {
+        message("Error comparing origins of inputRaster[[", i, "]] with referenceRaster:")
+        stop(err)
+      }
+    )
 
     # Compare raster coordinate reference systems
-    tryCatch({
-      crsMatch <- terra::crs(inputRaster) == terra::crs(referenceRaster)
-    },
-    error = function(err) {
-      message("Error comparing coordinate reference systems of inputRaster[[", i, "]] with referenceRaster:")
-      stop(err)
-    })
+    tryCatch(
+      {
+        crsMatch <- terra::crs(inputRaster) == terra::crs(referenceRaster)
+      },
+      error = function(err) {
+        message("Error comparing coordinate reference systems of inputRaster[[", i, "]] with referenceRaster:")
+        stop(err)
+      }
+    )
 
     # Reproject the input raster if it doesn't align with the reference raster
     if (!extentMatch || !dimensionMatch || !resolutionMatch || !originMatch || !crsMatch) {
       log_msg("Aligning input raster", i)
-      tryCatch({
-        # Determine what estimation method to use based on variable type (continuous/categorical)
-        estimationMethod <- ifelse(terra::is.factor(inputRaster), "near", "bilinear")
-        inputRaster <- terra::project(inputRaster, referenceRaster, method = estimationMethod)
-      },
-      error = function(err) {
-        message("Error trying to project inputRaster[[", i, "]] onto referenceRaster:")
-        stop(err)
-      })
+      tryCatch(
+        {
+          # Determine what estimation method to use based on variable type (continuous/categorical)
+          estimationMethod <- ifelse(terra::is.factor(inputRaster), "near", "bilinear")
+          inputRaster <- terra::project(inputRaster, referenceRaster, method = estimationMethod)
+        },
+        error = function(err) {
+          message("Error trying to project inputRaster[[", i, "]] onto referenceRaster:")
+          stop(err)
+        }
+      )
     }
     log_msg("Raster ", i, " aligned.")
 
@@ -138,7 +160,6 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
   # Return ---------------------------------------------------------------------
 
   return(alignedRasters)
-
 }
 
 
@@ -173,16 +194,15 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 #'
 #' v3 <- extractRasterValues(rasterStack, points)
 #' }
-
-extractRasterValues <- function(
-  raster = NULL,
-  points = NULL
-) {
+#'
+extractRasterValues <- function(raster = NULL,
+                                points = NULL) {
 
   # Validate parameters --------------------------------------------------------
 
-  if (terra::nlyr(raster) == 0)
+  if (terra::nlyr(raster) == 0) {
     stop("Cannot extract values from a non-single-layer raster")
+  }
 
   # Extract values -------------------------------------------------------------
 
@@ -206,7 +226,7 @@ extractRasterValues <- function(
       )
 
       # Remove 'ID' column
-      values <- values[,-1]
+      values <- values[, -1]
 
       # Store values in dataframe
       df <- data.frame(values)
@@ -223,7 +243,7 @@ extractRasterValues <- function(
       )
 
       # Remove 'ID' column
-      values <- values[,-1]
+      values <- values[, -1]
 
       # Format values
       df <- data.frame(values)
@@ -233,7 +253,7 @@ extractRasterValues <- function(
 
     # Remove the 'dummy' column as soon as a real value column is added
     if (removeDummy) {
-      allValues[,1] <- NULL
+      allValues[, 1] <- NULL
       removeDummy <- FALSE
     }
   }
@@ -241,7 +261,6 @@ extractRasterValues <- function(
   # Return ---------------------------------------------------------------------
 
   return(allValues)
-
 }
 
 
@@ -325,7 +344,7 @@ samplePolys <- function(polys,
 #'
 #' terra::plot(r2New)
 #' }
-
+#'
 applyCats <- function(raster, cats) {
 
   # Store the original raster variable name for later
@@ -339,8 +358,8 @@ applyCats <- function(raster, cats) {
 
   # Define shared-level ID translation matrix (from ID -> to ID)
   trans <- matrix(data <- rep(NA, 2 * length(sharedLevelNames)), ncol = 2)
-  trans[,1] <- which(rasterCats$category %in% sharedLevelNames) - 1
-  trans[,2] <- which(cats$category %in% sharedLevelNames) - 1
+  trans[, 1] <- which(rasterCats$category %in% sharedLevelNames) - 1
+  trans[, 2] <- which(cats$category %in% sharedLevelNames) - 1
 
   # Re-classify input raster values according to the translation matrix
   raster <- terra::classify(raster, rcl = trans, othersNA = TRUE)
@@ -384,24 +403,23 @@ applyCats <- function(raster, cats) {
 #' fixedRaster
 #' terra::cats(fixedRaster)
 #' }
-
-fixFactorRaster <- function(
-  raster = NULL
-) {
-
-  if (!terra::is.factor(raster))
+#'
+fixFactorRaster <- function(raster = NULL) {
+  if (!terra::is.factor(raster)) {
     return(raster)
+  }
 
-  if (terra::nlyr(raster) != 1)
+  if (terra::nlyr(raster) != 1) {
     stop("Can only fix single-band rasters")
+  }
 
   # Determine factor levels
   levelsDf <- terra::cats(raster)[[1]]
   levelsCol <- which(sapply(levelsDf, class) == "character")
-  levels <- levelsDf[,levelsCol]
+  levels <- levelsDf[, levelsCol]
 
   # Map numeric factor values to their corresponding char values
-  numericValues <- terra::values(raster)[,1]
+  numericValues <- terra::values(raster)[, 1]
   factorValues <- levels[numericValues]
 
   # Fill a new factor raster with the character factor values
@@ -414,6 +432,4 @@ fixFactorRaster <- function(
   )
 
   return(factorRaster)
-
 }
-

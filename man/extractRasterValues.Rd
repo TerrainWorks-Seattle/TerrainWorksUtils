@@ -37,4 +37,5 @@ rasterStack <- c(alignedRasters[[1]], alignedRasters[[2]])
 
 v3 <- extractRasterValues(rasterStack, points)
 }
+
 }

@@ -35,4 +35,5 @@ fixedRaster <- fixFactorRaster(faultyRaster)
 fixedRaster
 terra::cats(fixedRaster)
 }
+
 }
