@@ -17,6 +17,10 @@ extractValues(
 \item{raster}{A SpatRaster of explanatory variables with a layer for
 each variable to extract.}
 
+\item{points}{SpatVector of points to use for extraction. If
+polygons, the point chosen for extraction will be determined via the
+extractionMethod parameter.}
+
 \item{extractionMethod}{Method to use for extracting values from each point:
 "all", "centroid", "max", or "min". Ignored if extractionPoints is not
 polygon}
@@ -25,9 +29,9 @@ polygon}
 extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 "centroid" or if extractionPoints is not polygon.}
 
-\item{extractionPoints}{SpatVector of points to use for extraction. If
-polygons, the point chosen for extraction will be determined via the
-extractionMethod parameter.}
+\item{xy}{Return coordinates of cells?}
+
+\item{na.rm}{Remove any cells with NA values?}
 }
 \value{
 A dataframe of extracted raster values with an additional "class"

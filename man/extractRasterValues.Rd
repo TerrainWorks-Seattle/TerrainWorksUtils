@@ -18,24 +18,7 @@ A \code{data.frame} of values.
 Extracts all raster variable values at specified locations.
 }
 \examples{
-\donttest{
-library(TerrainWorksUtils)
 
-points <- terra::vect("C:/Work/netmapdata/pack_forest/PF_trainingdata.shp")
 
-# Single-band rasters
-continuousRaster <- terra::rast("C:/Work/netmapdata/pack_forest/pf_dtm3.flt")
-factorRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
-factorRaster <- fixFactorRaster(factorRaster)
-
-v1 <- extractRasterValues(continuousRaster, points)
-v2 <- extractRasterValues(factorRaster, points)
-
-# Multi-band raster
-alignedRasters <- alignRasters(continuousRaster, list(continuousRaster, factorRaster))
-rasterStack <- c(alignedRasters[[1]], alignedRasters[[2]])
-
-v3 <- extractRasterValues(rasterStack, points)
-}
 
 }

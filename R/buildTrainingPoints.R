@@ -5,7 +5,7 @@
 #' @param wetlandPolysFile Name of wetland polygons file
 #' @param wetlandSampleRate Samples per km^2 of wetland
 #' @param nonwetlandSampleRate Samples per km^2 of nonwetland
-#' @param regionMrgin Width of region interior margin
+#' @param regionMargin Width of region interior margin
 #' @param wetlandTypes String: One or more of
 #' \itemize{
 #'   \item{Freshwater Forested/Shrub Wetland}
@@ -17,14 +17,12 @@
 #'   \item{Estuarine and Marine Deepwater}
 #'   \item{Other}
 #' }
-#' @param trainingPointsFile Name of training points file
 #'
 build_training_points <- function(regionPolygon,
                                   wetlandPolys,
-                                  wetlandSmpleRate,
+                                  wetlandSampleRate,
                                   nonwetlandSampleRate,
                                   regionMargin,
-                                  trainingPointsFile,
                                   wetlandTypes) {
 
   # Validate parameters --------------------------------------------------------

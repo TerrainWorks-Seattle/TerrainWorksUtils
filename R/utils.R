@@ -12,7 +12,7 @@ log_obj <- function(obj) {
   message(sprintf(
     "[%s] \n    %s\n",
     Sys.time(),
-    paste0(capture.output(obj),
+    paste0(utils::capture.output(obj),
       collapse = "\n    "
     )
   ))
@@ -42,20 +42,6 @@ log_obj <- function(obj) {
 #'
 #' @return A list of \code{SpatRaster} objects that share the same grid and
 #' projection as \code{referenceRaster}.
-#'
-#' @examples
-#' \donttest{
-#' library(TerrainWorksUtils)
-#'
-#' referenceRaster <- terra::rast("C:/Work/netmapdata/Puyallup/elev_puy.flt")
-#'
-#' inputRasters <- list(
-#'   gradient = terra::rast("C:/Work/netmapdata/Puyallup/grad_15.tif"),
-#'   lithology = terra::rast("C:/Work/netmapdata/Puyallup/litho.tif")
-#' )
-#'
-#' alignedRasters <- alignRasters(referenceRaster, inputRasters)
-#' }
 #'
 alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 
@@ -175,26 +161,9 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 #' @return A \code{data.frame} of values.
 #'
 #' @examples
-#' \donttest{
-#' library(TerrainWorksUtils)
 #'
-#' points <- terra::vect("C:/Work/netmapdata/pack_forest/PF_trainingdata.shp")
 #'
-#' # Single-band rasters
-#' continuousRaster <- terra::rast("C:/Work/netmapdata/pack_forest/pf_dtm3.flt")
-#' factorRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geo_unit.tif")
-#' factorRaster <- fixFactorRaster(factorRaster)
-#'
-#' v1 <- extractRasterValues(continuousRaster, points)
-#' v2 <- extractRasterValues(factorRaster, points)
-#'
-#' # Multi-band raster
-#' alignedRasters <- alignRasters(continuousRaster, list(continuousRaster, factorRaster))
-#' rasterStack <- c(alignedRasters[[1]], alignedRasters[[2]])
-#'
-#' v3 <- extractRasterValues(rasterStack, points)
-#' }
-#'
+##'
 extractRasterValues <- function(raster = NULL,
                                 points = NULL) {
 
@@ -325,25 +294,7 @@ samplePolys <- function(polys,
 #' \code{cats} to.
 #' @param cats A \code{data.frame} that includes a "category" character column
 #' (the output of \code{terra::cats()}).
-#'
-#' @examples
-#' \donttest{
-#' library(TerrainWorksUtils)
-#'
-#' r1 <- terra::rast("C:/Work/netmapdata/pack_forest/PF_landtype1.tif")
-#' r2 <- terra::rast("C:/Work/netmapdata/pack_forest/PF_landtype2.tif")
-#'
-#' r1 <- TerrainWorksUtils::fixFactorRaster(r1)
-#' r2 <- TerrainWorksUtils::fixFactorRaster(r2)
-#'
-#' terra::plot(r1)
-#' terra::plot(r2)
-#'
-#' cats <- terra::cats(r1)[[1]]
-#' r2New <- applyCats(r2, cats)
-#'
-#' terra::plot(r2New)
-#' }
+#'S
 #'
 applyCats <- function(raster, cats) {
 
@@ -391,18 +342,6 @@ applyCats <- function(raster, cats) {
 #'
 #' @param raster The faulty factor \code{SpatRast} object.
 #'
-#' @examples
-#' \donttest{
-#' library(TerrainWorksUtils)
-#'
-#' faultyRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geounit.tif")
-#' faultyRaster
-#' terra::cats(faultyRaster)
-#'
-#' fixedRaster <- fixFactorRaster(faultyRaster)
-#' fixedRaster
-#' terra::cats(fixedRaster)
-#' }
 #'
 fixFactorRaster <- function(raster = NULL) {
   if (!terra::is.factor(raster)) {

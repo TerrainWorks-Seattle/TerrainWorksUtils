@@ -23,17 +23,3 @@ in the raster's \code{terra::cats()} table. The \code{fixFactorRaster()}
 function attempts to take a faulty raster and map its values to the correct
 field, as it still exists in the \code{terra::cats()} table.
 }
-\examples{
-\donttest{
-library(TerrainWorksUtils)
-
-faultyRaster <- terra::rast("C:/Work/netmapdata/pack_forest/geounit.tif")
-faultyRaster
-terra::cats(faultyRaster)
-
-fixedRaster <- fixFactorRaster(faultyRaster)
-fixedRaster
-terra::cats(fixedRaster)
-}
-
-}

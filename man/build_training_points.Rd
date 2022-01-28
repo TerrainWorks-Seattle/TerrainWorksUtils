@@ -7,17 +7,18 @@
 build_training_points(
   regionPolygon,
   wetlandPolys,
-  wetlandSmpleRate,
+  wetlandSampleRate,
   nonwetlandSampleRate,
   regionMargin,
-  trainingPointsFile,
   wetlandTypes
 )
 }
 \arguments{
+\item{wetlandSampleRate}{Samples per km^2 of wetland}
+
 \item{nonwetlandSampleRate}{Samples per km^2 of nonwetland}
 
-\item{trainingPointsFile}{Name of training points file}
+\item{regionMargin}{Width of region interior margin}
 
 \item{wetlandTypes}{String: One or more of
 \itemize{
@@ -35,10 +36,6 @@ build_training_points(
 points can be sampled}
 
 \item{wetlandPolysFile}{Name of wetland polygons file}
-
-\item{wetlandSampleRate}{Samples per km^2 of wetland}
-
-\item{regionMrgin}{Width of region interior margin}
 }
 \description{
 Build training points from polygons

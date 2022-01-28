@@ -27,18 +27,3 @@ accordance with its new projection. Continuous variable rasters will use
 bilinear interpolation while categorical (factor) rasters will use
 nearest-neighbor sampling.
 }
-\examples{
-\donttest{
-library(TerrainWorksUtils)
-
-referenceRaster <- terra::rast("C:/Work/netmapdata/Puyallup/elev_puy.flt")
-
-inputRasters <- list(
-  gradient = terra::rast("C:/Work/netmapdata/Puyallup/grad_15.tif"),
-  lithology = terra::rast("C:/Work/netmapdata/Puyallup/litho.tif")
-)
-
-alignedRasters <- alignRasters(referenceRaster, inputRasters)
-}
-
-}

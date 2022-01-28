@@ -11,7 +11,8 @@ applyCats(raster, cats)
 \code{cats} to.}
 
 \item{cats}{A \code{data.frame} that includes a "category" character column
-(the output of \code{terra::cats()}).}
+(the output of \code{terra::cats()}).
+S}
 }
 \description{
 Applies a given set of "cats" (factor level ID-name pairs) to a
@@ -33,24 +34,4 @@ with D=2, which is numerically correct but the level names don't match. The
 \code{setRasterLevels()} function solves this problem by ensuring that any
 level names shared between two factor rasters will also share the same
 integer ID.
-}
-\examples{
-\donttest{
-library(TerrainWorksUtils)
-
-r1 <- terra::rast("C:/Work/netmapdata/pack_forest/PF_landtype1.tif")
-r2 <- terra::rast("C:/Work/netmapdata/pack_forest/PF_landtype2.tif")
-
-r1 <- TerrainWorksUtils::fixFactorRaster(r1)
-r2 <- TerrainWorksUtils::fixFactorRaster(r2)
-
-terra::plot(r1)
-terra::plot(r2)
-
-cats <- terra::cats(r1)[[1]]
-r2New <- applyCats(r2, cats)
-
-terra::plot(r2New)
-}
-
 }

@@ -104,7 +104,7 @@ sampleNegativePoints <- function(positivePoints,
   )
 
   # remove remove positive buffers from analysisRegion
-  negativeRegion <- terra::copy(analysisRegion)
+  negativeRegion <- terra::deepcopy(analysisRegion)
   positiveCellIndices <- terra::extract(negativeRegion,
     positiveBuffers,
     cells = TRUE
@@ -219,7 +219,7 @@ samplePoints <- function(count,
 #'
 #' @param raster A SpatRaster of explanatory variables with a layer for
 #' each variable to extract.
-#' @param extractionPoints SpatVector of points to use for extraction. If
+#' @param points SpatVector of points to use for extraction. If
 #' polygons, the point chosen for extraction will be determined via the
 #' extractionMethod parameter.
 #' @param extractionMethod Method to use for extracting values from each point:
@@ -228,6 +228,8 @@ samplePoints <- function(count,
 #' @param extractionLayer Layer to use for extracting value. Ignored if
 #' extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 #' "centroid" or if extractionPoints is not polygon.
+#' @param xy Return coordinates of cells?
+#' @param na.rm Remove any cells with NA values?
 #'
 #' @return A dataframe of extracted raster values with an additional "class"
 #' column.
@@ -278,7 +280,7 @@ extractValues <- function(raster,
 
       # For each buffer, keep the entry with the "fun" variable value
       values <- merge(
-        stats::aggregate(formula, extractionMethod, data = values, na.rm = TRUE),
+        stats::aggregate(formula, extractionMethod, data = values, na.rm = na.rm),
         values,
         sort = FALSE
       )
@@ -306,31 +308,3 @@ extractValues <- function(raster,
   return(values)
 }
 
-
-#' @title Aggregate buffer values
-#'
-#' @description Groups values by buffer and--for each buffer--keeps the entry
-#' with the "fun" (min/max) variable value.
-#'
-#' @param values  Values extracted from buffers, including an "ID" column
-#' @param varName Name pattern of the variable to aggregate by
-#' @param fun     A function to aggregate buffer values by: max, min
-#'
-#' @return A dataframe of buffer values.
-
-aggregatePolygonValues <- function(polygon, varName, fun) {
-
-  # Determine which variable to aggregate by based on provided name pattern
-  valuesVarName <- names(values)[grepl(varName, names(values))][1]
-
-  # Formula to group entries by buffer and return requested variable value
-  fm <- as.formula(paste(valuesVarName, "~", "ID"))
-
-  # For each buffer, keep the entry with the "fun" variable value
-  aggregatedValues <- merge(
-    aggregate(fm, max, data = values),
-    values
-  )
-
-  return(aggregatedValues)
-}

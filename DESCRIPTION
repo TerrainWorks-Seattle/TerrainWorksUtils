@@ -1,7 +1,7 @@
 Package: TerrainWorksUtils
 Type: Package
 Title: General utility functions for TerrainWorks
-Version: 0.1.0
+Version: 0.1.1
 Author: TerrainWorks
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: More about what it does (maybe more than one line)
@@ -15,3 +15,6 @@ Imports:
   stats,
   terra
 RoxygenNote: 7.1.2
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

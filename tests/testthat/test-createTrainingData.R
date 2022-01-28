@@ -13,7 +13,7 @@ test_that("samplePoints with default params", {
   expect_equal(sum(is.na(sample_values$elevation)), 0)
 
   # check that buffer is (approximately) correct size
-  areas <- sapply(sample, terra::expanse)
+  areas <- sapply(seq_along(sample), function(i) terra::expanse(sample[i]))
   expect_true(all(areas > pi * 15^2 - 15 / 3))
   expect_true(all(areas < pi * 15^2 + 15 / 3))
 })
@@ -74,7 +74,7 @@ test_that("samplePoints with buffer", {
   expect_equal(terra::geomtype(sample), "polygons")
 
   # check that buffer is (approximately) correct size
-  areas <- sapply(sample, terra::expanse)
+  areas <- sapply(seq_along(sample), function(i) terra::expanse(sample[i]))
   expect_true(all(areas > pi * 15^2 - 15 / 3))
   expect_true(all(areas < pi * 15^2 + 15 / 3))
 
@@ -89,7 +89,7 @@ test_that("samplePoints with buffer", {
   expect_equal(terra::geomtype(sample), "polygons")
 
   # check that buffer is (approximately) correct size
-  areas <- sapply(sample, terra::expanse)
+  areas <- sapply(seq_along(sample), function(i) terra::expanse(sample[i]))
   expect_true(all(areas > pi * 25^2 - 25 / 3))
   expect_true(all(areas < pi * 25^2 + 25 / 3))
 })
