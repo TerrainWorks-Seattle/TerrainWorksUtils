@@ -17,8 +17,3 @@ A \code{data.frame} of values.
 \description{
 Extracts all raster variable values at specified locations.
 }
-\examples{
-
-
-
-}

@@ -38,8 +38,6 @@ polygon}
 \item{extractionLayer}{Layer to use for extracting value. Ignored if
 extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 "centroid" or if extractionPoints is not polygon.}
-
-\item{extrac}{}
 }
 \value{
 a data.frame with values for positive and negative points

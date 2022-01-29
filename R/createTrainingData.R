@@ -46,7 +46,6 @@ createTrainingDataFromPolygons <- function(polygons,
 #' @param extractionLayer Layer to use for extracting value. Ignored if
 #' extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 #' "centroid" or if extractionPoints is not polygon.
-#' @param extrac
 #'
 #' @export
 createTrainingDataFromPoints <- function(positivePoints,

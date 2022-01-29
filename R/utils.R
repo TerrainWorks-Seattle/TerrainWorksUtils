@@ -161,7 +161,6 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 #'
 #' @return A \code{data.frame} of values.
 #'
-#' @examples
 #'
 #'
 ##'
