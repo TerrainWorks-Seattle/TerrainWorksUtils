@@ -31,14 +31,15 @@ point}
 \item{negativeProportion}{Proportion of negative points to be generated
 compared to number of positive points}
 
-\item{extractionMethod}{Method to use for selecting negative points from
-within randomly sampled buffers, of the form \code{c(method, layer)}. \code{
-method} can be either "max" or "min", and \code{layer} is the name of one
-of the layers in \code{predictorsRaster}.
-If not NA, a buffer is drawn around all negative points, and a point is
-selected from within the buffer according to extractionMethod. For example:
-\code{c("max", "grad_15")} indicates to use the cell with the maximum
-value for the layer "grad_15" within the buffer.}
+\item{extractionMethod}{Method to use for extracting values from each point:
+"all", "centroid", "max", or "min". Ignored if extractionPoints is not
+polygon}
+
+\item{extractionLayer}{Layer to use for extracting value. Ignored if
+extractionMethod = "centroid". Ignored if extractionMethod is "all" or
+"centroid" or if extractionPoints is not polygon.}
+
+\item{extrac}{}
 }
 \value{
 a data.frame with values for positive and negative points

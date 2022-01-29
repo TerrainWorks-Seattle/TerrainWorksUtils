@@ -1,9 +1,24 @@
+
+#' @title Create Training Data from Polygons
+#'
+#' @description Given an input dataset and set of polygons indicating
+#' a class, sample points from inside and outside polygons and extract
+#' predictor values for positive and negative points.
+#'
+#' @param polygons SpatVector of polygons indicating all locations belonging
+#' to the class you wish to predict
+#' @param predictorsRaster SpatRaster with a layer for each predictor variable
+#' @param sampleRate Samples per km^2
+#' @param regionMargin width in meters of margin to draw around polygon edges
+#' which will not be used for sampling.
+#' @param analysisRegion polygon or raster indicating the extent from which
+#' points can be sampled
 createTrainingDataFromPolygons <- function(polygons,
                                            predictorsRaster,
-                                           analysisRegionMask) {
-  # sample points from within polygons
-  # sample points from outside polygons
-  #
+                                           analysisRegion,
+                                           sampleRate = 5,
+                                           regionMargin = 50) {
+
 }
 
 #' @title Create Training Data from Points
@@ -25,14 +40,13 @@ createTrainingDataFromPolygons <- function(polygons,
 #' point
 #' @param negativeProportion Proportion of negative points to be generated
 #' compared to number of positive points
-#' @param extractionMethod Method to use for selecting negative points from
-#' within randomly sampled buffers, of the form \code{c(method, layer)}. \code{
-#' method} can be either "max" or "min", and \code{layer} is the name of one
-#' of the layers in \code{predictorsRaster}.
-#' If not NA, a buffer is drawn around all negative points, and a point is
-#' selected from within the buffer according to extractionMethod. For example:
-#' \code{c("max", "grad_15")} indicates to use the cell with the maximum
-#' value for the layer "grad_15" within the buffer.
+#' @param extractionMethod Method to use for extracting values from each point:
+#'  "all", "centroid", "max", or "min". Ignored if extractionPoints is not
+#'  polygon
+#' @param extractionLayer Layer to use for extracting value. Ignored if
+#' extractionMethod = "centroid". Ignored if extractionMethod is "all" or
+#' "centroid" or if extractionPoints is not polygon.
+#' @param extrac
 #'
 #' @export
 createTrainingDataFromPoints <- function(positivePoints,
@@ -67,7 +81,7 @@ createTrainingDataFromPoints <- function(positivePoints,
 #'
 #' @param positivePoints SpatVector with locations of all points with positive
 #' class
-#' @param analysisRegionMask SpatRaster with non-NA values everywhere that
+#' @param analysisRegion SpatRaster with non-NA values everywhere that
 #' points can be sampled from. All locations that should be excluded from
 #' sampling should be NA. If NULL, all cells which are non-NA for all layers
 #' of the predictorsRaster will be used.

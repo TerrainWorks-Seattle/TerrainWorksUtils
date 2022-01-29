@@ -22,6 +22,7 @@ log_obj <- function(obj) {
 #'
 #' @import terra
 #' @import methods
+#' @import randomForest
 #' @import ROCR
 #' @import stats
 #'

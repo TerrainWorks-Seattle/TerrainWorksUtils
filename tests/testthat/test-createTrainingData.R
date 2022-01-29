@@ -336,3 +336,7 @@ test_that("createTrainingDataFromPoints default params", {
   expect_setequal(names(trainingData), c(names(varsRaster), "class"))
   expect_equal(nrow(trainingData), 2 * nrow(positivePoints))
 })
+
+test_that("createTrainingDataFromPolygons default params", {
+
+})

@@ -16,6 +16,11 @@ sampleNegativePoints(
 \item{positivePoints}{SpatVector with locations of all points with positive
 class}
 
+\item{analysisRegion}{SpatRaster with non-NA values everywhere that
+points can be sampled from. All locations that should be excluded from
+sampling should be NA. If NULL, all cells which are non-NA for all layers
+of the predictorsRaster will be used.}
+
 \item{buffer}{Return buffer around points?}
 
 \item{bufferRadius}{minimum possible distance between a positive and negative
@@ -23,11 +28,6 @@ point}
 
 \item{negativeProportion}{Proportion of negative points to be generated
 compared to number of positive points}
-
-\item{analysisRegionMask}{SpatRaster with non-NA values everywhere that
-points can be sampled from. All locations that should be excluded from
-sampling should be NA. If NULL, all cells which are non-NA for all layers
-of the predictorsRaster will be used.}
 }
 \value{
 SpatVector with positive and negative points, wtih a field
