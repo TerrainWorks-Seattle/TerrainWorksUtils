@@ -147,7 +147,8 @@ test_that("sampleNegativePoints distance", {
   allPoints <- sampleNegativePoints(positivePoints,
     analysisRegionMask,
     bufferRadius = 1000,
-    buffer = FALSE
+    buffer = FALSE,
+    negativeProportion = 0.5
   )
   negativePoints <- allPoints[allPoints$class == "negative"]
   positivePoints <- allPoints[allPoints$class == "positive"]
