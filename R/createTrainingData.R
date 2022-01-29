@@ -19,6 +19,65 @@ createTrainingDataFromPolygons <- function(polygons,
                                            sampleRate = 5,
                                            regionMargin = 50) {
 
+  #
+  if (class(polygons) != "SpatVector") stop("wetlandPolys must be SpatVector")
+
+  if (!is.numeric(sampleRate) | length(nonwetlandSampleRate) != 1) {
+    stop("sampleRate must be a single numeric value")
+  }
+
+  # Prepare the region ---------------------------------------------------------
+
+
+  # Shrink region by applying an interior margin. This ensures that training
+  # points will not be sampled near the region's edges
+  if (regionMargin != 0) {
+    regionPoly <- terra::buffer(regionPoly, width = -abs(regionMargin))
+  }
+
+  # Sample wetlands ------------------------------------------------------------
+
+  wetlandPolys <- wetlandPolys[wetlandPolys$WETLAND_TY %in% wetlandTypes]
+  if (length(wetlandPolys) == 0) {
+    stop("No wetlands to sample")
+  }
+
+  # Crop the wetland polygons to the region
+  positivePolygons <- terra::project(polygons, analysisRegion)
+  positivePolygons <- terra::crop(positivePolygons, analysisRegion)
+
+  # Sample wetland regions
+  positivePoints <- sampleFromPolygons(positivePolygons, sampleRate)
+
+  # Sample non-wetlands --------------------------------------------------------
+
+  # Determine non-wetland polygon(s) by subtracting wetland polygons from the
+  # whole region
+  if (class(analysisRegion) == "SpatRaster") {
+    # Set all cells covered by polygons as NA
+    # sample from remaining analysisRegion
+  } else {
+
+    negativeRegion <- terra::erase(analysisRegion, polygons)
+
+    # Sample non-wetland regions
+    negativePoints <- sampleFromPolygons(negativeRegion, sampleRate)
+
+  }
+
+  # Combine sample points ------------------------------------------------------
+
+  positivePoints$class <- "positive"
+  negativePoints$class <- "negative"
+
+  trainingPoints <- rbind(positivePoints, negativePoints)
+
+
+  extractValues(
+    raster = predictorsRaster,
+    points = trainingPoints,
+    xy = FALSE
+  )
 }
 
 #' @title Create Training Data from Points
@@ -55,7 +114,7 @@ createTrainingDataFromPoints <- function(positivePoints,
                                          negativeProportion = 1,
                                          extractionMethod = "centroid",
                                          extractionLayer = NULL) {
-  allPoints <- sampleNegativePoints(
+  trainingPoints <- sampleNegativePoints(
     positivePoints = positivePoints,
     analysisRegion = analysisRegionMask,
     buffer = TRUE,
@@ -65,7 +124,7 @@ createTrainingDataFromPoints <- function(positivePoints,
 
   extractValues(
     raster = predictorsRaster,
-    points = allPoints,
+    points = trainingPoints,
     extractionMethod = extractionMethod,
     extractionLayer = extractionLayer,
     xy = FALSE

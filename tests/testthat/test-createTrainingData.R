@@ -339,5 +339,6 @@ test_that("createTrainingDataFromPoints default params", {
 })
 
 test_that("createTrainingDataFromPolygons default params", {
+  wetlands <- testPolygons[sample(length(testPolygons), 3, replace = FALSE)]
 
 })

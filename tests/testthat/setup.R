@@ -10,6 +10,8 @@ terra::values(analysisRegionMask) <- ifelse(terra::values(analysisRegionMask) < 
   terra::values(analysisRegionMask)
 )
 
+testPolygons <- terra::vect(system.file("ex/lux.shp", package = "terra"))
+analysisRegionPolygon <- terra::convHull(testPolygons)
 
 
 elevRaster <- analysisRegion

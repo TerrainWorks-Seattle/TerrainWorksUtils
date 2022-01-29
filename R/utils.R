@@ -240,18 +240,16 @@ extractRasterValues <- function(raster = NULL,
 #' @description Given a set of polygons, randomly sample points
 #' from within polygons.
 #'
-#' @param polys SpatVector object containing polygons
+#' @param polygons SpatVector object containing polygons
 #' @param sampleRate Number of points per kilometer to sample
 #'
-#' @return coordinates at sample points
-samplePolys <- function(polys,
-                        sampleRate) {
+#' @return SpatVector of sampled points
+sampleFromPolygons <- function(polygons,
+                               sampleRate) {
 
   # Collect sample coordinates
-  coords <- NULL
-  for (i in seq_len(length(polys))) {
-    poly <- polys[i]
-
+  pointsList <- lapply(seq_along(polygons), function(i) {
+    poly <- polygons[i]
     # Determine the number of samples to take from the polygon's area
     polyArea <- terra::expanse(poly, unit = "km")
     if (polyArea == 0) next
@@ -259,12 +257,9 @@ samplePolys <- function(polys,
 
     # Sample the polygon
     samplePoints <- terra::spatSample(poly, size = sampleSize)
-    sampleCoords <- terra::crds(samplePoints)
+  })
 
-    coords <- rbind(coords, sampleCoords)
-  }
-
-  return(coords)
+  terra::vect(pointsList)
 }
 
 #' @export
