@@ -25,13 +25,11 @@
 #'
 #' rocStats <- calcRocStats(classes, probs, "WET", "UPL")
 #' }
-
-calcRocStats <- function(
-  classes = NULL,
-  probs = NULL,
-  posClass = NULL,
-  negClass = NULL
-) {
+#'
+calcRocStats <- function(classes = NULL,
+                         probs = NULL,
+                         posClass = NULL,
+                         negClass = NULL) {
 
   # Validate parameters --------------------------------------------------------
 
@@ -77,5 +75,4 @@ calcRocStats <- function(
   )
 
   return(rocStats)
-
 }
