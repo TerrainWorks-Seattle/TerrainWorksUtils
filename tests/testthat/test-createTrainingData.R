@@ -166,7 +166,7 @@ test_that("extractValues from points", {
     buffer = FALSE
   )
 
-  values <- extractValues(varsRaster, allPoints)
+  values <- extractValues(varsRaster, allPoints, xy = TRUE)
 
   expect_equal(nrow(values), length(allPoints))
   expect_equal(terra::geom(allPoints)[, "x"], values$x)
@@ -212,7 +212,8 @@ test_that("extractValues from polygons centroid", {
   )
   values <- extractValues(varsRaster,
     polygons,
-    extractionMethod = "centroid"
+    extractionMethod = "centroid",
+    xy = TRUE
   )
 
   expect_equal(nrow(values), length(polygons))
@@ -256,7 +257,8 @@ test_that("extractValues from polygons min/max", {
   values_max <- extractValues(varsRaster,
     polygons,
     extractionMethod = "max",
-    extractionLayer = "elevation"
+    extractionLayer = "elevation",
+    xy = TRUE
   )
 
   expect_equal(nrow(values_max), length(polygons))
@@ -278,7 +280,8 @@ test_that("extractValues from polygons min/max", {
   values_min <- extractValues(varsRaster,
     polygons,
     extractionMethod = "min",
-    extractionLayer = "elevation"
+    extractionLayer = "elevation",
+    xy = TRUE
   )
 
   expect_equal(nrow(values_min), length(polygons))
@@ -304,13 +307,15 @@ test_that("extractValues from polygons min/max", {
     polygons,
     extractionMethod = "min",
     extractionLayer = "random",
-    na.rm = FALSE
+    na.rm = FALSE,
+    xy = TRUE
   )
   values_max <- extractValues(varsRaster,
     polygons,
     extractionMethod = "max",
     extractionLayer = "random",
-    na.rm = FALSE
+    na.rm = FALSE,
+    xy = TRUE
   )
 
   expect_true(all(values_max$random >= values_min$random))
@@ -340,5 +345,28 @@ test_that("createTrainingDataFromPoints default params", {
 
 test_that("createTrainingDataFromPolygons default params", {
   wetlands <- testPolygons[sample(length(testPolygons), 3, replace = FALSE)]
+  data <- createTrainingDataFromPolygons(
+    polygons = wetlands,
+    analysisRegion = analysisRegionPolygon,
+    predictorsRaster = varsRaster
+  )
+  expect_setequal(unique(data$class), c("positive", "negative"))
+})
 
+test_that("createTrainingDataFromPolygons sample rate", {
+  wetlands <- testPolygons[sample(length(testPolygons), 3, replace = FALSE)]
+  data <- createTrainingDataFromPolygons(
+    polygons = wetlands,
+    analysisRegion = analysisRegionPolygon,
+    predictorsRaster = varsRaster,
+    sampleRate = 0.5
+  )
+
+  # Get expected count. First have to determine allowable region
+  region <- all(predictorsRaster)
+  region <- terra::crop(region, analysisRegionPolygon)
+  expected_count <- terra::expanse(region) / (1000 * 1000) * 0.5
+  # Leave room for some loss due to NA
+  expect_gt(nrow(data), expected_count - expected_count * 0.1)
+  expect_lte(nrow(data), expected_count + expected_count * 0.1)
 })

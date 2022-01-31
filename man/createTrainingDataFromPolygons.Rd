@@ -8,7 +8,7 @@ createTrainingDataFromPolygons(
   polygons,
   predictorsRaster,
   analysisRegion,
-  sampleRate = 5,
+  sampleRate = 0.5,
   regionMargin = 50
 )
 }
@@ -19,7 +19,8 @@ to the class you wish to predict}
 \item{predictorsRaster}{SpatRaster with a layer for each predictor variable}
 
 \item{analysisRegion}{polygon or raster indicating the extent from which
-points can be sampled}
+points can be sampled. Only regions covered by non-NA cells will be included
+if analysisRegion is a raster.}
 
 \item{sampleRate}{Samples per km^2}
 

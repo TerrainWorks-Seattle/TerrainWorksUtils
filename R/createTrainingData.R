@@ -1,6 +1,7 @@
 
 #' @title Create Training Data from Polygons
 #'
+#' @export
 #' @description Given an input dataset and set of polygons indicating
 #' a class, sample points from inside and outside polygons and extract
 #' predictor values for positive and negative points.
@@ -8,21 +9,25 @@
 #' @param polygons SpatVector of polygons indicating all locations belonging
 #' to the class you wish to predict
 #' @param predictorsRaster SpatRaster with a layer for each predictor variable
+#' @param analysisRegion polygon or raster indicating the extent from which
+#' points can be sampled. Only regions covered by non-NA cells will be included
+#' if analysisRegion is a raster.
 #' @param sampleRate Samples per km^2
 #' @param regionMargin width in meters of margin to draw around polygon edges
 #' which will not be used for sampling.
-#' @param analysisRegion polygon or raster indicating the extent from which
-#' points can be sampled
 createTrainingDataFromPolygons <- function(polygons,
                                            predictorsRaster,
                                            analysisRegion,
-                                           sampleRate = 5,
+                                           sampleRate = 0.5,
                                            regionMargin = 50) {
+  if (class(polygons) != "SpatVector") stop("polygons must be SpatVector")
 
-  #
-  if (class(polygons) != "SpatVector") stop("wetlandPolys must be SpatVector")
+  # Make sure analysisRegion is polygon
+  if (class(analysisRegion) == "SpatRaster") {
+    analysisRegion <- as.polygons(analysisRegion > -Inf)
+  }
 
-  if (!is.numeric(sampleRate) | length(nonwetlandSampleRate) != 1) {
+  if (!is.numeric(sampleRate) | length(sampleRate) != 1) {
     stop("sampleRate must be a single numeric value")
   }
 
@@ -32,15 +37,10 @@ createTrainingDataFromPolygons <- function(polygons,
   # Shrink region by applying an interior margin. This ensures that training
   # points will not be sampled near the region's edges
   if (regionMargin != 0) {
-    regionPoly <- terra::buffer(regionPoly, width = -abs(regionMargin))
+    regionPoly <- terra::buffer(analysisRegion, width = -abs(regionMargin))
   }
 
-  # Sample wetlands ------------------------------------------------------------
-
-  wetlandPolys <- wetlandPolys[wetlandPolys$WETLAND_TY %in% wetlandTypes]
-  if (length(wetlandPolys) == 0) {
-    stop("No wetlands to sample")
-  }
+  # Sample from polygons ------------------------------------------------------------
 
   # Crop the wetland polygons to the region
   positivePolygons <- terra::project(polygons, analysisRegion)
@@ -50,20 +50,11 @@ createTrainingDataFromPolygons <- function(polygons,
   positivePoints <- sampleFromPolygons(positivePolygons, sampleRate)
 
   # Sample non-wetlands --------------------------------------------------------
+  negativeRegion <- terra::erase(analysisRegion, polygons)
 
-  # Determine non-wetland polygon(s) by subtracting wetland polygons from the
-  # whole region
-  if (class(analysisRegion) == "SpatRaster") {
-    # Set all cells covered by polygons as NA
-    # sample from remaining analysisRegion
-  } else {
+  # Sample non-wetland regions
+  negativePoints <- sampleFromPolygons(negativeRegion, sampleRate)
 
-    negativeRegion <- terra::erase(analysisRegion, polygons)
-
-    # Sample non-wetland regions
-    negativePoints <- sampleFromPolygons(negativeRegion, sampleRate)
-
-  }
 
   # Combine sample points ------------------------------------------------------
 
@@ -300,8 +291,8 @@ samplePoints <- function(count,
 #' @param extractionLayer Layer to use for extracting value. Ignored if
 #' extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 #' "centroid" or if extractionPoints is not polygon.
-#' @param xy Return coordinates of cells?
 #' @param na.rm Remove any cells with NA values?
+#' @param ... Additional arguments passed onto \code{terra::extrac}
 #'
 #' @return A dataframe of extracted raster values with an additional "class"
 #' column.
@@ -309,8 +300,8 @@ extractValues <- function(raster,
                           points,
                           extractionMethod = "all",
                           extractionLayer = NULL,
-                          xy = TRUE,
-                          na.rm = TRUE) {
+                          na.rm = TRUE,
+                          ...) {
 
   # Check parameters
   if (class(raster) != "SpatRaster") stop("raster must be a raster!")
@@ -331,7 +322,7 @@ extractValues <- function(raster,
   }
 
   if (extractionMethod == "all" | terra::geomtype(points) == "points") {
-    values <- terra::extract(raster, points, xy = xy)
+    values <- terra::extract(raster, points, ...)
   } else {
 
     # Subset if a different buffer extraction method was requested
@@ -341,11 +332,11 @@ extractValues <- function(raster,
       centerPoints <- terra::centroids(points)
 
       # Extract values from cells containing center points
-      values <- terra::extract(raster, centerPoints, xy = xy)
+      values <- terra::extract(raster, centerPoints, ...)
     } else {
 
       # First extract all values from polygons
-      values <- terra::extract(raster, points, xy = xy)
+      values <- terra::extract(raster, points, ...)
 
       # Formula to group entries by buffer and return requested variable value
       formula <- as.formula(paste(extractionLayer, "~", "ID"))
@@ -362,6 +353,9 @@ extractValues <- function(raster,
     }
   }
 
+  if (na.rm) {
+    na_rows <- apply(values, 1, function(x) sum(is.na(x)) > 1)
+  }
 
   # Add any other variables from points back into extraction values
   for (var in setdiff(names(points), names(values))) {
@@ -373,10 +367,10 @@ extractValues <- function(raster,
 
 
   if (na.rm) {
-    # Filter out entries with NA values
-    values <- na.omit(values)
+    # Filter out entries with NA values in raster
+    values <- values[!na_rows, ]
   }
+
 
   return(values)
 }
-

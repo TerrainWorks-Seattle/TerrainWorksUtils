@@ -289,7 +289,7 @@ sampleFromPolygons <- function(polygons,
 #' \code{cats} to.
 #' @param cats A \code{data.frame} that includes a "category" character column
 #' (the output of \code{terra::cats()}).
-#'S
+#' S
 #'
 applyCats <- function(raster, cats) {
 

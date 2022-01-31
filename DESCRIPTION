@@ -1,10 +1,10 @@
 Package: TerrainWorksUtils
 Type: Package
 Title: General utility functions for TerrainWorks
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: 
     c(
-        person("Helen", "Miller", "helenthehuman@gmail.com", role = c("aut", "cre")), 
+        person("Helen", "Miller", email = "helenthehuman@gmail.com", role = c("aut", "cre")), 
         person("Tate", "Brasel", role = "aut")
      )
 Description: TerrainWorks resources for creating and assessing statistical models for predicting landslide susceptibility

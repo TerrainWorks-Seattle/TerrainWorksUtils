@@ -9,8 +9,8 @@ extractValues(
   points,
   extractionMethod = "all",
   extractionLayer = NULL,
-  xy = TRUE,
-  na.rm = TRUE
+  na.rm = TRUE,
+  ...
 )
 }
 \arguments{
@@ -29,9 +29,9 @@ polygon}
 extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 "centroid" or if extractionPoints is not polygon.}
 
-\item{xy}{Return coordinates of cells?}
-
 \item{na.rm}{Remove any cells with NA values?}
+
+\item{...}{Additional arguments passed onto \code{terra::extrac}}
 }
 \value{
 A dataframe of extracted raster values with an additional "class"
