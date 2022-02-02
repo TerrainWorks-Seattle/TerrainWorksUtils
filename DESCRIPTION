@@ -16,9 +16,12 @@ Imports:
   randomForest,
   ROCR,
   stats,
-  terra
+  terra (>= 1.5)
 RoxygenNote: 7.1.2
 Suggests: 
-  covr,
-  testthat (>= 3.0.0)
+    knitr,
+    covr,
+    testthat (>= 3.0.0),
+    rmarkdown
 Config/testthat/edition: 3
+VignetteBuilder: knitr

@@ -252,7 +252,9 @@ sampleFromPolygons <- function(polygons,
     poly <- polygons[i]
     # Determine the number of samples to take from the polygon's area
     polyArea <- terra::expanse(poly, unit = "km")
-    if (polyArea == 0) next
+    if (polyArea == 0) {
+      return()
+    }
     sampleSize <- ceiling(polyArea * sampleRate)
 
     # Sample the polygon
