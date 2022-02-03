@@ -9,6 +9,7 @@ extractValues(
   points,
   extractionMethod = "all",
   extractionLayer = NULL,
+  returnType = "table",
   na.rm = TRUE,
   ...
 )
@@ -28,6 +29,11 @@ polygon}
 \item{extractionLayer}{Layer to use for extracting value. Ignored if
 extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 "centroid" or if extractionPoints is not polygon.}
+
+\item{returnType}{\code{"table"} or \code{"points"}. If \code{"table"}
+(default) a data.table with values is returned. if \code{"points"}, a
+\code{SpatVector} of points is returned, with training values as attributes
+for each point.}
 
 \item{na.rm}{Remove any cells with NA values?}
 

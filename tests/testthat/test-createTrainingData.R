@@ -108,6 +108,9 @@ test_that("sampleNegativePoints with default params", {
   expect_setequal(unique(allPoints$class), c("positive", "negative"))
   expect_equal(sum(allPoints$class == "negative"), 20)
   expect_equal(sum(allPoints$class == "positive"), 20)
+
+  areas <- round(terra::expanse(allPoints))
+  expect_true(all(areas == areas[1]))
 })
 
 test_that("sampleNegativePoints with proportion of 2", {
@@ -326,6 +329,23 @@ test_that("extractValues from polygons min/max", {
   expect_true(all(distances == 0))
 })
 
+test_that("extractValues polygons", {
+  positivePoints <- samplePoints(10,
+    analysisRegionMask,
+    buffer = FALSE
+  )
+  polygons <- sampleNegativePoints(positivePoints,
+    analysisRegion,
+    buffer = TRUE
+  )
+  values <- extractValues(varsRaster,
+    polygons,
+    extractionMethod = "centroid",
+    returnType = "points"
+  )
+  expect_s4_class(values, "SpatVector")
+})
+
 
 test_that("createTrainingDataFromPoints default params", {
   positivePoints <- samplePoints(10,
@@ -363,7 +383,7 @@ test_that("createTrainingDataFromPolygons sample rate", {
   )
 
   # Get expected count. First have to determine allowable region
-  region <- all(predictorsRaster)
+  region <- all(varsRaster)
   region <- terra::crop(region, analysisRegionPolygon)
   expected_count <- terra::expanse(region) / (1000 * 1000) * 0.5
   # Leave room for some loss due to NA

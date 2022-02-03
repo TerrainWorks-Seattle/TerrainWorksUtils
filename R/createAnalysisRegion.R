@@ -26,7 +26,7 @@ createAnalysisRegionMask <- function(raster,
                                      points,
                                      maskVars = NULL,
                                      expansionFactor = 1) {
-  raster <- terra::subset(raster, maskVars)
+  varsRaster <- terra::subset(raster, maskVars)
   rangeMx <- extractRange(
     raster = varsRaster,
     extractionLocations = points,
@@ -38,8 +38,9 @@ createAnalysisRegionMask <- function(raster,
   )
 }
 
-#' @title Extract range of values from raster
+#'
 #' @export
+#' @title Extract range of values from raster
 #'
 #' @description Finds the range of values for each layer of a raster which
 #' fall under a set of points or polygons.
@@ -51,6 +52,7 @@ createAnalysisRegionMask <- function(raster,
 #'
 #' @return A matrix that holds the min & max initiation limits of each raster
 #' layer
+#'
 extractRange <- function(raster,
                          extractionLocations,
                          expansionFactor = 1) {

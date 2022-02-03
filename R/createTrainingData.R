@@ -155,7 +155,8 @@ sampleNegativePoints <- function(positivePoints,
   if (class(analysisRegion) != "SpatRaster") {
     stop("analysisRegion must be raster!")
   }
-  if (crs(positivePoints) != crs(analysisRegion)) {
+  if (terra::crs(positivePoints, proj = TRUE) !=
+    terra::crs(analysisRegion, proj = TRUE)) {
     stop("positivePoints and analysisRegion crs does not match!")
   }
 
@@ -291,6 +292,10 @@ samplePoints <- function(count,
 #' @param extractionLayer Layer to use for extracting value. Ignored if
 #' extractionMethod = "centroid". Ignored if extractionMethod is "all" or
 #' "centroid" or if extractionPoints is not polygon.
+#' @param returnType \code{"table"} or \code{"points"}. If \code{"table"}
+#' (default) a data.table with values is returned. if \code{"points"}, a
+#' \code{SpatVector} of points is returned, with training values as attributes
+#' for each point.
 #' @param na.rm Remove any cells with NA values?
 #' @param ... Additional arguments passed onto \code{terra::extrac}
 #'
@@ -300,6 +305,7 @@ extractValues <- function(raster,
                           points,
                           extractionMethod = "all",
                           extractionLayer = NULL,
+                          returnType = "table",
                           na.rm = TRUE,
                           ...) {
 
@@ -357,20 +363,41 @@ extractValues <- function(raster,
     na_rows <- apply(values, 1, function(x) sum(is.na(x)) > 1)
   }
 
-  # Add any other variables from points back into extraction values
-  for (var in setdiff(names(points), names(values))) {
-    values[[var]] <- points[[var]][[var]]
+  if (returnType == "table") {
+    # Add any other variables from points back into extraction values
+    for (var in setdiff(names(points), names(values))) {
+      values[[var]] <- points[[var]][[var]]
+    }
+
+    # Remove the "ID" column
+    values$ID <- NULL
+
+    if (na.rm) {
+      # Filter out entries with NA values in raster
+      values <- values[!na_rows, ]
+    }
+
+    return(values)
+  } else {
+
+    # Remove the "ID" column
+    values$ID <- NULL
+
+    # add new variables from extraction values into points
+    for (var in names(values)) {
+      if (var %in% names(points)) {
+        var_new <- paste0(var, ".1")
+      } else {
+        var_new <- var
+      }
+
+      points[, var_new] <- values[, var]
+    }
+
+    if (na.rm) {
+      points <- terra::subset(points, !na_rows)
+    }
+
+    return(points)
   }
-
-  # Remove the "ID" column
-  values$ID <- NULL
-
-
-  if (na.rm) {
-    # Filter out entries with NA values in raster
-    values <- values[!na_rows, ]
-  }
-
-
-  return(values)
 }
