@@ -19,50 +19,18 @@ createTrainingDataFromPolygons <- function(polygons,
                                            predictorsRaster,
                                            analysisRegion,
                                            sampleRate = 0.5,
-                                           regionMargin = 50) {
-  if (class(polygons) != "SpatVector") stop("polygons must be SpatVector")
+                                           regionMargin = 50,
+                                           polygonClass = "positive",
+                                           nonpolygonClass = "negative") {
 
-  # Make sure analysisRegion is polygon
-  if (class(analysisRegion) == "SpatRaster") {
-    analysisRegion <- as.polygons(analysisRegion > -Inf)
-  }
-
-  if (!is.numeric(sampleRate) | length(sampleRate) != 1) {
-    stop("sampleRate must be a single numeric value")
-  }
-
-  # Prepare the region ---------------------------------------------------------
-
-
-  # Shrink region by applying an interior margin. This ensures that training
-  # points will not be sampled near the region's edges
-  if (regionMargin != 0) {
-    regionPoly <- terra::buffer(analysisRegion, width = -abs(regionMargin))
-  }
-
-  # Sample from polygons ------------------------------------------------------------
-
-  # Crop the wetland polygons to the region
-  positivePolygons <- terra::project(polygons, analysisRegion)
-  positivePolygons <- terra::crop(positivePolygons, analysisRegion)
-
-  # Sample wetland regions
-  positivePoints <- sampleFromPolygons(positivePolygons, sampleRate)
-
-  # Sample non-wetlands --------------------------------------------------------
-  negativeRegion <- terra::erase(analysisRegion, polygons)
-
-  # Sample non-wetland regions
-  negativePoints <- sampleFromPolygons(negativeRegion, sampleRate)
-
-
-  # Combine sample points ------------------------------------------------------
-
-  positivePoints$class <- "positive"
-  negativePoints$class <- "negative"
-
-  trainingPoints <- rbind(positivePoints, negativePoints)
-
+  trainingPoints <- createTrainingPointsFromPolygons(
+    polygons = polygons,
+    analysisRegion = analysisRegion,
+    sampleRate = sampleRate,
+    regionMargin = regionMargin,
+    polygonClass = polygonClass,
+    nonpolygonClass = nonpolygonClass
+  )
 
   extractValues(
     raster = predictorsRaster,
@@ -123,6 +91,73 @@ createTrainingDataFromPoints <- function(positivePoints,
 }
 
 #' @export
+#' @title Sample training points from a set of polygons
+#'
+#'
+#' @param polygons SpatVector of polygons indicating all locations belonging
+#' to the class you wish to predict
+#' @param analysisRegion polygon or raster indicating the extent from which
+#' points can be sampled. Only regions covered by non-NA cells will be included
+#' if analysisRegion is a raster.
+#' @param sampleRate Samples per km^2
+#' @param regionMargin width in meters of margin to draw around polygon edges
+#' which will not be used for sampling.
+#' @param polygonClass label for points sampled from within polygons
+#' @param nonpolygonClass label for points sampled outside polygons
+#'
+createTrainingPointsFromPolygons <- function(polygons,
+                                             analysisRegion,
+                                             sampleRate = 0.5,
+                                             regionMargin = 50,
+                                             polygonClass = "positive",
+                                             nonpolygonClass = "negative") {
+
+  if (class(polygons) != "SpatVector") stop("polygons must be SpatVector")
+
+  # Make sure analysisRegion is polygon
+  if (class(analysisRegion) == "SpatRaster") {
+    analysisRegion <- as.polygons(analysisRegion > -Inf)
+  }
+
+  if (!is.numeric(sampleRate) | length(sampleRate) != 1) {
+    stop("sampleRate must be a single numeric value")
+  }
+
+  # Prepare the region ---------------------------------------------------------
+
+
+  # Shrink region by applying an interior margin. This ensures that training
+  # points will not be sampled near the region's edges
+  if (regionMargin != 0) {
+    regionPoly <- terra::buffer(analysisRegion, width = -abs(regionMargin))
+  }
+
+  # Sample from polygons ------------------------------------------------------------
+
+  # Crop the wetland polygons to the region
+  positivePolygons <- terra::project(polygons, analysisRegion)
+  positivePolygons <- terra::crop(positivePolygons, analysisRegion)
+
+  # Sample wetland regions
+  positivePoints <- sampleFromPolygons(positivePolygons, sampleRate)
+
+  # Sample non-wetlands --------------------------------------------------------
+  negativeRegion <- terra::erase(analysisRegion, positivePolygons)
+
+  # Sample non-wetland regions
+  negativePoints <- sampleFromPolygons(negativeRegion, sampleRate)
+
+
+  # Combine sample points ------------------------------------------------------
+
+  positivePoints$class <- polygonClass
+  negativePoints$class <- nonpolygonClass
+
+  trainingPoints <- rbind(positivePoints, negativePoints)
+  trainingPoints
+}
+
+#' @export
 #' @title Sample negative points
 #'
 #' @description randomly sample points from an analysis area to create a
@@ -156,7 +191,7 @@ sampleNegativePoints <- function(positivePoints,
     stop("analysisRegion must be raster!")
   }
   if (terra::crs(positivePoints, proj = TRUE) !=
-    terra::crs(analysisRegion, proj = TRUE)) {
+      terra::crs(analysisRegion, proj = TRUE)) {
     stop("positivePoints and analysisRegion crs does not match!")
   }
 
@@ -164,14 +199,14 @@ sampleNegativePoints <- function(positivePoints,
   positivePoints$class <- "positive"
   # Buffer positive points
   positiveBuffers <- terra::buffer(positivePoints,
-    width = bufferRadius * 2
+                                   width = bufferRadius * 2
   )
 
   # remove remove positive buffers from analysisRegion
   negativeRegion <- terra::deepcopy(analysisRegion)
   positiveCellIndices <- terra::extract(negativeRegion,
-    positiveBuffers,
-    cells = TRUE
+                                        positiveBuffers,
+                                        cells = TRUE
   )$cell
   negativeRegion[positiveCellIndices] <- NA
 
