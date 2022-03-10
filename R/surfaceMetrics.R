@@ -3,7 +3,7 @@
 calculate_surface_metrics <- function(
   metrics = c("grad", "plan", "prof", "bcon", "dev", "twi"),
   DEM_path,
-  scratch_folder = getwd(),
+  output_dir = getwd(),
   length_scale = 15,
   output_suffix = paste0("_", length_scale),
   dev_resample = 1,
@@ -12,13 +12,14 @@ calculate_surface_metrics <- function(
   pca_conductivity = 1
 ) {
 
-  if (!all(metrics) %in% c("grad",
+  if (!all(metrics %in% c("grad",
                            "plan",
                            "prof",
                            "bcon",
                            "dev",
                            "twi",
-                           "pca")) {
+                           "pca")
+           )) {
     stop("Invalid surface metrics specified")
   }
 
@@ -28,20 +29,49 @@ calculate_surface_metrics <- function(
   # TODO: add "overwrite" parameter, and if FALSE, don't re-calculate
   # existing grids
 
-  makeGrids_inputFile_path <-
-    normalizePath(file.path(scratch_folder, "input_makeGrids.txt"))
+  suppressWarnings(
+    makeGrids_inputFile_path <-
+      normalizePath(file.path(output_dir, "input_makeGrids.txt"))
+  )
+
+  # DEM utilities currently only support .flt files.
+  # Convert non-flt DEM (eg tiff) to .flt
+
+  if (!grepl("\\.flt$", DEM_path)) {
+    # Strip file extension from DEM_path, if it has one
+    DEM_path_base <- gsub("\\.\\w+$", "", DEM_path)
+
+
+    if (file.exists(paste0(DEM_path_base, ".flt"))) {
+      # Add .flt extension if .flt file exists
+      DEM_path <- paste0(DEM_path_base, ".flt")
+    } else {
+      # Create raster object from DEM
+      dem <- terra::rast(DEM_path)
+
+      # Create .flt filename
+      DEM_path <- paste0(DEM_path_base, ".flt")
+
+      # Save .flt file
+      terra::writeRaster(dem, DEM_path)
+
+      # Convert GDAL BIL flt header file to ESRI FLT header so it can
+      # be read by ArcGIS and match expectation from DEM utilities scripts
+      convert_hdr(paste0(DEM_path_base, ".hdr"))
+    }
+  }
 
   # Convert input length to meters
   dem <- terra::rast(DEM_path)
   DEM_units <- terra::linearUnits(dem)
-  adjusted_length <- config$length_scale/DEM_units
+  adjusted_length <- length_scale / DEM_units
 
   # --- makeGrids ---
 
   write_input_file_MakeGrids(
     DEM_path = DEM_path,
     length_scale = adjusted_length,
-    scratch_folder = scratch_folder,
+    output_dir = output_dir,
     grad = "grad" %in% metrics,
     plan = "plan" %in% metrics,
     prof = "prof" %in% metrics,
@@ -53,7 +83,8 @@ calculate_surface_metrics <- function(
   makeGrids <- file.path(executable_path, "MakeGrids.exe")
   command <- paste(makeGrids, makeGrids_inputFile_path, sep = " ")
   # Need wd to be scratch dir because that is where files are written
-  setwd(scratch_folder)
+  wd <- getwd()
+  setwd(output_dir)
   output <- system(command,
                    wait = TRUE)
   setwd(wd)
@@ -65,12 +96,12 @@ calculate_surface_metrics <- function(
 
   if ("dev" %in% metrics) {
     localRelief_inputFile_path <-
-      normalizePath(file.path(scratch_folder, "input_localRelief.txt"))
+      normalizePath(file.path(output_dir, "input_localRelief.txt"))
 
     write_input_file_localRelief(
       DEM_path = DEM_path,
       length_scale = adjusted_length,
-      scratch_folder = scratch_folder,
+      output_dir = output_dir,
       resample = dev_resample,
       interval = dev_interval,
       filename = localRelief_inputFile_path,
@@ -79,7 +110,7 @@ calculate_surface_metrics <- function(
 
     localRelief <- file.path(executable_path, "LocalRelief.exe")
     command <- paste(localRelief, localRelief_inputFile_path, sep = " ")
-    setwd(scratch_folder)
+    setwd(output_dir)
     output <- system(command,
                      wait = TRUE)
     setwd(wd)
@@ -94,11 +125,11 @@ calculate_surface_metrics <- function(
     # First make sure all relevant input files are present
     #
     missing_metrics <- c()
-    grad_path <- file.path(scratch_folder,
+    grad_path <- file.path(output_dir,
                            paste0("grad", output_suffix, ".flt"))
-    plan_path <- file.path(scratch_folder,
+    plan_path <- file.path(output_dir,
                            paste0("plan", output_suffix, ".flt"))
-    bcon_path <- file.path(scratch_folder,
+    bcon_path <- file.path(output_dir,
                            paste0("bcon", output_suffix, ".flt"))
     if (!file.exists(grad_path)) {
       missing_metrics <- c(missing_metrics, "grad")
@@ -113,12 +144,12 @@ calculate_surface_metrics <- function(
     if (length(missing_metrics) > 0) {
       # Run MakeGrids for all missing metrics
       twi_makeGrids_inputFile_path <-
-        normalizePath(file.path(scratch_folder, "twi_input_makeGrids.txt"))
+        normalizePath(file.path(output_dir, "twi_input_makeGrids.txt"))
 
       write_input_file_MakeGrids(
         DEM_path = DEM_path,
         length_scale = adjusted_length,
-        scratch_folder = scratch_folder,
+        output_dir = output_dir,
         grad = "grad" %in% missing_metrics,
         plan = "plan" %in% missing_metrics,
         prof = FALSE,
@@ -130,19 +161,19 @@ calculate_surface_metrics <- function(
       makeGrids <- file.path(executable_path, "MakeGrids.exe")
       command <- paste(makeGrids, twi_makeGrids_inputFile_path, sep = " ")
       # Need wd to be scratch dir because that is where files are written
-      setwd(scratch_folder)
+      setwd(output_dir)
       output <- system(command,
                        wait = TRUE)
       setwd(wd)
     }
 
     buildGrids_inputFile_path <-
-      normalizePath(file.path(scratch_folder, "input_buildGrids.txt"))
+      normalizePath(file.path(output_dir, "input_buildGrids.txt"))
 
     write_input_file_buildGrids(
       DEM_path = DEM_path,
       length_scale = adjusted_length,
-      scratch_folder = scratch_folder,
+      output_dir = output_dir,
       grad_path = grad_path,
       plan_path = plan_path,
       bcon_path = bcon_path,
@@ -153,7 +184,7 @@ calculate_surface_metrics <- function(
 
     buildGrids <- file.path(executable_path, "BuildGrids.exe")
     command <- paste(buildGrids, buildGrids_inputFile_path, sep = " ")
-    setwd(scratch_folder)
+    setwd(output_dir)
     output <- system(command,
                      wait = TRUE)
     setwd(wd)
@@ -166,21 +197,21 @@ calculate_surface_metrics <- function(
   # TODO: Need to add Partial.exe to ExecutableFiles.zip
   if (FALSE) {
     partial_inputFile_path <-
-      normalizePath(file.path(scratch_folder, "input_partial.txt"))
+      normalizePath(file.path(output_dir, "input_partial.txt"))
 
     write_input_file_Partial(
       DEM_path = DEM_path,
       length_scale = length_scale,
       duration = pca_hours,
       conductivity =pca_conductivity,
-      scratch_folder = config$scratch_folder,
+      output_dir = ,
       filename = partial_inputFile_path,
-      output_file_extension = config$output_suffix
+      output_file_extension = output_suffix
     )
 
     Partial <- paste0(executable_path, "\\Partial.exe")
     command <- paste(Partial, partial_inputFile_path, sep = " ")
-    setwd(config$scratch_folder)
+    setwd(output_dir)
     output <- system(command,
                      wait = TRUE)
     setwd(wd)
@@ -191,12 +222,10 @@ calculate_surface_metrics <- function(
 
   # Reformat .flt files as .tif
   for (metric in metrics) {
-    raster <- terra::rast(paste0(metric, output_suffix, ".flt"))
-    terra::writeRaster(raster, paste0(metric, output_suffix, ".tif"))
-
-    # Convert GDAL BIL flt header file to ESRI FLT header so it can
-    # be read by ArcGIS
-    convert_hdr(paste0(metric, config$output_suffix, ".hdr"))
+    raster <- terra::rast(file.path(output_dir,
+                                    paste0(metric, output_suffix, ".flt")))
+    terra::writeRaster(raster, file.path(output_dir,
+                                         paste0(metric, output_suffix, ".tif")))
   }
 
 }

@@ -3,7 +3,7 @@ get_executable_path <- function() {
   executable_zip <- file.path(utilities_dir, "ExecutableFiles.zip")
   executable_dir <- file.path(utilities_dir, "ExecutableFiles")
   if (!dir.exists(executable_dir) & file.exists(executable_zip)) {
-    utils::unzip(executable_zip, exdir = executable_dir)
+    utils::unzip(executable_zip, exdir = utilities_dir)
   }
   if (!dir.exists(executable_dir)) stop("Could not find executables directory")
   executable_dir
@@ -13,18 +13,18 @@ get_executable_path <- function() {
 write_input_file_MakeGrids <- function(
   DEM_path,
   length_scale,
-  scratch_folder = getwd(),
+  output_dir = getwd(),
   grad = TRUE,
   plan = TRUE,
   prof = TRUE,
   bcon = TRUE,
-  filename = file.path(scratch_folder, "input_makeGrids.txt"),
+  filename = file.path(output_dir, "input_makeGrids.txt"),
   overwrite = TRUE,
   output_file_extension = paste0("_", length_scale)
 ) {
 
-  if (!dir.exists(scratch_folder)) {
-    stop("invalid scratch folder: ", scratch_folder)
+  if (!dir.exists(output_dir)) {
+    stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
@@ -39,7 +39,7 @@ write_input_file_MakeGrids <- function(
 
   # Normalize paths
   DEM_path <- normalizePath(DEM_path)
-  scratch_folder <- normalizePath(scratch_folder)
+  output_dir <- normalizePath(output_dir)
 
   # Do not include ".flt" in DEM_path
   if (grepl("\\.flt$", DEM_path)) {
@@ -61,7 +61,7 @@ write_input_file_MakeGrids <- function(
 
 
   write_input("DEM: ", DEM_path)
-  write_input("SCRATCH DIRECTORY: ", scratch_folder)
+  write_input("SCRATCH DIRECTORY: ", output_dir)
   write_input("LENGTH SCALE: ", length_scale)
 
   if (grad) {
@@ -89,17 +89,17 @@ write_input_file_MakeGrids <- function(
 write_input_file_localRelief <- function(
   DEM_path,
   length_scale,
-  scratch_folder = getwd(),
+  output_dir = getwd(),
   resample = 2,
   interval = 2,
-  filename = file.path(scratch_folder, "input_localRelief.txt"),
+  filename = file.path(output_dir, "input_localRelief.txt"),
   overwrite = TRUE,
   output_file_extension = paste0("_", length_scale)
 ) {
 
 
-  if (!dir.exists(scratch_folder)) {
-    stop("invalid scratch folder: ", scratch_folder)
+  if (!dir.exists(output_dir)) {
+    stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
@@ -115,7 +115,7 @@ write_input_file_localRelief <- function(
 
   # Normalize paths
   DEM_path <- normalizePath(DEM_path)
-  scratch_folder <- normalizePath(scratch_folder)
+  output_dir <- normalizePath(output_dir)
 
   # Do not include ".flt" in DEM_path
   if (grepl("\\.flt$", DEM_path)) {
@@ -135,7 +135,7 @@ write_input_file_localRelief <- function(
               "# On ", as.character(Sys.time()),
               append = FALSE)
   write_input("DEM: ", DEM_path)
-  write_input("SCRATCH DIRECTORY: ", scratch_folder)
+  write_input("SCRATCH DIRECTORY: ", output_dir)
 
   radius <- length_scale / 2
   write_input("RADIUS: ", radius)
@@ -147,7 +147,7 @@ write_input_file_localRelief <- function(
 write_input_file_buildGrids <- function(
   DEM_path,
   length_scale,
-  scratch_folder = getwd(),
+  output_dir = getwd(),
   grad_path,
   plan_path,
   bcon_path,
@@ -155,14 +155,14 @@ write_input_file_buildGrids <- function(
   slope_hi = "60.",
   plan_lo = "100000.15",
   plan_hi = "100000.3",
-  filename = file.path(scratch_folder, "input_buildGrids.txt"),
+  filename = file.path(output_dir, "input_buildGrids.txt"),
   overwrite = TRUE,
   output_file_extension = paste0("_", length_scale)
 ) {
 
 
-  if (!dir.exists(scratch_folder)) {
-    stop("invalid scratch folder: ", scratch_folder)
+  if (!dir.exists(output_dir)) {
+    stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
@@ -178,7 +178,7 @@ write_input_file_buildGrids <- function(
 
   # Normalize paths
   DEM_path <- normalizePath(DEM_path)
-  scratch_folder <- normalizePath(scratch_folder)
+  output_dir <- normalizePath(output_dir)
   grad_path <- normalizePath(grad_path)
   plan_path <- normalizePath(plan_path)
   bcon_path <- normalizePath(bcon_path)
@@ -211,7 +211,7 @@ write_input_file_buildGrids <- function(
   write_input("DEMID: ", DEM_id)
   write_input("DEM UNITS: ", DEM_units)
   write_input("LENGTH SCALE: ", length_scale)
-  write_input("SCRATCH: ", scratch_folder)
+  write_input("SCRATCH: ", output_dir)
   write_input("AREA SLOPE THRESHOLD LOW GRADIENT: ", slope_lo)
   write_input("AREA SLOPE THRESHOLD HIGH GRADIENT: ", slope_hi)
   write_input("PLAN CURVATURE THRESHOLD LOW GRADIENT: ", plan_lo)
@@ -227,15 +227,15 @@ write_input_file_Partial <- function(
   length_scale,
   duration = 48,
   conductivity = 2,
-  scratch_folder = getwd(),
-  filename = file.path(scratch_folder, "input_partial.txt"),
+  output_dir = getwd(),
+  filename = file.path(output_dir, "input_partial.txt"),
   overwrite = TRUE,
   output_file_extension = paste0("_", length_scale)
 ) {
 
 
-  if (!dir.exists(scratch_folder)) {
-    stop("invalid scratch folder: ", scratch_folder)
+  if (!dir.exists(output_dir)) {
+    stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
@@ -251,7 +251,7 @@ write_input_file_Partial <- function(
 
   # Normalize paths
   DEM_path <- normalizePath(DEM_path)
-  scratch_folder <- normalizePath(scratch_folder)
+  output_dir <- normalizePath(output_dir)
 
   # Do not include ".flt" in DEM_path
   if (grepl("\\.flt$", DEM_path)) {
@@ -271,7 +271,7 @@ write_input_file_Partial <- function(
               "# On ", as.character(Sys.time()),
               append = FALSE)
   write_input("DEM: ", DEM_path)
-  write_input("SCRATCH DIRECTORY: ", scratch_folder)
+  write_input("SCRATCH DIRECTORY: ", output_dir)
   write_input("LENGTH SCALE: ", length_scale)
   write_input("DURATION: ", duration)
   write_input("CONDUCTIVITY: ", conductivity)
@@ -281,7 +281,7 @@ write_input_file_Partial <- function(
 write_input_file_buildGrids <- function(
   DEM_path,
   length_scale,
-  scratch_folder = getwd(),
+  output_dir = getwd(),
   grad_path,
   plan_path,
   bcon_path,
@@ -289,14 +289,14 @@ write_input_file_buildGrids <- function(
   slope_hi = "60.",
   plan_lo = "100000.15",
   plan_hi = "100000.3",
-  filename = file.path(scratch_folder, "input_buildGrids.txt"),
+  filename = file.path(output_dir, "input_buildGrids.txt"),
   overwrite = TRUE,
   output_file_extension = paste0("_", length_scale)
 ) {
 
 
-  if (!dir.exists(scratch_folder)) {
-    stop("invalid scratch folder: ", scratch_folder)
+  if (!dir.exists(output_dir)) {
+    stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
@@ -312,7 +312,7 @@ write_input_file_buildGrids <- function(
 
   # Normalize paths
   DEM_path <- normalizePath(DEM_path)
-  scratch_folder <- normalizePath(scratch_folder)
+  output_dir <- normalizePath(output_dir)
   grad_path <- normalizePath(grad_path)
   plan_path <- normalizePath(plan_path)
   bcon_path <- normalizePath(bcon_path)
@@ -345,7 +345,7 @@ write_input_file_buildGrids <- function(
   write_input("DEMID: ", DEM_id)
   write_input("DEM UNITS: ", DEM_units)
   write_input("LENGTH SCALE: ", length_scale)
-  write_input("SCRATCH: ", scratch_folder)
+  write_input("SCRATCH: ", output_dir)
   write_input("AREA SLOPE THRESHOLD LOW GRADIENT: ", slope_lo)
   write_input("AREA SLOPE THRESHOLD HIGH GRADIENT: ", slope_hi)
   write_input("PLAN CURVATURE THRESHOLD LOW GRADIENT: ", plan_lo)

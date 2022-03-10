@@ -7,7 +7,7 @@
 calculate_surface_metrics(
   metrics = c("grad", "plan", "prof", "bcon", "dev", "twi"),
   DEM_path,
-  scratch_folder = getwd(),
+  output_dir = getwd(),
   length_scale = 15,
   output_suffix = paste0("_", length_scale),
   dev_resample = 1,

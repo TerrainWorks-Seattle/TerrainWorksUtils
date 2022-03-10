@@ -7,12 +7,12 @@
 write_input_file_MakeGrids(
   DEM_path,
   length_scale,
-  scratch_folder = getwd(),
+  output_dir = getwd(),
   grad = TRUE,
   plan = TRUE,
   prof = TRUE,
   bcon = TRUE,
-  filename = file.path(scratch_folder, "input_makeGrids.txt"),
+  filename = file.path(output_dir, "input_makeGrids.txt"),
   overwrite = TRUE,
   output_file_extension = paste0("_", length_scale)
 )
