@@ -10,26 +10,23 @@ get_executable_path <- function() {
 }
 
 #' Write input file for MakeGrids.exe
-write_input_file_MakeGrids <- function(
-  DEM_path,
-  length_scale,
-  output_dir = getwd(),
-  grad = TRUE,
-  plan = TRUE,
-  prof = TRUE,
-  bcon = TRUE,
-  filename = file.path(output_dir, "input_makeGrids.txt"),
-  overwrite = TRUE,
-  output_file_extension = paste0("_", length_scale)
-) {
-
+write_input_file_MakeGrids <- function(DEM_path,
+                                       length_scale,
+                                       output_dir = getwd(),
+                                       grad = TRUE,
+                                       plan = TRUE,
+                                       prof = TRUE,
+                                       bcon = TRUE,
+                                       filename = file.path(output_dir, "input_makeGrids.txt"),
+                                       overwrite = TRUE,
+                                       output_file_extension = paste0("_", length_scale)) {
   if (!dir.exists(output_dir)) {
     stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
   }
-  if ( file.exists(filename) ) {
+  if (file.exists(filename)) {
     if (overwrite) {
       message("overwriting ", filename)
     } else {
@@ -49,15 +46,17 @@ write_input_file_MakeGrids <- function(
   write_input <- function(...,
                           append = TRUE) {
     cat(..., "\n",
-        file = filename,
-        sep = "",
-        append = append)
+      file = filename,
+      sep = "",
+      append = append
+    )
   }
 
   write_input("# Input file for makeGrids\n",
-              "# Creating by surfaceMetrics.R\n",
-              "# On ", as.character(Sys.time()),
-              append = FALSE)
+    "# Creating by surfaceMetrics.R\n",
+    "# On ", as.character(Sys.time()),
+    append = FALSE
+  )
 
 
   write_input("DEM: ", DEM_path)
@@ -65,46 +64,49 @@ write_input_file_MakeGrids <- function(
   write_input("LENGTH SCALE: ", length_scale)
 
   if (grad) {
-    write_input("GRID: GRADIENT, OUTPUT FILE = ",
-                paste0("grad", output_file_extension))
+    write_input(
+      "GRID: GRADIENT, OUTPUT FILE = ",
+      paste0("grad", output_file_extension)
+    )
   }
 
   if (plan) {
-    write_input("GRID: PLAN CURVATURE, OUTPUT FILE = ",
-                paste0("plan", output_file_extension))
+    write_input(
+      "GRID: PLAN CURVATURE, OUTPUT FILE = ",
+      paste0("plan", output_file_extension)
+    )
   }
 
   if (prof) {
-    write_input("GRID: PROFILE CURVATURE, OUTPUT FILE = ",
-                paste0("prof", output_file_extension))
+    write_input(
+      "GRID: PROFILE CURVATURE, OUTPUT FILE = ",
+      paste0("prof", output_file_extension)
+    )
   }
 
   if (bcon) {
-    write_input("GRID: BCONTOUR, OUTPUT FILE = ",
-                paste0("bcon", output_file_extension))
+    write_input(
+      "GRID: BCONTOUR, OUTPUT FILE = ",
+      paste0("bcon", output_file_extension)
+    )
   }
-
 }
 
-write_input_file_localRelief <- function(
-  DEM_path,
-  length_scale,
-  output_dir = getwd(),
-  resample = 2,
-  interval = 2,
-  filename = file.path(output_dir, "input_localRelief.txt"),
-  overwrite = TRUE,
-  output_file_extension = paste0("_", length_scale)
-) {
-
-
+write_input_file_localRelief <- function(DEM_path,
+                                         length_scale,
+                                         output_dir = getwd(),
+                                         resample = 2,
+                                         interval = 2,
+                                         filename = file.path(output_dir, "input_localRelief.txt"),
+                                         overwrite = TRUE,
+                                         output_file_extension = paste0("_", length_scale)) {
   if (!dir.exists(output_dir)) {
     stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
   }
-  if ( file.exists(filename) ) {
+  if (file.exists(filename)) {
     if (overwrite) {
       message("overwriting ", filename)
     } else {
@@ -125,15 +127,17 @@ write_input_file_localRelief <- function(
   write_input <- function(...,
                           append = TRUE) {
     cat(..., "\n",
-        file = filename,
-        sep = "",
-        append = append)
+      file = filename,
+      sep = "",
+      append = append
+    )
   }
 
   write_input("# Input file for LocalRelief\n",
-              "# Creating by surfaceMetrics.R\n",
-              "# On ", as.character(Sys.time()),
-              append = FALSE)
+    "# Creating by surfaceMetrics.R\n",
+    "# On ", as.character(Sys.time()),
+    append = FALSE
+  )
   write_input("DEM: ", DEM_path)
   write_input("SCRATCH DIRECTORY: ", output_dir)
 
@@ -144,30 +148,26 @@ write_input_file_localRelief <- function(
   write_input("OUTPUT DEV RASTER: ", paste0("dev", output_file_extension))
 }
 
-write_input_file_buildGrids <- function(
-  DEM_path,
-  length_scale,
-  output_dir = getwd(),
-  grad_path,
-  plan_path,
-  bcon_path,
-  slope_lo = "30.",
-  slope_hi = "60.",
-  plan_lo = "100000.15",
-  plan_hi = "100000.3",
-  filename = file.path(output_dir, "input_buildGrids.txt"),
-  overwrite = TRUE,
-  output_file_extension = paste0("_", length_scale)
-) {
-
-
+write_input_file_buildGrids <- function(DEM_path,
+                                        length_scale,
+                                        output_dir = getwd(),
+                                        grad_path,
+                                        plan_path,
+                                        bcon_path,
+                                        slope_lo = "30.",
+                                        slope_hi = "60.",
+                                        plan_lo = "100000.15",
+                                        plan_hi = "100000.3",
+                                        filename = file.path(output_dir, "input_buildGrids.txt"),
+                                        overwrite = TRUE,
+                                        output_file_extension = paste0("_", length_scale)) {
   if (!dir.exists(output_dir)) {
     stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
   }
-  if ( file.exists(filename) ) {
+  if (file.exists(filename)) {
     if (overwrite) {
       message("overwriting ", filename)
     } else {
@@ -197,15 +197,17 @@ write_input_file_buildGrids <- function(
   write_input <- function(...,
                           append = TRUE) {
     cat(..., "\n",
-        file = filename,
-        sep = "",
-        append = append)
+      file = filename,
+      sep = "",
+      append = append
+    )
   }
 
   write_input("# Input file for BuildGrids\n",
-              "# Creating by surfaceMetrics.R\n",
-              "# On ", as.character(Sys.time()),
-              append = FALSE)
+    "# Creating by surfaceMetrics.R\n",
+    "# On ", as.character(Sys.time()),
+    append = FALSE
+  )
 
   write_input("DEM: ", DEM_path)
   write_input("DEMID: ", DEM_id)
@@ -222,25 +224,21 @@ write_input_file_buildGrids <- function(
 }
 
 
-write_input_file_Partial <- function(
-  DEM_path,
-  length_scale,
-  duration = 48,
-  conductivity = 2,
-  output_dir = getwd(),
-  filename = file.path(output_dir, "input_partial.txt"),
-  overwrite = TRUE,
-  output_file_extension = paste0("_", length_scale)
-) {
-
-
+write_input_file_Partial <- function(DEM_path,
+                                     length_scale,
+                                     duration = 48,
+                                     conductivity = 2,
+                                     output_dir = getwd(),
+                                     filename = file.path(output_dir, "input_partial.txt"),
+                                     overwrite = TRUE,
+                                     output_file_extension = paste0("_", length_scale)) {
   if (!dir.exists(output_dir)) {
     stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
   }
-  if ( file.exists(filename) ) {
+  if (file.exists(filename)) {
     if (overwrite) {
       message("overwriting ", filename)
     } else {
@@ -261,15 +259,17 @@ write_input_file_Partial <- function(
   write_input <- function(...,
                           append = TRUE) {
     cat(..., "\n",
-        file = filename,
-        sep = "",
-        append = append)
+      file = filename,
+      sep = "",
+      append = append
+    )
   }
 
   write_input("# Input file for Partial\n",
-              "# Creating by surfaceMetrics.R\n",
-              "# On ", as.character(Sys.time()),
-              append = FALSE)
+    "# Creating by surfaceMetrics.R\n",
+    "# On ", as.character(Sys.time()),
+    append = FALSE
+  )
   write_input("DEM: ", DEM_path)
   write_input("SCRATCH DIRECTORY: ", output_dir)
   write_input("LENGTH SCALE: ", length_scale)
@@ -278,30 +278,26 @@ write_input_file_Partial <- function(
   write_input("OUTPUT RASTER: ", paste0("pca_", duration, "hr", output_file_extension))
 }
 
-write_input_file_buildGrids <- function(
-  DEM_path,
-  length_scale,
-  output_dir = getwd(),
-  grad_path,
-  plan_path,
-  bcon_path,
-  slope_lo = "30.",
-  slope_hi = "60.",
-  plan_lo = "100000.15",
-  plan_hi = "100000.3",
-  filename = file.path(output_dir, "input_buildGrids.txt"),
-  overwrite = TRUE,
-  output_file_extension = paste0("_", length_scale)
-) {
-
-
+write_input_file_buildGrids <- function(DEM_path,
+                                        length_scale,
+                                        output_dir = getwd(),
+                                        grad_path,
+                                        plan_path,
+                                        bcon_path,
+                                        slope_lo = "30.",
+                                        slope_hi = "60.",
+                                        plan_lo = "100000.15",
+                                        plan_hi = "100000.3",
+                                        filename = file.path(output_dir, "input_buildGrids.txt"),
+                                        overwrite = TRUE,
+                                        output_file_extension = paste0("_", length_scale)) {
   if (!dir.exists(output_dir)) {
     stop("invalid scratch folder: ", output_dir)
   }
   if (!is.numeric(length_scale)) {
     stop("length_scale must be numeric")
   }
-  if ( file.exists(filename) ) {
+  if (file.exists(filename)) {
     if (overwrite) {
       message("overwriting ", filename)
     } else {
@@ -331,15 +327,17 @@ write_input_file_buildGrids <- function(
   write_input <- function(...,
                           append = TRUE) {
     cat(..., "\n",
-        file = filename,
-        sep = "",
-        append = append)
+      file = filename,
+      sep = "",
+      append = append
+    )
   }
 
   write_input("# Input file for BuildGrids\n",
-              "# Creating by surfaceMetrics.R\n",
-              "# On ", as.character(Sys.time()),
-              append = FALSE)
+    "# Creating by surfaceMetrics.R\n",
+    "# On ", as.character(Sys.time()),
+    append = FALSE
+  )
 
   write_input("DEM: ", DEM_path)
   write_input("DEMID: ", DEM_id)

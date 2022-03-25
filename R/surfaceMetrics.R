@@ -1,31 +1,28 @@
 #' Calculate surface metrics
 #' @export
-calculate_surface_metrics <- function(
-  metrics = c("grad", "plan", "prof", "bcon", "dev", "twi"),
-  DEM_path,
-  output_dir = getwd(),
-  length_scale = 15,
-  output_suffix = paste0("_", length_scale),
-  dev_resample = 1,
-  dev_interval = 1,
-  pca_hours = 48,
-  pca_conductivity = 1
-) {
-
-  if (!all(metrics %in% c("grad",
-                           "plan",
-                           "prof",
-                           "bcon",
-                           "dev",
-                           "twi",
-                           "pca")
-           )) {
+calculate_surface_metrics <- function(metrics = c("grad", "plan", "prof", "bcon", "dev", "twi"),
+                                      DEM_path,
+                                      output_dir = getwd(),
+                                      length_scale = 15,
+                                      output_suffix = paste0("_", length_scale),
+                                      dev_resample = 1,
+                                      dev_interval = 1,
+                                      pca_hours = 48,
+                                      pca_conductivity = 1) {
+  if (!all(metrics %in% c(
+    "grad",
+    "plan",
+    "prof",
+    "bcon",
+    "dev",
+    "twi",
+    "pca"
+  ))) {
     stop("Invalid surface metrics specified")
   }
 
   executable_path <- get_executable_path()
 
-  # TODO: Check for executable files in executable_path
   # TODO: add "overwrite" parameter, and if FALSE, don't re-calculate
   # existing grids
 
@@ -86,7 +83,8 @@ calculate_surface_metrics <- function(
   wd <- getwd()
   setwd(output_dir)
   output <- system(command,
-                   wait = TRUE)
+    wait = TRUE
+  )
   setwd(wd)
   if (output != 0) {
     warning("Problem calculating partial contributing area: error ", output)
@@ -112,7 +110,8 @@ calculate_surface_metrics <- function(
     command <- paste(localRelief, localRelief_inputFile_path, sep = " ")
     setwd(output_dir)
     output <- system(command,
-                     wait = TRUE)
+      wait = TRUE
+    )
     setwd(wd)
     if (output != 0) {
       warning("Problem calculating partial contributing area: error ", output)
@@ -125,12 +124,18 @@ calculate_surface_metrics <- function(
     # First make sure all relevant input files are present
     #
     missing_metrics <- c()
-    grad_path <- file.path(output_dir,
-                           paste0("grad", output_suffix, ".flt"))
-    plan_path <- file.path(output_dir,
-                           paste0("plan", output_suffix, ".flt"))
-    bcon_path <- file.path(output_dir,
-                           paste0("bcon", output_suffix, ".flt"))
+    grad_path <- file.path(
+      output_dir,
+      paste0("grad", output_suffix, ".flt")
+    )
+    plan_path <- file.path(
+      output_dir,
+      paste0("plan", output_suffix, ".flt")
+    )
+    bcon_path <- file.path(
+      output_dir,
+      paste0("bcon", output_suffix, ".flt")
+    )
     if (!file.exists(grad_path)) {
       missing_metrics <- c(missing_metrics, "grad")
     }
@@ -163,7 +168,8 @@ calculate_surface_metrics <- function(
       # Need wd to be scratch dir because that is where files are written
       setwd(output_dir)
       output <- system(command,
-                       wait = TRUE)
+        wait = TRUE
+      )
       setwd(wd)
     }
 
@@ -186,7 +192,8 @@ calculate_surface_metrics <- function(
     command <- paste(buildGrids, buildGrids_inputFile_path, sep = " ")
     setwd(output_dir)
     output <- system(command,
-                     wait = TRUE)
+      wait = TRUE
+    )
     setwd(wd)
     if (output != 0) {
       warning("Problem calculating partial contributing area: error ", output)
@@ -203,7 +210,7 @@ calculate_surface_metrics <- function(
       DEM_path = DEM_path,
       length_scale = length_scale,
       duration = pca_hours,
-      conductivity =pca_conductivity,
+      conductivity = pca_conductivity,
       output_dir = ,
       filename = partial_inputFile_path,
       output_file_extension = output_suffix
@@ -213,7 +220,8 @@ calculate_surface_metrics <- function(
     command <- paste(Partial, partial_inputFile_path, sep = " ")
     setwd(output_dir)
     output <- system(command,
-                     wait = TRUE)
+      wait = TRUE
+    )
     setwd(wd)
     if (output != 0) {
       warning("Problem calculating partial contributing area: error ", output)
@@ -222,10 +230,13 @@ calculate_surface_metrics <- function(
 
   # Reformat .flt files as .tif
   for (metric in metrics) {
-    raster <- terra::rast(file.path(output_dir,
-                                    paste0(metric, output_suffix, ".flt")))
-    terra::writeRaster(raster, file.path(output_dir,
-                                         paste0(metric, output_suffix, ".tif")))
+    raster <- terra::rast(file.path(
+      output_dir,
+      paste0(metric, output_suffix, ".flt")
+    ))
+    terra::writeRaster(raster, file.path(
+      output_dir,
+      paste0(metric, output_suffix, ".tif")
+    ))
   }
-
 }

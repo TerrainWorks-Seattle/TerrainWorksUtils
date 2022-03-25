@@ -22,7 +22,6 @@ createTrainingDataFromPolygons <- function(polygons,
                                            regionMargin = 50,
                                            polygonClass = "positive",
                                            nonpolygonClass = "negative") {
-
   trainingPoints <- createTrainingPointsFromPolygons(
     polygons = polygons,
     analysisRegion = analysisRegion,
@@ -111,7 +110,6 @@ createTrainingPointsFromPolygons <- function(polygons,
                                              regionMargin = 50,
                                              polygonClass = "positive",
                                              nonpolygonClass = "negative") {
-
   if (class(polygons) != "SpatVector") stop("polygons must be SpatVector")
 
   # Make sure analysisRegion is polygon
@@ -191,7 +189,7 @@ sampleNegativePoints <- function(positivePoints,
     stop("analysisRegion must be raster!")
   }
   if (terra::crs(positivePoints, proj = TRUE) !=
-      terra::crs(analysisRegion, proj = TRUE)) {
+    terra::crs(analysisRegion, proj = TRUE)) {
     stop("positivePoints and analysisRegion crs does not match!")
   }
 
@@ -199,14 +197,14 @@ sampleNegativePoints <- function(positivePoints,
   positivePoints$class <- "positive"
   # Buffer positive points
   positiveBuffers <- terra::buffer(positivePoints,
-                                   width = bufferRadius * 2
+    width = bufferRadius * 2
   )
 
   # remove remove positive buffers from analysisRegion
   negativeRegion <- terra::deepcopy(analysisRegion)
   positiveCellIndices <- terra::extract(negativeRegion,
-                                        positiveBuffers,
-                                        cells = TRUE
+    positiveBuffers,
+    cells = TRUE
   )$cell
   negativeRegion[positiveCellIndices] <- NA
 

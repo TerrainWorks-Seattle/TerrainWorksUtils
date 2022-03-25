@@ -374,7 +374,6 @@ fixFactorRaster <- function(raster = NULL) {
 convert_hdr <- function(input_hdr,
                         output_hdr = input_hdr,
                         overwrite = TRUE) {
-
   if (file.exists(output_hdr)) {
     if (overwrite) {
       message("overwriting ", output_hdr)
@@ -416,8 +415,9 @@ convert_hdr <- function(input_hdr,
   write_line <- function(key, value, append = TRUE) {
     # key and value with space between
     cat(sprintf("%-15s%s\n", key, value),
-        file = output_hdr,
-        append = append)
+      file = output_hdr,
+      append = append
+    )
   }
   write_line("ncols", ncol, append = FALSE)
   write_line("nrows", nrow)
@@ -427,4 +427,3 @@ convert_hdr <- function(input_hdr,
   write_line("NODATA_value", nodata_value)
   write_line("BYTEORDER", byteorder)
 }
-
