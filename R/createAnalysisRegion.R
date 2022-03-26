@@ -48,7 +48,7 @@ createAnalysisRegionMask <- function(raster,
 #' @param raster A SpatRaster of explanatory variables
 #' @param extractionLocations A SpatVector of points or polyogons to extract range from.
 #' @param expansionFactor Factor to expand the range by. 1 indicates no expansion.
-#' 0.5 will reduce the range by 50%. 2 will double the range.
+#' 0.5 will reduce the range by 50\%. 2 will double the range.
 #'
 #' @return A matrix that holds the min & max initiation limits of each raster
 #' layer

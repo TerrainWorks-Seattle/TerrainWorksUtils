@@ -1,0 +1,67 @@
+---
+title: "DEMutilities"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{DEMutilities}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+```
+
+This package includes some methods from the [DEM utilities toolbox](https://github.com/TerrainWorks-Seattle/ForestedWetlands/tree/master/DEMutilities). You can calculate slope metrics which can be used as model inputs. These methods are currently only supported on Windows. 
+
+Available metrics include: 
+
+ * `"grad"`: Surface gradient. 
+ * `"plan"`: Plan curvature. Curvature along contour line (negative indicates convergent topography, positive indicates divergent topography)
+ * `"prof"`: Profile curvature. A measure of changes in slope along the fall line (direction of maximum slope). Negative values indicate decreasing slope; positive values indicate increasing slope. Saturated return flow, where shallow groundwater tends to exfiltrate onto the surface, tends to occur in areas of negative profile curvature.
+ * `"bcon"`
+ * `"dev"`: Elevation deviation: Local deviation from mean elevation, an indicator of locally high or low topography. Defined as (z-zmean)/sd, where z is elevation at a point (DEM cell), zmean is mean elevation over a circle with diameter equal to the specified length scale, and sd is standard deviation of elevation within that circle.
+ * `"twi"`: Topographic Wetness Index. 
+ * `"pca"`: Partial contributing area. Not currently supported. 
+
+Surface metrics can be calculated over a scale which is greater than the 
+resolution of the DEM, which can add some smoothing to the output. The 
+default is a 15-meter scale. 
+
+Let's say you want to calculate gradient, plan curvature, and profile curvature
+to use as inputs for a landslide susceptibility model. The example DEM 
+which comes with this package is at a 20-meter scale, so we will calculate the 
+metrics over a 40-meter scale. 
+
+Let's create a temporary output directory to put the files. In your workflow, 
+you should save them somewhere that makes sense, like the same directory as 
+the DEM. 
+
+```{r calculate-metrics}
+DEM_path <- system.file("examples/elev_scottsburg.tif", 
+                        package = "TerrainWorksUtils")
+output_dir <- tempdir()
+metrics <- c("plan", "grad", "prof")
+calculate_surface_metrics(metrics = metrics, 
+                          DEM_path = DEM_path, 
+                          output_dir = output_dir, 
+                          length_scale = 40)
+```
+
+This will have written rasters to the output directory for plan curvature, 
+gradient, and profile curvature based on the DEM. They are written both as
+`.flt` files and as `.tif` files. 
+
+```{r list-files}
+list.files(output_dir)
+```
+
+The input file used to run the executable is also saved to the output directory: 
+`input_makeGrids.txt`. You can examine this file to help with debugging. 
+
