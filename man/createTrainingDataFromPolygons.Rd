@@ -28,6 +28,12 @@ if analysisRegion is a raster.}
 
 \item{regionMargin}{width in meters of margin to draw around polygon edges
 which will not be used for sampling.}
+
+\item{polygonClass}{string to use for class attribute for points sampled
+from inside polygons}
+
+\item{nonpolygonClass}{string to use for class attribute for points
+sampled outside polygons}
 }
 \description{
 Given an input dataset and set of polygons indicating

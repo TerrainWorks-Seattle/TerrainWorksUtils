@@ -5,7 +5,7 @@
 \title{Calculate surface metrics}
 \usage{
 calculate_surface_metrics(
-  metrics = c("grad", "plan", "prof", "bcon", "dev", "twi"),
+  metrics = c("grad", "plan"),
   DEM_path,
   output_dir = getwd(),
   length_scale = 15,
@@ -16,6 +16,58 @@ calculate_surface_metrics(
   pca_conductivity = 1
 )
 }
+\arguments{
+\item{metrics}{character vector of metrics to calculate. See details section
+for options and descriptions of each metric.}
+
+\item{DEM_path}{Path to DEM (flt or tif)}
+
+\item{output_dir}{Directory to write output rasters}
+
+\item{length_scale}{Length in meters over which to calculate slope metrics.
+Choose a number greater than the resolution of the raster to smooth output.}
+
+\item{output_suffix}{suffix to tag onto the end of output files. Default
+is "_<length_scale>", so if you choose 15 for length_scale, the gradient
+output raster will be named grad_15.tif}
+
+\item{dev_resample}{Customizations for dev calculation}
+
+\item{dev_interval}{Customizations for dev calculation}
+
+\item{pca_hours}{Customizations for pca calculation (not currently
+supported)}
+
+\item{pca_conductivity}{Customizations for pca calculation (not currently
+supported)}
+}
 \description{
-Calculate surface metrics
+Calculate surface metrics from a DEM. These are the same
+metrics found in the
+\href{https://github.com/TerrainWorks-Seattle/ForestedWetlands}{ForestedWetlands}
+GIS toolbox. They can be calculated
+here independent of ArcGIS. See the DEMutilities vignette for examples.
+ Currently only supported for Windows. If you
+would like support for other operating systems please contact the package
+maintainers or submit an issue on
+\href{https://github.com/TerrainWorks-Seattle/TerrainWorksUtils}{github}.
+}
+\details{
+Currently supported output metrics include:
+\describe{
+  \item{grad}{Gradient: Slope steepness measured along fall-line}
+  \item{plan}{plan curvature: curvature along contour line
+  (negative indicates convergent topography, positive indicates
+  divergent topography)}
+  \item{prof}{profile curvature: A measure of changes in slope along the
+  fall line (direction of maximum slope). Negative values indicate
+  decreasing slope; positive values indicate increasing slope.}
+  \item{bcon}{b-contour}
+  \item{dev}{Local deviation from mean elevation: an indicator of
+  locally high or low topography. Defined as (z-zmean)/sd, where z is
+  elevation at a point (DEM cell), zmean is mean elevation over a
+  circle with diameter equal to the specified length scale, and sd is
+  standard deviation of elevation within that circle.}
+  \item{twi}{Topographic Wetness Index}
+}
 }

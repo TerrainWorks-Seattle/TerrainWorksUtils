@@ -9,7 +9,7 @@ get_executable_path <- function() {
   executable_dir
 }
 
-#' Write input file for MakeGrids.exe
+# Write input file for MakeGrids.exe
 write_input_file_MakeGrids <- function(DEM_path,
                                        length_scale,
                                        output_dir = getwd(),

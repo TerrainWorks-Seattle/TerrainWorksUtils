@@ -109,6 +109,7 @@ test_that("sampleNegativePoints with default params", {
   expect_equal(sum(allPoints$class == "negative"), 20)
   expect_equal(sum(allPoints$class == "positive"), 20)
 
+  # Each buffer should be the same size
   areas <- round(terra::expanse(allPoints))
   expect_true(all(areas == areas[1]))
 })

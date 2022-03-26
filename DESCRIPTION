@@ -7,7 +7,8 @@ Authors@R:
         person("Helen", "Miller", email = "helenthehuman@gmail.com", role = c("aut", "cre")), 
         person("Tate", "Brasel", role = "aut")
      )
-Description: TerrainWorks resources for creating and assessing statistical models for predicting landslide susceptibility
+Description: TerrainWorks resources for creating and assessing statistical 
+models for predicting landslide susceptibility.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

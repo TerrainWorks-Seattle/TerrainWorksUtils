@@ -15,6 +15,10 @@
 #' @param sampleRate Samples per km^2
 #' @param regionMargin width in meters of margin to draw around polygon edges
 #' which will not be used for sampling.
+#' @param polygonClass string to use for class attribute for points sampled
+#' from inside polygons
+#' @param nonpolygonClass string to use for class attribute for points
+#' sampled outside polygons
 createTrainingDataFromPolygons <- function(polygons,
                                            predictorsRaster,
                                            analysisRegion,
@@ -222,9 +226,11 @@ sampleNegativePoints <- function(positivePoints,
   negativePoints$class <- "negative"
 
   if (buffer) {
-    return(rbind(positiveBuffers, negativePoints))
+    return(rbind(terra::buffer(positivePoints, width = bufferRadius),
+                 negativePoints))
   } else {
-    return(rbind(positivePoints, negativePoints))
+    return(rbind(positivePoints,
+                 negativePoints))
   }
 }
 

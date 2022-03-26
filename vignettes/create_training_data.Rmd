@@ -38,7 +38,7 @@ TerrainWorksUtils uses the package `terra` for working with spatial data.
 ```{r}
 library(terra)
 
-data_path <- system.file("data", package = "TerrainWorksUtils")
+data_path <- system.file("examples", package = "TerrainWorksUtils")
 elev <- rast(file.path(data_path, "elev_scottsburg.tif"))
 grad <- rast(file.path(data_path, "grad_15.tif"))
 plan <- rast(file.path(data_path, "plan_15.tif"))
