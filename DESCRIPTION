@@ -1,7 +1,7 @@
 Package: TerrainWorksUtils
 Type: Package
 Title: General utility functions for TerrainWorks
-Version: 0.1.2
+Version: 0.1.3
 Authors@R: 
     c(
         person("Helen", "Miller", email = "helenthehuman@gmail.com", role = c("aut", "cre")), 
