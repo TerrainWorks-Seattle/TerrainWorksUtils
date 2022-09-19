@@ -27,6 +27,11 @@
 #' * [get_args()] extracts the arguments from an input line.
 #' * [parse_arg()] extracts the parameter and value from a single argument.
 #'
+#' @import tibble
+#' @import stringr
+
+#' @export
+#'
 get_input_file <- function(infile = "nofile") {
   if (str_detect(infile, "nofile")) {
     input_file <- tibble(readLines(file.choose()))
@@ -53,6 +58,8 @@ get_input_file <- function(infile = "nofile") {
 #' * keyword <- get_keyword(infile,3) gets the keyword from
 #'   line 3 of the selected file.
 #'
+#' @export
+#'
 get_keyword <- function(infile, line_num) {
   loc <- str_locate(infile[line_num,], ":")
   keyword <- str_sub(infile[line_num,], start = 1, end = loc[1,1] - 1)
@@ -65,6 +72,8 @@ get_keyword <- function(infile, line_num) {
 #' @param line_num; the line of the input file.
 #'
 #' @return arguments; a character vector of arguments
+#'
+#' @export
 #'
 get_args <- function(infile, line_num) {
   loc <- str_locate(infile[line_num,], ":")
@@ -83,6 +92,8 @@ get_args <- function(infile, line_num) {
 #'   If no equal sign is present in the argument, the parameter element
 #'   is empty and the argument value is contained in the value element.
 #'
+#' @export
+#'
 parse_arg <- function(arguments, i = 1) {
   arg_list <- str_split(arguments, ",")
   this_arg <- arg_list[[1]][[i]]
@@ -97,4 +108,40 @@ parse_arg <- function(arguments, i = 1) {
     out_arg[["Value"]] <- this_arg
   }
   return(out_arg)
+}
+#-----------------------------------------------
+#' Get a list of DEM raster files listed in an ASCII input file.
+#'
+#' @param infile, a tibble created by get_input_file.
+#'
+#' @return A list of character strings, each string gives a DEM file name
+#'
+#' @export
+#'
+get_dem <- function(infile) {
+  # count instances of DEM keyword in input
+  if (nrow(infile) == 0) stop("Input file is empty")
+
+  n <- 0
+  for (i in 1:nrow(infile)) {
+    keyword <- get_keyword(infile, i)
+    if (is.na(keyword))
+      next
+    if (str_detect(keyword, "DEM") == TRUE) n <- n + 1
+  }
+
+  dem <- vector("list", n)
+  n <- 0
+  for (i in 1:nrow(infile)) {
+    keyword <- get_keyword(infile, i)
+    if (is.na(keyword))
+      next
+    if (str_detect(keyword, "DEM") == TRUE) {
+      argument <- get_args(infile, i)
+      param_value <- parse_arg(argument)
+      n <- n + 1
+      dem[[n]] <- param_value[[2]]
+    }
+  }
+  return(dem)
 }
