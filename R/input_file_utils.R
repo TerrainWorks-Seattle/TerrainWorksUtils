@@ -155,3 +155,90 @@ get_dem <- function(infile) {
   }
   return(dem)
 }
+#--------------------------------------------------
+convert_to_flt <- function(in_raster) {
+  if (!grepl("\\.flt$", in_raster)) {
+    # Strip file extension, if it has one
+    in_raster_base <- gsub("\\.\\w+$", "", in_raster)
+  }
+
+  if (!file.exists(paste0(in_raster, ".flt"))) {
+    # Create raster object from in_raster
+    out_raster <- terra::rast(in_raster)
+
+    # Create .flt filename
+    out_name <- paste0(in_raster_base, ".flt")
+
+    # Save .flt file
+    terra::writeRaster(out_raster, out_name)
+
+    # Convert GDAL BIL flt header file to binary floating point header.
+    convert_hdr(paste0(out_name, ".hdr"))
+  }
+}
+#--------------------------------------------------
+makegrids_input <- function(dem,
+                            length_scale,
+                            scratch_dir,
+                            rasters,
+                            overwrite = TRUE) {
+
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+  if (!is.numeric(length_scale)) {
+    stop("length_scale must be numeric")
+  }
+
+  # Normalize paths
+  dem <- normalizePath(dem)
+  scratch_dir <- normalizePath(scratch_dir)
+
+  out_file <- paste0(scratch_dir, "\\makegrids_input.txt")
+  if (file.exists(out_file)) {
+    if (overwrite) {
+      message("overwriting ", out_file)
+    } else {
+      stop(out_file, " exists. Set overwrite = TRUE to overwrite.")
+    }
+  }
+
+  # Do not include ".flt" in dem file name
+  if (str_detect(dem, ".flt$") == TRUE) {
+    n <- str_length(dem)
+    dem <- str_sub(dem, 1, n[[1]]-4)
+  }
+
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+
+  write_input("# Input file for makeGrids\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+
+  write_input("DEM: ", dem)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+  write_input("LENGTH SCALE: ", length_scale)
+
+  for (i in 1:length(rasters)) {
+    loc <- str_locate(rasters[[i]], ",")
+    grid_type <- str_sub(rasters[[i]], 1, loc[1,1] - 1)
+    grid_file <- str_sub(rasters[[i]], loc[1,1] + 1, -1)
+    if (str_detect(grid_file, "OUTPUT FILE") == FALSE) {
+      grid_file <- paste0("OUTPUT FILE = ", grid_file)
+    }
+    if (str_detect(grid_file, ".flt")) {
+      grid_file <- paste0(grid_file, ".flt")
+    }
+    write_input(paste0("GRID: ", grid_type, ", ", grid_file))
+  }
+}
+
