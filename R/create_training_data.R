@@ -519,21 +519,24 @@ extract_values <- function(raster,
 #' @export
 #'
 #' @examples
-make_neg_region <- function(initiation_points,
+make_neg_region <- function(positive_points,
                             predictors_raster,
                             inner_buffer,
                             outer_buffer,
                             return_raster = TRUE) {
 
-  pos_region <- terra::buffer(initiation_points,
+  # create a positive region around the positive points
+  pos_region <- terra::buffer(positive_points,
                               width = inner_buffer * 2)
   pos_region <- terra::aggregate(pos_region)
 
-  neg_buffer <- terra::buffer(initiation_points,
+  # create a negative region
+  neg_buffer <- terra::buffer(positive_points,
                               width = outer_buffer * 2)
   neg_buffer <- terra::aggregate(neg_buffer)
   neg_region <- terra::symdif(neg_buffer, pos_region)
 
+  # return the correct type
   if (isFALSE(return_raster)) {
     return(neg_region)
   } else {
