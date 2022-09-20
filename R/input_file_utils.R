@@ -7,7 +7,7 @@
 #' Arguments use a "parameter = value" format, with each argument separated
 #' by a comma. For example, here is the keyword: argument input line for
 #' specifying reach length in a synthetic channel network:
-#' REACH LENGTH: FIXED=100., BREAK AT JUNCTIONS
+#' REACH LENGTH: FIXED=100., BREAK AT JUNCTIONS.
 #' Here, "REACH LENGTH" is the keyword, there are two arguments, one of which
 #' requires a value.
 #'
@@ -61,8 +61,14 @@ get_input_file <- function(infile = "nofile") {
 #' @export
 #'
 get_keyword <- function(infile, line_num) {
+  loc_comment <- str_locate(infile[line_num,], "#")
   loc <- str_locate(infile[line_num,], ":")
-  keyword <- str_sub(infile[line_num,], start = 1, end = loc[1,1] - 1)
+  if (is.na(loc_comment[1,1]) == TRUE) {
+    keyword <- str_sub(infile[line_num,], start = 1, end = loc[1,1] - 1)
+  } else {
+    keyword <- NA
+  }
+
   return(keyword)
 }
 #-----------------------------------------------------
@@ -125,17 +131,21 @@ get_dem <- function(infile) {
   n <- 0
   for (i in 1:nrow(infile)) {
     keyword <- get_keyword(infile, i)
-    if (is.na(keyword))
+    if (is.na(keyword)) {
       next
-    if (str_detect(keyword, "DEM") == TRUE) n <- n + 1
+    }
+    if (str_detect(keyword, "DEM") == TRUE) {
+      n <- n + 1
+    }
   }
 
   dem <- vector("list", n)
   n <- 0
   for (i in 1:nrow(infile)) {
     keyword <- get_keyword(infile, i)
-    if (is.na(keyword))
+    if (is.na(keyword)) {
       next
+    }
     if (str_detect(keyword, "DEM") == TRUE) {
       argument <- get_args(infile, i)
       param_value <- parse_arg(argument)
