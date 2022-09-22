@@ -52,16 +52,20 @@ elev_deriv <- function(input_file = "nofile",
                        dem = "none",
                        scratch_dir = "none") {
 
-# if input rasters, check for file extension.
-# rast fails without extension.
   if (length(rasters) > 0) {
 
     # create a list of the file names specified in rasters
     file_list <- list()
+    type_list <- list()
     for (i in 1:length(rasters)) {
       loc <- str_locate(rasters[[i]], ",")
-      file_name <- str_sub(rasters[[i]], start = loc[1,1] + 1, end = -1)
+      type_name <- str_sub(rasters[[i]], 1, loc[1,1] - 1)
+      file_name <- str_sub(rasters[[i]], loc[1,1] + 1, -1)
+      if (str_detect(file_name, ".flt") == FALSE) { # currently, makegrids
+        file_name <- paste0(file_name, ".flt")      # only reads .flt
+      }
       file_list <- c(file_list, file_name)
+      type_list <- c(type_list, type_name)
     }
 
     if (length_scale == 0.) {
@@ -128,6 +132,86 @@ elev_deriv <- function(input_file = "nofile",
     out_grid <- c(out_grid, rast(file_list[[i]]))
     }
   }
+  names(out_grid) <- type_list # name each layer with the derivative type
 
   return(out_grid)
+}
+#---------------------------------------------------------
+contributing_area <- function(input_file = "nofile",
+                              raster = "nofile",
+                              dem = 'none',
+                              k = 0.,
+                              d = 0.,
+                              scratch_dir = "none") {
+
+  if (!str_detect(raster, "nofile")) { # there is a raster file specified
+
+    if (str_detect(input_file, "nofile")) { # need to run Partial
+      err <- 0
+      if (str_detect(dem, "none")) {
+        message("DEM file not specified")
+        err <- -1
+      } else {
+        if (!str_detect(dem, ".flt")) {
+          dem <- paste0(dem, ".flt")
+        }
+        if (!file.exists(dem)) {
+          message("Cannot find the DEM file")
+          err <- -1
+        }
+      }
+
+      if (k <= 0.) {
+        message("Saturated hydraulic conductivity not specified")
+        err <- -1
+      }
+      if (d <= 0.) {
+        message("Storm duration not spcecified")
+        err <- -1
+      }
+      if (str_detect(scratch_dir, "none")) {
+        message("Scratch directory not specified")
+        err <- -1
+      }
+      if (str_detect(out_file, "nofile")) {
+        message("No output raster file specified")
+        err <- -1
+      }
+      if (err == -1) {
+        stop("Inconsistent arguments")
+      }
+
+      accum_input(dem,
+                  k,
+                  d,
+                  length_scale,
+                  scratch_dir,
+                  input_file)
+
+      run_partial <- TRUE
+
+    } else {
+      out_file
+      # Get the location of the Fortran compiled code for makegrids.exe
+      executable_path <- get_executable_path()
+
+      partial <- file.path(executable_path, "Partial.exe")
+      command <- paste(partial, input_file, sep = " ")
+      output <- system(command, wait = TRUE)
+      if (output != 0) {
+        stop("Problem calculating contributing area: error ", output)
+      }  }
+    # Create a spatraster with one layer for each output grid
+    out_grid <- rast(file_list[[1]])
+    if (length(file_list) > 1) {
+      for (i in 2:length(file_list)) {
+        out_grid <- c(out_grid, rast(file_list[[i]]))
+      }
+    }
+    names(out_grid) <- type_list # name each layer with the derivative type
+
+    return(out_grid)
+  }
+
+  }
 }
