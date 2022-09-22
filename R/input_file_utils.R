@@ -177,6 +177,25 @@ convert_to_flt <- function(in_raster) {
   }
 }
 #--------------------------------------------------
+#' Create an input file for Fortran program makegrids
+#'
+#' MakeGrids is called by functions in surface_metrics.
+#' MakeGrids reads an ASCII input file with a "Keyword: arguments" format.
+#'
+#' @param dem: File name (full path) to input DEM.
+#' @param length_scale: Diameter in meters over which to measure attributes.
+#' @param scratch_dir: Directory for storing temporary files. The input
+#'   file is written to the scratch_dir.
+#' @param rasters: A character vector. Each element contains two strings
+#'   separated by a comma. The first specifies the type of attribute,
+#'   the second specifies the file name (full path) for the output floating
+#'   point binary (.flt) raster.
+#' @param overwrite: If TRUE, allows overwriting of an existing input file.
+#'
+#' @return There is no return object, but an explicit side effect is
+#'   writing to disk of the makegrids input file.
+#' @export
+#'
 makegrids_input <- function(dem,
                             length_scale,
                             scratch_dir,
@@ -241,4 +260,78 @@ makegrids_input <- function(dem,
     write_input(paste0("GRID: ", grid_type, ", ", grid_file))
   }
 }
+#---------------------------------------------------------
+#' Create an input file for Fortran program Partial.
+#'
+#' Program Partial builds a raster giving the contributing area to each
+#' DEM cell for a storm of specified duration. Inputs to Partial are read
+#' from an ASCII input file using "Keyword: arguments" format.
+#'
+#' @param dem The file name (full path) for the input DEM.
+#' @param k Saturated hydraulic conductivity, in meters per hour.
+#' @param d Storm duration in hours.
+#' @param length_scale Diameter for smoothing the DEM.
+#' @param scratch_dir Directory for temporary files. The input file is written
+#'   to the scratch_dir.
+#' @param out_file File name (full path) for the output binary floating point
+#'   (.flt) raster.
+#'
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk of the partial input file.
+#' @export
+#'
+accum_input <- function(dem,
+                        k,
+                        d,
+                        length_scale,
+                        scratch_dir,
+                        out_file) {
 
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+  if (!is.numeric(length_scale)) {
+    stop("length_scale must be numeric")
+  }
+
+  # Normalize paths
+  dem <- normalizePath(dem)
+  scratch_dir <- normalizePath(scratch_dir)
+
+  out_file <- paste0(scratch_dir, "\\partial_input.txt")
+  if (file.exists(out_file)) {
+    if (overwrite) {
+      message("overwriting ", out_file)
+    } else {
+      stop(out_file, " exists. Set overwrite = TRUE to overwrite.")
+    }
+  }
+
+  # Do not include ".flt" in dem file name
+  if (str_detect(dem, ".flt$") == TRUE) {
+    n <- str_length(dem)
+    dem <- str_sub(dem, 1, n[[1]]-4)
+  }
+
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+
+  write_input("# Input file for makeGrids\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+
+  write_input("DEM: ", dem)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+  write_input("LENGTH SCALE: ", length_scale)
+  write_input("DURATION: ", d)
+  write_input("CONDUCTIVITY: ", k)
+  write_input("OUTPUT RASTER: ", out_file)
+}
