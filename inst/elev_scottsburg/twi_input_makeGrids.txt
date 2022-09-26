@@ -1,0 +1,9 @@
+# Input file for makeGrids
+# Creating by surfaceMetrics.R
+# On 2022-09-23 11:03:04
+DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
+SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg
+LENGTH SCALE: 15
+GRID: GRADIENT, OUTPUT FILE = grad_15
+GRID: PLAN CURVATURE, OUTPUT FILE = plan_15
+GRID: BCONTOUR, OUTPUT FILE = bcon_15
