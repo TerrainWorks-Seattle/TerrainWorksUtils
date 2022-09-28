@@ -55,6 +55,9 @@ vars_raster <- c(
 )
 
 initiation_points <- terra::vect(file.path(data_path,"initiation_points.shp"))
+```
+
+```{r}
 plot(elev)
 points(initiation_points)
 ```

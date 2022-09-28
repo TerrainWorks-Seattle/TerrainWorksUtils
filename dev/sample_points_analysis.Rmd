@@ -8,23 +8,22 @@ First, we need to make sure our data is loaded.
 ```{r}
 library(terra)
 
-data_path <- system.file("examples", package = "TerrainWorksUtils")
-elev <- rast(file.path(data_path, "elev_scottsburg.tif"))
-grad <- rast(file.path(data_path, "grad_15.tif"))
-plan <- rast(file.path(data_path, "plan_15.tif"))
-prof <- rast(file.path(data_path, "prof_15.tif"))
-dev <- rast(file.path(data_path, "dev_15.tif"))
-pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
+data_path <- system.file("elev_scottsburg", package = "TerrainWorksUtils")
+elev <- rast(file.path(data_path, "elev_scottsburg.flt"))
+grad <- rast(file.path(data_path, "grad_40.tif"))
+plan <- rast(file.path(data_path, "plan_40.tif"))
+prof <- rast(file.path(data_path, "prof_40.tif"))
+dev <- rast(file.path(data_path, "dev_40.tif"))
+#pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
 
 vars_raster <- c(
   grad,
   plan,
   prof,
-  dev,
-  pca
+  dev
 )
 
-initiation_points <- terra::vect(file.path(data_path,"initiation_points.shp"))
+initiation_points <- terra::vect(file.path(system.file("examples", package = "TerrainWorksUtils"),"initiation_points.shp"))
 ```
 
 Next, we need to establish our negative regions and sample negative points. 
@@ -34,15 +33,17 @@ Next, we need to establish our negative regions and sample negative points.
 training_data <- create_training_data_with_buffer(initiation_points, 
                                                   vars_raster, 
                                                   pos_buffer = 15, 
-                                                  neg_buffer = 50)
+                                                  neg_buffer = 150)
 ```
 
 And generate histograms for the distributions between different points. 
 
 ```{r}
 
+
 sample_point_plots(training_data, 
-                   c("dev_15", "grad_15", "plan_15", "prof_15"))
+                   c("dev_40", "grad_40", "plan_40", "prof_40"),
+                   plot_type = "density")
 ```
 
 We also want to look at the distributions from the entire positive and negative 
@@ -58,7 +59,7 @@ pos_region <- terra::aggregate(pos_region)
 neg_region <- make_neg_region(initiation_points,
                               vars_raster,
                               15,
-                              50,
+                              150,
                               return_raster = FALSE)
 
 pos_region_data <- extract_values(vars_raster, 
@@ -77,6 +78,7 @@ And now graph these.
 
 ```{r}
 sample_point_plots(rbind(pos_region_data, neg_region_data), 
-                   c("dev_15", "grad_15", "plan_15", "prof_15"))
+                   c("dev_40", "grad_40", "plan_40", "prof_40"), 
+                   plot_type = "density")
 ```
 

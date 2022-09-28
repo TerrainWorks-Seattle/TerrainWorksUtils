@@ -19,7 +19,8 @@
 #' TODO: edit to work with training data as points in addition to data frame.
 #' TODO: edit y-axis to not cut anything off.
 sample_point_plots <- function(training_data,
-                               parameters) {
+                               parameters,
+                               plot_type = "hist") {
 
   # separate out the positive and negative data
   positive_data <- training_data[which(training_data$class == "positive"), ]
@@ -31,25 +32,36 @@ sample_point_plots <- function(training_data,
   c1 <- rgb(0, 0, 0, max = 255, alpha = 80)
   c2 <- rgb(227, 60, 57, max = 255, alpha = 80)
 
-  for (p in parameters) {
-    # use consistent buckets for the histograms
-    buckets = seq(min(training_data[, p], na.rm = TRUE),
-                  max(training_data[, p], na.rm = TRUE),
-                  length.out = 20)
+  if (plot_type == "hist") {
+    for (p in parameters) {
+      # use consistent buckets for the histograms
+      buckets = seq(min(training_data[, p], na.rm = TRUE),
+                    max(training_data[, p], na.rm = TRUE),
+                    length.out = 20)
 
-    h_pos <- hist(positive_data[, p], breaks = buckets, plot = FALSE)
-    h_neg <- hist(negative_data[, p], breaks = buckets, plot = FALSE)
-    plot(h_neg, xlab = p,
-         main = paste0("Distribution of ", p),
-         col = c2)
-    plot(h_pos, col = c1,
-         add = TRUE)
+      if (plot_type == "hist") {
+        h_pos <- hist(positive_data[, p], breaks = buckets, plot = FALSE)
+        h_neg <- hist(negative_data[, p], breaks = buckets, plot = FALSE)
+        plot(h_neg, xlab = p,
+             main = paste0("Distribution of ", p),
+             col = c2)
+        plot(h_pos, col = c1,
+             add = TRUE)
+      }
+    }
+    } else {
+      for (p in parameters) {
+        d_pos <- density(positive_data[, p], n = 1024)
+        d_neg <- density(negative_data[, p], n = 1024)
+        plot(d_pos,
+             main = paste0("Distribution of ", p),
+             xlab = p,
+             col = c1)
+        polygon(d_pos, col = c1)
+        polygon(d_neg, col = c2)
+      }
+
+
   }
-
-}
-
-sample_space_plots <- function(positive_region,
-                               negative_region) {
-
 
 }
