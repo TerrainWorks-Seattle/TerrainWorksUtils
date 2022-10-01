@@ -267,14 +267,14 @@ makegrids_input <- function(dem,
 #' DEM cell for a storm of specified duration. Inputs to Partial are read
 #' from an ASCII input file using "Keyword: arguments" format.
 #'
-#' @param dem The file name (full path) for the input DEM.
-#' @param k Saturated hydraulic conductivity, in meters per hour.
-#' @param d Storm duration in hours.
-#' @param length_scale Diameter for smoothing the DEM.
-#' @param scratch_dir Directory for temporary files. The input file is written
-#'   to the scratch_dir.
-#' @param out_file File name (full path) for the output binary floating point
-#'   (.flt) raster.
+#' @param dem Character string: The file name (full path) for the input DEM.
+#' @param k Numeric (dbl): Saturated hydraulic conductivity, in meters per hour.
+#' @param d Numeric (dbl): Storm duration in hours.
+#' @param length_scale Numeric (dbl): Diameter for smoothing the DEM.
+#' @param scratch_dir Character string: Directory for temporary files.
+#'   The input file is written to the scratch_dir.
+#' @param out_raster Character string: File name (full path) for the output
+#'   binary floating point (.flt) raster.
 #'
 #' @return There is no explicit return object, but an explicit side effect
 #'   is writing to disk of the partial input file.
@@ -285,7 +285,7 @@ accum_input <- function(dem,
                         d,
                         length_scale,
                         scratch_dir,
-                        out_file) {
+                        out_raster) {
 
   if (!dir.exists(scratch_dir)) {
     stop("invalid scratch folder: ", scratch_dir)
@@ -297,15 +297,9 @@ accum_input <- function(dem,
   # Normalize paths
   dem <- normalizePath(dem)
   scratch_dir <- normalizePath(scratch_dir)
+  out_raster <- normalizePath(out_raster)
 
   out_file <- paste0(scratch_dir, "\\partial_input.txt")
-  if (file.exists(out_file)) {
-    if (overwrite) {
-      message("overwriting ", out_file)
-    } else {
-      stop(out_file, " exists. Set overwrite = TRUE to overwrite.")
-    }
-  }
 
   # Do not include ".flt" in dem file name
   if (str_detect(dem, ".flt$") == TRUE) {
@@ -333,5 +327,5 @@ accum_input <- function(dem,
   write_input("LENGTH SCALE: ", length_scale)
   write_input("DURATION: ", d)
   write_input("CONDUCTIVITY: ", k)
-  write_input("OUTPUT RASTER: ", out_file)
+  write_input("OUTPUT RASTER: ", out_raster)
 }
