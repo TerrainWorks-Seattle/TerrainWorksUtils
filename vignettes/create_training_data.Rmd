@@ -38,20 +38,20 @@ TerrainWorksUtils uses the package `terra` for working with spatial data.
 ```{r}
 library(terra)
 
-data_path <- system.file("examples", package = "TerrainWorksUtils")
-elev <- rast(file.path(data_path, "elev_scottsburg.tif"))
+data_path <- system.file("elev_scottsburg", package = "TerrainWorksUtils")
+elev <- rast(file.path(data_path, "elev_scottsburg.flt"))
 grad <- rast(file.path(data_path, "grad_15.tif"))
 plan <- rast(file.path(data_path, "plan_15.tif"))
 prof <- rast(file.path(data_path, "prof_15.tif"))
 dev <- rast(file.path(data_path, "dev_15.tif"))
-pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
+#pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
 
 vars_raster <- c(
   grad,
   plan,
   prof,
-  dev,
-  pca
+  dev
+  #pca
 )
 
 initiation_points <- terra::vect(file.path(data_path,"initiation_points.shp"))

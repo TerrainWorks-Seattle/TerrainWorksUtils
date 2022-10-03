@@ -18,9 +18,13 @@
 #'
 #' TODO: edit to work with training data as points in addition to data frame.
 #' TODO: edit y-axis to not cut anything off.
-sample_point_plots <- function(training_data,
-                               parameters,
-                               plot_type = "hist") {
+plot_metric_distribution <- function(training_data,
+                                     parameters,
+                                     plot_type = "hist") {
+
+  if (!(plot_type %in% c("hist", "den"))) {
+    stop("Plot type must be either \"hist\" (histogram) or \"den\" (density)")
+  }
 
   # separate out the positive and negative data
   positive_data <- training_data[which(training_data$class == "positive"), ]
@@ -60,8 +64,7 @@ sample_point_plots <- function(training_data,
         polygon(d_pos, col = c1)
         polygon(d_neg, col = c2)
       }
-
-
   }
-
 }
+
+

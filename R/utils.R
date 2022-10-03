@@ -244,7 +244,7 @@ extractRasterValues <- function(raster = NULL,
 #' @param sampleRate Number of points per kilometer to sample
 #'
 #' @return SpatVector of sampled points
-sampleFromPolygons <- function(polygons,
+sample_from_polygons <- function(polygons,
                                sampleRate) {
 
   # Collect sample coordinates

@@ -1,9 +1,9 @@
 # Input file for LocalRelief
 # Creating by surfaceMetrics.R
-# On 2022-09-26 21:35:37
+# On 2022-09-28 13:58:59
 DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
 SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg
-RADIUS: 20
+RADIUS: 7.5
 DOWN SAMPLE: 1
 SAMPLE INTERVAL: 1
-OUTPUT DEV RASTER: dev_40
+OUTPUT DEV RASTER: dev_15

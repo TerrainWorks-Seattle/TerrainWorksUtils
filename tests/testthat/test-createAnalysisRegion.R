@@ -1,11 +1,11 @@
 test_that("extractRange expansion expands correctly", {
-  points <- samplePoints(50, analysisRegion)
-  values <- terra::extract(analysisRegion, points)$elevation
+  points <- sample_points(50, analysis_region)
+  values <- terra::extract(analysis_region, points)$elevation
   max <- max(values, na.rm = TRUE)
   min <- min(values, na.rm = TRUE)
 
   range <- extractRange(
-    raster = analysisRegion,
+    raster = analysis_region,
     extractionLocations = points,
     expansionFactor = 1
   )
@@ -15,7 +15,7 @@ test_that("extractRange expansion expands correctly", {
   expect_equal(max, range[, "max"])
 
   range <- extractRange(
-    raster = analysisRegion,
+    raster = analysis_region,
     extractionLocations = points,
     expansionFactor = 0
   )
@@ -25,7 +25,7 @@ test_that("extractRange expansion expands correctly", {
   expect_equal(range[, "min"], mean(c(min, max)))
 
   range <- extractRange(
-    raster = analysisRegion,
+    raster = analysis_region,
     extractionLocations = points,
     expansionFactor = 1.5
   )
@@ -35,7 +35,7 @@ test_that("extractRange expansion expands correctly", {
 })
 
 test_that("maskByRange", {
-  points <- samplePoints(20, analysisRegionMask)
+  points <- sample_points(20, analysis_region_mask)
   rangeMx <- extractRange(
     varsRaster,
     points
@@ -56,7 +56,7 @@ test_that("maskByRange", {
 
 
 test_that("maskByRange for subset of variables", {
-  points <- samplePoints(20, analysisRegionMask)
+  points <- sample_points(20, analysis_region_mask)
   rangeMx <- extractRange(
     terra::subset(varsRaster, c("elevation", "inverse")),
     points

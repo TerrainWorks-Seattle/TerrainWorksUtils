@@ -110,6 +110,10 @@ create_training_data_from_points <- function(positive_points,
 #' considered positive
 #' @param neg_buffer The radius around a positive point that should be
 #' considered negative
+#' @param analysis_region_mask SpatRaster with non-NA values everywhere that
+#' points can be sampled from. All locations that should be excluded from
+#' sampling should be NA. If NULL, all cells which are non-NA for all layers
+#' of the predictors_raster will be used.
 #' @param negative_proportion Proportion of negative points to be generated
 #' compared to number of positive points
 #' @param extraction_method Method to use for extracting values from each point:
@@ -127,6 +131,7 @@ create_training_data_with_buffer <- function(positive_points,
                                              predictors_raster,
                                              pos_buffer = 15,
                                              neg_buffer = 50,
+                                             analysis_region_mask = NULL,
                                              negative_proportion = 1,
                                              extraction_method = "centroid",
                                              extraction_layer = NULL) {
@@ -137,9 +142,16 @@ create_training_data_with_buffer <- function(positive_points,
                                 neg_buffer,
                                 return_raster = TRUE)
 
+  if (!is.null(analysis_region_mask) &
+      class(analysis_region_mask) == "SpatRaster") {
+    region_mask <- mask(neg_region, analysis_region_mask)
+  } else {
+    region_mask <- neg_region
+  }
+
   create_training_data_from_points(positive_points,
                                    predictors_raster,
-                                   neg_region,
+                                   analysis_region_mask = region_mask,
                                    buffer_radius = 1,
                                    negative_proportion = 1,
                                    extraction_method = "centroid",

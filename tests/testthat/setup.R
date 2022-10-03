@@ -3,27 +3,27 @@ library(testthat)
 
 
 
-analysisRegion <- terra::rast(system.file("ex/elev.tif", package = "terra"))
-analysisRegionMask <- terra::deepcopy(analysisRegion)
-terra::values(analysisRegionMask) <- ifelse(terra::values(analysisRegionMask) < 500,
+analysis_region <- terra::rast(system.file("ex/elev.tif", package = "terra"))
+analysis_region_mask <- terra::deepcopy(analysis_region)
+terra::values(analysis_region_mask) <- ifelse(terra::values(analysis_region_mask) < 300,
   NA,
-  terra::values(analysisRegionMask)
+  terra::values(analysis_region_mask)
 )
 
-testPolygons <- terra::vect(system.file("ex/lux.shp", package = "terra"))
-analysisRegionPolygon <- terra::convHull(testPolygons)
+test_polygons <- terra::vect(system.file("ex/lux.shp", package = "terra"))
+analysis_region_polygon <- terra::convHull(test_polygons)
 
 
-elevRaster <- analysisRegion
-randRaster <- terra::deepcopy(analysisRegion)
-terra::values(randRaster) <- rnorm(length(terra::values(randRaster)))
+elev_raster <- analysis_region
+rand_raster <- terra::deepcopy(analysis_region)
+terra::values(rand_raster) <- rnorm(length(terra::values(rand_raster)))
 
-inverseElevRaster <- terra::deepcopy(analysisRegion)
-terra::values(inverseElevRaster) <- max(terra::values(elevRaster), na.rm = TRUE) - terra::values(elevRaster)
+inverseelev_raster <- terra::deepcopy(analysis_region)
+terra::values(inverseelev_raster) <- max(terra::values(elev_raster), na.rm = TRUE) - terra::values(elev_raster)
 
-varsRaster <- c(
-  elevRaster,
-  randRaster,
-  inverseElevRaster
+vars_raster <- c(
+  elev_raster,
+  rand_raster,
+  inverseelev_raster
 )
-names(varsRaster) <- c("elevation", "random", "inverse")
+names(vars_raster) <- c("elevation", "random", "inverse")

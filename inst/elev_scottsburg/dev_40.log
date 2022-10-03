@@ -1,14 +1,14 @@
   LocalRelief log file
     Version 1.0.5
     Compiled July 23, 2021
-    Started September 26, 2022 at 9:35 PM
+    Started September 28, 2022 at 10:23 AM
   ==============================================================
   Input file: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\input_localRelief.txt
     copied below
   --------------------------------------------------------------
   # Input file for LocalRelief
   # Creating by surfaceMetrics.R
-  # On 2022-09-26 21:35:37
+  # On 2022-09-28 10:23:28
   DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
   SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg
   RADIUS: 20
@@ -30,5 +30,5 @@
   Building mask
   Calculating local relief
   Created DEV flt raster dev_40
-  CPU seconds: 11.00000
+  CPU seconds: 11.89062
   Created log file .log

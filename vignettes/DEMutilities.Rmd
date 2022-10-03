@@ -51,7 +51,7 @@ metrics <- c("plan", "grad", "prof", "dev")
 calculate_surface_metrics(metrics = metrics, 
                           DEM_path = DEM_path, 
                           output_dir = output_dir, 
-                          length_scale = 40)
+                          length_scale = 15)
 ```
 
 This will have written rasters to the output directory for plan curvature, 

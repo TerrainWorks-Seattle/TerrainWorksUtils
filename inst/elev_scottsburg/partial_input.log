@@ -1,0 +1,35 @@
+  partialAccum log file
+    Version 1.0.1
+    Compiled September 22, 2022
+    Started September 30, 2022 at 12:41 PM
+  ==============================================================
+  Input file: \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/elev_scottsburg\partial_input.txt
+    copied below
+  --------------------------------------------------------------
+  # Input file for makeGrids
+  # Creating by input_file_utils.R
+  # On 2022-09-30 12:31:22
+  DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
+  SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg
+  LENGTH SCALE: 5
+  DURATION: 5
+  CONDUCTIVITY: 1
+  OUTPUT RASTER: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\partial_input.txt
+  ====================End Input File==========================
+ 
+  Program runtime output follows
+ 
+  Scratch directory: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\
+ 
+  DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
+    Ncols = 3013
+    Nrows = 3267
+    Cellsize = 2.00000000000000
+    Length scale = 5.00000000000000
+ 
+  Storm duration (hrs) = 5.000000
+  Saturated hydraulic conductivity (m/hr) = 1.000000
+ 
+  Creating gradient and aspect grids
+  Accumulating
+  CPU seconds: 6.406250
