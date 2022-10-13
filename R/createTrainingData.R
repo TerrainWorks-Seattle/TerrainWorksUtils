@@ -96,7 +96,6 @@ createTrainingDataFromPoints <- function(positivePoints,
 #' @export
 #' @title Sample training points from a set of polygons
 #'
-#'
 #' @param polygons SpatVector of polygons indicating all locations belonging
 #' to the class you wish to predict
 #' @param analysisRegion polygon or raster indicating the extent from which
