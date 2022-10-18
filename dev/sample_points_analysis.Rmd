@@ -1,0 +1,84 @@
+# Taking a look at covariate values across negative and positive points
+
+We want the negative sampled points to represent the positive points well and
+have similar distributions across all the covariates. 
+
+First, we need to make sure our data is loaded.  
+
+```{r}
+library(terra)
+
+data_path <- system.file("elev_scottsburg", package = "TerrainWorksUtils")
+elev <- rast(file.path(data_path, "elev_scottsburg.flt"))
+grad <- rast(file.path(data_path, "grad_15.tif"))
+plan <- rast(file.path(data_path, "plan_15.tif"))
+prof <- rast(file.path(data_path, "prof_15.tif"))
+dev <- rast(file.path(data_path, "dev_15.tif"))
+#pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
+
+vars_raster <- c(
+  grad,
+  plan,
+  prof,
+  dev
+)
+
+initiation_points <- terra::vect(file.path(system.file("examples", package = "TerrainWorksUtils"),"initiation_points.shp"))
+```
+
+Next, we need to establish our negative regions and sample negative points. 
+
+```{r}
+
+training_data <- create_training_data_with_buffer(initiation_points, 
+                                                  vars_raster, 
+                                                  pos_buffer = 11, 
+                                                  neg_buffer = 150)
+```
+
+And generate histograms for the distributions between different points. 
+
+```{r}
+
+
+plot_metric_distribution(training_data, 
+                         c("dev_15", "grad_15", "plan_15", "prof_15"),
+                         plot_type = "den")
+```
+
+We also want to look at the distributions from the entire positive and negative 
+regions. We will generate polygons of the positive space and negative space, 
+then extract values and plot it. 
+
+```{r}
+
+pos_region = pos_region <- terra::buffer(initiation_points,
+                              width = 11 * 2)
+pos_region <- terra::aggregate(pos_region)
+
+neg_region <- make_neg_region(initiation_points,
+                              vars_raster,
+                              11,
+                              150,
+                              return_raster = FALSE)
+
+pos_region_data <- extract_values(vars_raster, 
+                                  pos_region, 
+                                  extraction_method = "all")
+pos_region_data$class <- "positive"
+
+neg_region_data <- extract_values(vars_raster, 
+                                  neg_region, 
+                                  extraction_method = "all")
+neg_region_data$class <- "negative"
+
+```
+
+And now graph these. 
+
+```{r}
+plot_metric_distribution(rbind(pos_region_data, neg_region_data), 
+                         c("dev_40", "grad_40", "plan_40", "prof_40"), 
+                         plot_type = "den")
+```
+

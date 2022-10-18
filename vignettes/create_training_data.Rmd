@@ -38,23 +38,26 @@ TerrainWorksUtils uses the package `terra` for working with spatial data.
 ```{r}
 library(terra)
 
-data_path <- system.file("examples", package = "TerrainWorksUtils")
-elev <- rast(file.path(data_path, "elev_scottsburg.tif"))
+data_path <- system.file("elev_scottsburg", package = "TerrainWorksUtils")
+elev <- rast(file.path(data_path, "elev_scottsburg.flt"))
 grad <- rast(file.path(data_path, "grad_15.tif"))
 plan <- rast(file.path(data_path, "plan_15.tif"))
 prof <- rast(file.path(data_path, "prof_15.tif"))
 dev <- rast(file.path(data_path, "dev_15.tif"))
-pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
+#pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
 
-varsRaster <- c(
+vars_raster <- c(
   grad,
   plan,
   prof,
-  dev,
-  pca
+  dev
+  #pca
 )
 
 initiation_points <- terra::vect(file.path(data_path,"initiation_points.shp"))
+```
+
+```{r}
 plot(elev)
 points(initiation_points)
 ```
@@ -72,31 +75,31 @@ function `createAnalysisRegionMask` to filter our analysis region to only
 include cells which already contain reasonable values for landslides to occur. 
 
 ```{r analysisRegionMask}
-analysisRegionMask <- createAnalysisRegionMask(
-  varsRaster, 
+analysis_region_mask <- createAnalysisRegionMask(
+  vars_raster, 
   initiation_points, 
   maskVars = c("grad_15", "plan_15", "prof_15"), 
   expansionFactor = 1
 )
-plot(analysisRegionMask)
+plot(analysis_region_mask)
 ```
 
 Now that we have specified our analysis region, we can create our training 
 data. 
 
 ```{r create-training-data}
-allPoints <- sampleNegativePoints(
+all_points <- sample_negative_points(
   initiation_points, 
-  analysisRegion = analysisRegionMask
+  analysis_region = analysis_region_mask
 )
-trainingPoints <- extractValues(
-  varsRaster, 
-  allPoints, 
-  extractionMethod = "centroid", 
-  returnType = "points"
+training_points <- extract_values(
+  vars_raster, 
+  all_points, 
+  extraction_method = "centroid", 
+  return_type = "points"
 )
 plot(elev)
-points(trainingPoints, col = ifelse(trainingPoints$class == "positive", 
+points(training_points, col = ifelse(training_points$class == "positive", 
                                     "black", 
                                     "red")
          )

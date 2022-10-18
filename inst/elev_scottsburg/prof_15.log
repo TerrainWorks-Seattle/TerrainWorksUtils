@@ -1,0 +1,38 @@
+  MakeGrids log file
+    Version 1.0.8
+    Compiled November 11, 2020
+    Started September 28, 2022 at 1:58 PM
+  ==============================================================
+  Input file: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\input_makeGrids.txt
+    copied below
+  --------------------------------------------------------------
+  # Input file for makeGrids
+  # Creating by surfaceMetrics.R
+  # On 2022-09-28 13:58:40
+  DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
+  SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg
+  LENGTH SCALE: 15
+  GRID: GRADIENT, OUTPUT FILE = grad_15
+  GRID: PLAN CURVATURE, OUTPUT FILE = plan_15
+  GRID: PROFILE CURVATURE, OUTPUT FILE = prof_15
+  ====================End Input File==========================
+ 
+  Program runtime output follows
+ 
+  DEM file: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
+ 
+  Grids to construct:
+  SLOPE
+  PLANCURV
+  PROFCURV
+ 
+  Reading DEM
+  Calculating surface metrics
+  Scale length: 15.00000
+  Created PROFILE CURVATURE file prof_15
+  Created PLAN CURVATURE file plan_15
+  Created GRADIENT file grad_15
+  MakeGrids finished at September 28, 2022 at 1:58:59:175 PM
+  Elapsed CPU (seconds): 13.79688
+  Created log file grad_15.log
+  Created log file plan_15.log
