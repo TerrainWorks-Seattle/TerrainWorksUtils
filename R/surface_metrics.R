@@ -100,17 +100,29 @@ elev_deriv <- function(input_file = "nofile",
     # Get a list of output rasters
     file_list <- list()
     type_list <- list()
+    dem_found <- FALSE
+    dir_found <- FALSE
+    scale_found <- FALSE
     for (i in 1:nrow(infile)) {
       keyword <- get_keyword(infile, i)
       if (is.na(keyword)) {
         next
       }
-      if (str_detect(keyword, "GRID") == TRUE) {
+      if (str_detect(keyword, "DEM") == TRUE) {
+        dem_found <- TRUE
+      } else if (str_detect(keyword, "SCRATCH DIRECTORY") == TRUE) {
+        dir_found <- TRUE
+      } else if (str_detect(keyword, "LENGTH SCALE") == TRUE) {
+        scale_found <- TRUE
+      } else if (str_detect(keyword, "GRID") == TRUE) {
         argument <- get_args(infile, i)
         param_value <- parse_arg(argument, 2)
         file_list <- c(file_list, param_value[[2]])
         type_list <- c(type_list, trimws(parse_arg(argument, 1)[[2]]))
       }
+    }
+    if (!dem_found | !dir_found | !scale_found) {
+      stop("Bad input file format")
     }
     run_makegrids <- TRUE
   }

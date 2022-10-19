@@ -51,3 +51,16 @@ test_that("existing input file, no other args", {
   expect_true(file.exists(paste0(scratch_dir,"/tan.flt")))
 })
 
+test_that("bad or empty input file", {
+  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+  nonexist_file <- tempfile(tmpdir = scratch_dir)
+
+  expect_error(elev_deriv(input_file = nonexist_file), "Input file not found")
+
+  file.create(nonexist_file)
+  expect_error(elev_deriv(input_file = nonexist_file), "Input file is empty")
+
+  writeLines("bad format", nonexist_file)
+  expect_error(elev_deriv(input_file = nonexist_file), "Bad input file format")
+})
+
