@@ -4,22 +4,22 @@
 \alias{accum_input}
 \title{Create an input file for Fortran program Partial.}
 \usage{
-accum_input(dem, k, d, length_scale, scratch_dir, out_file, overwrite = TRUE)
+accum_input(dem, k, d, length_scale, scratch_dir, out_raster)
 }
 \arguments{
-\item{dem}{The file name (full path) for the input DEM.}
+\item{dem}{Character string: The file name (full path) for the input DEM.}
 
-\item{k}{Saturated hydraulic conductivity, in meters per hour.}
+\item{k}{Numeric (dbl): Saturated hydraulic conductivity, in meters per hour.}
 
-\item{d}{Storm duration in hours.}
+\item{d}{Numeric (dbl): Storm duration in hours.}
 
-\item{length_scale}{Diameter for smoothing the DEM.}
+\item{length_scale}{Numeric (dbl): Diameter for smoothing the DEM.}
 
-\item{scratch_dir}{Directory for temporary files. The input file is written
-to the scratch_dir.}
+\item{scratch_dir}{Character string: Directory for temporary files.
+The input file is written to the scratch_dir.}
 
-\item{out_file}{File name (full path) for the output binary floating point
-(.flt) raster.}
+\item{out_raster}{Character string: File name (full path) for the output
+binary floating point (.flt) raster.}
 }
 \value{
 There is no explicit return object, but an explicit side effect
