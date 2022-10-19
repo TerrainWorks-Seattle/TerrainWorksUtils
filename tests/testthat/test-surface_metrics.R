@@ -18,5 +18,36 @@ test_that("no input file, all derivatives", {
                            scratch_dir = scratch_dir)
 
   expect_equal(nlyr(out_raster), 5)
+  expect_equal(names(out_raster), c("GRADIENT",
+                                    "PLAN CURVATURE",
+                                    "PROFILE CURVATURE",
+                                    "NORMAL SLOPE CURVATURE",
+                                    "TANGENTIAL CURVATURE"))
+  expect_true(file.exists(paste0(scratch_dir,"/grad.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/plan.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/prof.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/norm.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/tan.flt")))
+})
+
+test_that("existing input file, no other args", {
+  data_path <- system.file("examples", package = "TerrainWorksUtils")
+  input_file <- paste0(data_path, "\\makegrids_input_sample.txt")
+  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+  unlink(paste0(scratch_dir,"\\*"))
+
+  out_raster <- elev_deriv(input_file = input_file)
+
+  expect_equal(nlyr(out_raster), 5)
+  expect_equal(names(out_raster), c("GRADIENT",
+                                    "PLAN CURVATURE",
+                                    "PROFILE CURVATURE",
+                                    "NORMAL SLOPE CURVATURE",
+                                    "TANGENTIAL CURVATURE"))
+  expect_true(file.exists(paste0(scratch_dir,"/grad.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/plan.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/prof.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/norm.flt")))
+  expect_true(file.exists(paste0(scratch_dir,"/tan.flt")))
 })
 

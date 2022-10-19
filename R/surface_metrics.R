@@ -99,6 +99,7 @@ elev_deriv <- function(input_file = "nofile",
     }
     # Get a list of output rasters
     file_list <- list()
+    type_list <- list()
     for (i in 1:nrow(infile)) {
       keyword <- get_keyword(infile, i)
       if (is.na(keyword)) {
@@ -108,6 +109,7 @@ elev_deriv <- function(input_file = "nofile",
         argument <- get_args(infile, i)
         param_value <- parse_arg(argument, 2)
         file_list <- c(file_list, param_value[[2]])
+        type_list <- c(type_list, trimws(parse_arg(argument, 1)[[2]]))
       }
     }
     run_makegrids <- TRUE
