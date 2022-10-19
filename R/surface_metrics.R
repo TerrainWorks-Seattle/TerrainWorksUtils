@@ -52,7 +52,7 @@ elev_deriv <- function(input_file = "nofile",
                        dem = "none",
                        scratch_dir = "none") {
 
-  if (length(rasters) > 0) {
+  if (length(rasters) > 0 & str_detect(input_file, "nofile")) {
 
     # create a list of the file names specified in rasters
     file_list <- list()
@@ -67,10 +67,11 @@ elev_deriv <- function(input_file = "nofile",
       file_list <- c(file_list, file_name)
       type_list <- c(type_list, type_name)
     }
-
-    if (length_scale == 0.) {
-    # read existing raster files in file_list
-      run_makegrids <- FALSE
+    if (!file.exists(dem)) {
+      stop("DEM does not exist")
+    }
+    if (length_scale <= 0.) {
+      stop("Length scale not specified or out-of-bounds")
 
     } else {
     # create a new makegrids input file
@@ -99,16 +100,30 @@ elev_deriv <- function(input_file = "nofile",
     }
     # Get a list of output rasters
     file_list <- list()
+    type_list <- list()
+    dem_found <- FALSE
+    dir_found <- FALSE
+    scale_found <- FALSE
     for (i in 1:nrow(infile)) {
       keyword <- get_keyword(infile, i)
       if (is.na(keyword)) {
         next
       }
-      if (str_detect(keyword, "GRID") == TRUE) {
+      if (str_detect(keyword, "DEM") == TRUE) {
+        dem_found <- TRUE
+      } else if (str_detect(keyword, "SCRATCH DIRECTORY") == TRUE) {
+        dir_found <- TRUE
+      } else if (str_detect(keyword, "LENGTH SCALE") == TRUE) {
+        scale_found <- TRUE
+      } else if (str_detect(keyword, "GRID") == TRUE) {
         argument <- get_args(infile, i)
         param_value <- parse_arg(argument, 2)
         file_list <- c(file_list, param_value[[2]])
+        type_list <- c(type_list, trimws(parse_arg(argument, 1)[[2]]))
       }
+    }
+    if (!dem_found | !dir_found | !scale_found) {
+      stop("Bad input file format")
     }
     run_makegrids <- TRUE
   }
@@ -192,9 +207,13 @@ contributing_area <- function(input_file = "nofile",
                               d = 0.,
                               scratch_dir = "none") {
 
-  if (!str_detect(raster, "nofile")) { # there is a raster file specified
+  if (!str_detect(raster, "nofile") & str_detect(input_file, "nofile")) {
+    # there is a raster file specified
 
     if (str_detect(dem, "none")) { # read an existing raster
+      if (!file.exists(raster)) {
+        stop("Must provide a DEM or an existing raster file to read")
+      }
       run_partial <- FALSE
     } else {
      # need to build input file and run partial
@@ -207,15 +226,15 @@ contributing_area <- function(input_file = "nofile",
         err <- -1
       }
       if (k <= 0.) {
-        message("Saturated hydraulic conductivity not specified")
+        message("Saturated hydraulic conductivity not specified or out-of-bounds")
         err <- -1
       }
       if (d <= 0.) {
-        message("Storm duration not specified")
+        message("Storm duration not specified or out-of-bounds")
         err <- -1
       }
       if (length_scale <= 0.) {
-        message("length_scale not specified")
+        message("Length scale not specified or out-of-bounds")
         err <- -1
       }
       if (str_detect(scratch_dir, "none")) {
@@ -226,9 +245,10 @@ contributing_area <- function(input_file = "nofile",
         message("No output raster file specified")
         err <- -1
       }
-      if (err == -1) {
+      if (err == -1){
         stop("Inconsistent arguments")
       }
+
       accum_input(dem,
                   k,
                   d,
@@ -257,12 +277,27 @@ contributing_area <- function(input_file = "nofile",
     if (nrow(infile) == 0) {
       stop("Input file is empty")
     }
+    dem_found <- FALSE
+    dir_found <- FALSE
+    scale_found <- FALSE
+    dur_found <- FALSE
+    con_found <- FALSE
     for (i in 1:nrow(infile)) {
       keyword <- get_keyword(infile, i)
       if (is.na(keyword)) {
         next
       }
-      if (str_detect(keyword, "OUTPUT RASTER")) {
+      if (str_detect(keyword, "DEM") == TRUE) {
+        dem_found <- TRUE
+      } else if (str_detect(keyword, "SCRATCH DIRECTORY") == TRUE) {
+        dir_found <- TRUE
+      } else if (str_detect(keyword, "LENGTH SCALE") == TRUE) {
+        scale_found <- TRUE
+      } else if (str_detect(keyword, "DURATION") == TRUE) {
+        dur_found <- TRUE
+      } else if (str_detect(keyword, "CONDUCTIVITY") == TRUE) {
+        con_found <- TRUE
+      } else if (str_detect(keyword, "OUTPUT RASTER")) {
         argument <- get_args(infile, i)
         param_value <- parse_arg(argument)
         raster <- param_value[[2]]
@@ -270,6 +305,9 @@ contributing_area <- function(input_file = "nofile",
           raster <- paste0(raster, ".flt")
         }
       }
+    }
+    if (!dem_found | !dir_found | !scale_found | !dur_found | !con_found) {
+      stop("Bad input file format")
     }
     run_partial <- TRUE
   }

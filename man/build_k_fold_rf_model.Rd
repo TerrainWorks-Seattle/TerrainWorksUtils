@@ -20,14 +20,16 @@ positive or negative.}
 \item{seed}{A number setting the random seed to allow reproducible results.
 Default is 123.}
 
-\item{ctrl_method}{The method for}
+\item{ctrl_method}{Can be either \code{"cv"} for cross-validation without
+repeats or \code{"repeatedcv"}.}
 
 \item{k}{The number of folds, or divisions of the data. Default is 5, which
 produces a 80/20 ratio between training data and testing data for each
 repetition.}
 
 \item{repeats}{Number of times to repeat cross validation. The folds change
-with each repeat.}
+with each repeat. If \code{ctrl_method} is \code{"cv"}, this parameter is
+ignored.}
 }
 \value{
 Nothing
