@@ -43,6 +43,9 @@ polygon}
 extraction_method = "centroid". Ignored if extraction_method is "all" or
 "centroid" or if extractionPoints is not polygon.}
 }
+\value{
+a data.frame with values for positive and negative points
+}
 \description{
 Given an input dataset and set of positive points, generate
 randomly sampled negative points and extract predictor values for positive

@@ -123,10 +123,9 @@ create_training_data_from_points <- function(positive_points,
 #' extraction_method = "centroid". Ignored if extraction_method is "all" or
 #' "centroid" or if extractionPoints is not polygon.
 #'
-#' @return
+#' @return a data.frame with values for positive and negative points
 #' @export
 #'
-#' @examples
 create_training_data_with_buffer <- function(positive_points,
                                              predictors_raster,
                                              pos_buffer = 15,
@@ -161,7 +160,6 @@ create_training_data_with_buffer <- function(positive_points,
 
 #' @export
 #' @title Sample training points from a set of polygons
-#'
 #'
 #' @param polygons SpatVector of polygons indicating all locations belonging
 #' to the class you wish to predict
@@ -529,8 +527,6 @@ extract_values <- function(raster,
 #' @return SpatVector with polygons outlining the presumed negative region.
 #'
 #' @export
-#'
-#' @examples
 make_neg_region <- function(positive_points,
                             predictors_raster,
                             inner_buffer,

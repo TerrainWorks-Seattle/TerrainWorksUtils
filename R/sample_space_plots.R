@@ -11,13 +11,10 @@
 #' @param parameters A list of names of the parameters to plot. These must
 #' correspond to columns in training_data
 #'
-#' @return
 #' @export
 #'
-#' @examples
-#'
-#' TODO: edit to work with training data as points in addition to data frame.
-#' TODO: edit y-axis to not cut anything off.
+# TODO: edit to work with training data as points in addition to data frame.
+# TODO: edit y-axis to not cut anything off.
 plot_metric_distribution <- function(training_data,
                                      parameters,
                                      plot_type = "hist") {

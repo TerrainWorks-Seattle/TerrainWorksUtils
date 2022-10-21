@@ -1,9 +1,0 @@
-# Input file for makeGrids
-# Creating by input_file_utils.R
-# On 2022-09-30 12:32:43
-DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg\elev_scottsburg
-SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\elev_scottsburg
-LENGTH SCALE: 5
-DURATION: 5
-CONDUCTIVITY: 1
-OUTPUT RASTER: \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/elev_scottsburg/prof_15_copy.tif

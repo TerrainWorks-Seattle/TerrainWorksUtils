@@ -19,8 +19,3 @@ Generates histogram plot comparing the distribution of various
 parameters across positive and negative classes of data. This function takes
 training_data as a data frame.
 }
-\examples{
-
-TODO: edit to work with training data as points in addition to data frame.
-TODO: edit y-axis to not cut anything off.
-}
