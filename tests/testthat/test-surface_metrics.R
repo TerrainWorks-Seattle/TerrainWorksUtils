@@ -136,129 +136,183 @@ test_that("elev_deriv: non-existent, empty, or bad input file", {
   unlink(paste0(scratch_dir,"\\*"))
 })
 
-test_that("contributing_area: build input file", {
-  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
-  data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
-
-  out_raster <- contributing_area(raster = paste0(scratch_dir,"/pca.flt"),
-                                  dem = dem_path,
-                                  length_scale = 15,
-                                  k = 1,
-                                  d = 5,
-                                  scratch_dir = scratch_dir)
-
-  expect_equal(nlyr(out_raster), 1)
-  expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
-  expect_true(file.exists(paste0(scratch_dir, "/partial_input.txt")))
-
-  unlink(paste0(scratch_dir,"\\*"))
-})
-
-test_that("contributing_area: existing input file, no args", {
-  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
-  data_path <- system.file("examples", package = "TerrainWorksUtils")
-  input_file <- paste0(data_path, "\\partial_input_sample.txt")
-
-  out_raster <- contributing_area(input_file = input_file)
-
-  expect_equal(nlyr(out_raster), 1)
-  expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
-
-  unlink(paste0(scratch_dir,"\\*"))
-})
-
-test_that("contributing_area: existing input file, no args", {
-  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
-  data_path <- system.file("examples", package = "TerrainWorksUtils")
-  input_file <- paste0(data_path, "\\partial_input_sample.txt")
-
-  out_raster <- contributing_area(input_file = input_file)
-
-  expect_equal(nlyr(out_raster), 1)
-  expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
-
-  unlink(paste0(scratch_dir,"\\*"))
-})
-
-test_that("contributing_area: existing input file, ignore args", {
-  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
-  data_path <- system.file("examples", package = "TerrainWorksUtils")
-  input_file <- paste0(data_path, "\\partial_input_sample.txt")
-
-  out_raster <- contributing_area(input_file = input_file,
-                                  raster = paste0(scratch_dir, "/fake"),
-                                  k = 0,
-                                  d = -1)
-
-  expect_equal(nlyr(out_raster), 1)
-  expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
-
-  unlink(paste0(scratch_dir,"\\*"))
-})
-
-test_that("contributing_area: nonexistent, empty, and bad format input", {
-  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
-  nonexist_file <- tempfile(tmpdir = scratch_dir)
-
-  expect_error(contributing_area(input_file = nonexist_file), "Input file not found")
-
-  file.create(nonexist_file)
-  expect_error(contributing_area(input_file = nonexist_file), "Input file is empty")
-
-  writeLines("bad format", nonexist_file)
-  expect_error(contributing_area(input_file = nonexist_file), "Bad input file format")
-
-  unlink(paste0(scratch_dir,"\\*"))
-})
-
-test_that("contributing_area: out of bounds length_scale, k, d", {
+test_that("elev_deriv: non-existent scratch dir", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
   dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
-
 
   rasters_input <- c(paste0("GRADIENT,", scratch_dir, "/grad"))
 
+  expect_error(elev_deriv(rasters = rasters_input,
+                          length_scale = 1,
+                          dem = dem_path,
+                          scratch_dir = paste0(scratch_dir,"bad")),
+               "Scratch directory does not exist")
 
-  expect_error(contributing_area(raster = rasters_input,
-                                 dem = dem_path,
-                                 length_scale = -1,
-                                 k = 1,
-                                 d = 5,
-                                 scratch_dir = scratch_dir),
-               "Inconsistent arguments")
-  expect_error(contributing_area(raster = rasters_input,
-                                 dem = dem_path,
-                                 length_scale = 0,
-                                 k = 1,
-                                 d = 5,
-                                 scratch_dir = scratch_dir),
-               "Inconsistent arguments")
-  expect_error(contributing_area(raster = rasters_input,
-                                 dem = dem_path,
-                                 k = 1,
-                                 d = 5,
-                                 scratch_dir = scratch_dir),
-               "Inconsistent arguments")
-  expect_error(contributing_area(raster = rasters_input,
-                                 dem = dem_path,
-                                 length_scale = 15,
-                                 k = 0,
-                                 d = 5,
-                                 scratch_dir = scratch_dir),
-               "Inconsistent arguments")
-  expect_error(contributing_area(raster = rasters_input,
-                                 dem = dem_path,
-                                 length_scale = 15,
-                                 k = -1,
-                                 d = 5,
-                                 scratch_dir = scratch_dir),
-               "Inconsistent arguments")
-  expect_error(contributing_area(raster = rasters_input,
-                                 dem = dem_path,
-                                 scratch_dir = scratch_dir),
-               "Inconsistent arguments")
-  expect_error(contributing_area(raster = rasters_input),
-               "Must provide a DEM or an existing raster file to read")
 })
+
+test_that("elev_deriv: no derivatives given", {
+  data_path <- system.file("examples", package = "TerrainWorksUtils")
+  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+
+  rasters_input <- list()
+
+  expect_error(elev_deriv(rasters = rasters_input,
+                          length_scale = 1,
+                          dem = dem_path,
+                          scratch_dir = scratch_dir),
+               "Must provide at least one derivative to calculate")
+
+})
+
+test_that("elev_deriv: read existing rasters", {
+  data_path <- system.file("examples", package = "TerrainWorksUtils")
+  scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+
+  rasters_input <- c(paste0("GRADIENT,", data_path, "/elev_scottsburg.flt"))
+
+  expect_error(elev_deriv(rasters = list(),
+                          length_scale = 1,
+                          scratch_dir = scratch_dir),
+               "Must provide a DEM or an existing raster file to read")
+
+  out_raster <- elev_deriv(rasters = rasters_input)
+
+  expect_equal(nlyr(out_raster), 1)
+  expect_equal(names(out_raster), "GRADIENT")
+
+  expect_error(elev_deriv(rasters = paste0("GRADIENT,", data_path, "/bad.flt"),
+                          length_scale = 100),
+               "All given files must exist to run in read mode")
+
+})
+
+
+
+# test_that("contributing_area: build input file", {
+#   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+#   data_path <- system.file("examples", package = "TerrainWorksUtils")
+#   dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+#
+#   out_raster <- contributing_area(raster = paste0(scratch_dir,"/pca.flt"),
+#                                   dem = dem_path,
+#                                   length_scale = 15,
+#                                   k = 1,
+#                                   d = 5,
+#                                   scratch_dir = scratch_dir)
+#
+#   expect_equal(nlyr(out_raster), 1)
+#   expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
+#   expect_true(file.exists(paste0(scratch_dir, "/partial_input.txt")))
+#
+#   unlink(paste0(scratch_dir,"\\*"))
+# })
+#
+# test_that("contributing_area: existing input file, no args", {
+#   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+#   data_path <- system.file("examples", package = "TerrainWorksUtils")
+#   input_file <- paste0(data_path, "\\partial_input_sample.txt")
+#
+#   out_raster <- contributing_area(input_file = input_file)
+#
+#   expect_equal(nlyr(out_raster), 1)
+#   expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
+#
+#   unlink(paste0(scratch_dir,"\\*"))
+# })
+#
+# test_that("contributing_area: existing input file, no args", {
+#   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+#   data_path <- system.file("examples", package = "TerrainWorksUtils")
+#   input_file <- paste0(data_path, "\\partial_input_sample.txt")
+#
+#   out_raster <- contributing_area(input_file = input_file)
+#
+#   expect_equal(nlyr(out_raster), 1)
+#   expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
+#
+#   unlink(paste0(scratch_dir,"\\*"))
+# })
+#
+# test_that("contributing_area: existing input file, ignore args", {
+#   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+#   data_path <- system.file("examples", package = "TerrainWorksUtils")
+#   input_file <- paste0(data_path, "\\partial_input_sample.txt")
+#
+#   out_raster <- contributing_area(input_file = input_file,
+#                                   raster = paste0(scratch_dir, "/fake"),
+#                                   k = 0,
+#                                   d = -1)
+#
+#   expect_equal(nlyr(out_raster), 1)
+#   expect_true(file.exists(paste0(scratch_dir, "/pca.flt")))
+#
+#   unlink(paste0(scratch_dir,"\\*"))
+# })
+#
+# test_that("contributing_area: nonexistent, empty, and bad format input", {
+#   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+#   nonexist_file <- tempfile(tmpdir = scratch_dir)
+#
+#   expect_error(contributing_area(input_file = nonexist_file), "Input file not found")
+#
+#   file.create(nonexist_file)
+#   expect_error(contributing_area(input_file = nonexist_file), "Input file is empty")
+#
+#   writeLines("bad format", nonexist_file)
+#   expect_error(contributing_area(input_file = nonexist_file), "Bad input file format")
+#
+#   unlink(paste0(scratch_dir,"\\*"))
+# })
+#
+# test_that("contributing_area: out of bounds length_scale, k, d", {
+#   data_path <- system.file("examples", package = "TerrainWorksUtils")
+#   dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+#   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
+#
+#
+#   rasters_input <- c(paste0("GRADIENT,", scratch_dir, "/grad"))
+#
+#
+#   expect_error(contributing_area(raster = rasters_input,
+#                                  dem = dem_path,
+#                                  length_scale = -1,
+#                                  k = 1,
+#                                  d = 5,
+#                                  scratch_dir = scratch_dir),
+#                "Inconsistent arguments")
+#   expect_error(contributing_area(raster = rasters_input,
+#                                  dem = dem_path,
+#                                  length_scale = 0,
+#                                  k = 1,
+#                                  d = 5,
+#                                  scratch_dir = scratch_dir),
+#                "Inconsistent arguments")
+#   expect_error(contributing_area(raster = rasters_input,
+#                                  dem = dem_path,
+#                                  k = 1,
+#                                  d = 5,
+#                                  scratch_dir = scratch_dir),
+#                "Inconsistent arguments")
+#   expect_error(contributing_area(raster = rasters_input,
+#                                  dem = dem_path,
+#                                  length_scale = 15,
+#                                  k = 0,
+#                                  d = 5,
+#                                  scratch_dir = scratch_dir),
+#                "Inconsistent arguments")
+#   expect_error(contributing_area(raster = rasters_input,
+#                                  dem = dem_path,
+#                                  length_scale = 15,
+#                                  k = -1,
+#                                  d = 5,
+#                                  scratch_dir = scratch_dir),
+#                "Inconsistent arguments")
+#   expect_error(contributing_area(raster = rasters_input,
+#                                  dem = dem_path,
+#                                  scratch_dir = scratch_dir),
+#                "Inconsistent arguments")
+#   expect_error(contributing_area(raster = rasters_input),
+#                "Must provide a DEM or an existing raster file to read")
+# })

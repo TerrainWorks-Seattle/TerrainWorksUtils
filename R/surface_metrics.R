@@ -48,33 +48,66 @@
 #'
 elev_deriv <- function(input_file = "nofile",
                        rasters = vector("list", 0),
-                       length_scale = 0.,
                        dem = "none",
+                       length_scale = 0.,
                        scratch_dir = "none") {
 
-  if (length(rasters) > 0 & str_detect(input_file, "nofile")) {
+  if (str_detect(input_file, "nofile")) { # build a new input file
 
-    # create a list of the file names specified in rasters
-    file_list <- list()
-    type_list <- list()
-    for (i in 1:length(rasters)) {
-      loc <- str_locate(rasters[[i]], ",")
-      type_name <- str_sub(rasters[[i]], 1, loc[1,1] - 1)
-      file_name <- str_sub(rasters[[i]], loc[1,1] + 1, -1)
-      if (str_detect(file_name, ".flt") == FALSE) { # currently, makegrids
-        file_name <- paste0(file_name, ".flt")      # only reads .flt
+    if (str_detect(dem, "none")) { # read an existing raster
+      if (!(length(rasters) > 0)) {
+        stop("Must provide a DEM or an existing raster file to read")
       }
-      file_list <- c(file_list, file_name)
-      type_list <- c(type_list, type_name)
-    }
-    if (!file.exists(dem)) {
-      stop("DEM does not exist")
-    }
-    if (length_scale <= 0.) {
-      stop("Length scale not specified or out-of-bounds")
 
-    } else {
-    # create a new makegrids input file
+      # create a list of the file names specified in rasters
+      file_list <- list()
+      type_list <- list()
+      for (i in 1:length(rasters)) {
+        loc <- str_locate(rasters[[i]], ",")
+        type_name <- str_sub(rasters[[i]], 1, loc[1,1] - 1)
+        file_name <- str_sub(rasters[[i]], loc[1,1] + 1, -1)
+        if (!file.exists(file_name)) {
+          stop("All given files must exist to run in read mode")
+        }
+        if (str_detect(file_name, ".flt") == FALSE) { # currently, makegrids
+          file_name <- paste0(file_name, ".flt")      # only reads .flt
+        }
+        file_list <- c(file_list, file_name)
+        type_list <- c(type_list, type_name)
+      }
+
+      run_makegrids <- FALSE
+    } else { # write to rasters
+
+      # check arguments
+      if (length_scale <= 0.) {
+        stop("Length scale not specified or out-of-bounds")
+      }
+      if (!file.exists(dem)) {
+        stop("DEM does not exist")
+      }
+      if (!dir.exists(scratch_dir)) {
+        stop("Scratch directory does not exist")
+      }
+      if (!(length(rasters) > 0)) {
+        stop("Must provide at least one derivative to calculate")
+      }
+
+      # create a list of the file names specified in rasters
+      file_list <- list()
+      type_list <- list()
+      for (i in 1:length(rasters)) {
+        loc <- str_locate(rasters[[i]], ",")
+        type_name <- str_sub(rasters[[i]], 1, loc[1,1] - 1)
+        file_name <- str_sub(rasters[[i]], loc[1,1] + 1, -1)
+        if (str_detect(file_name, ".flt") == FALSE) { # currently, makegrids
+          file_name <- paste0(file_name, ".flt")      # only reads .flt
+        }
+        file_list <- c(file_list, file_name)
+        type_list <- c(type_list, type_name)
+      }
+
+      # create a new makegrids input file
       makegrids_input(dem,
                       length_scale,
                       scratch_dir,
@@ -83,8 +116,8 @@ elev_deriv <- function(input_file = "nofile",
       run_makegrids = TRUE
     }
 
-  } else {
-    # use an existing makegrids ASCII input file
+  } else { # use an existing makegrids ASCII input file
+
     if (str_detect(input_file, "nofile")) {
       input_file <- file.choose()
       infile <- tibble(readLines(input_file))
@@ -98,6 +131,7 @@ elev_deriv <- function(input_file = "nofile",
     if (nrow(infile) == 0) {
       stop("Input file is empty")
     }
+
     # Get a list of output rasters
     file_list <- list()
     type_list <- list()
