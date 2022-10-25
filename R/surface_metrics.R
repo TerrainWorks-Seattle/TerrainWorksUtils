@@ -241,11 +241,11 @@ contributing_area <- function(input_file = "nofile",
                               d = 0.,
                               scratch_dir = "none") {
 
-  if (!str_detect(raster, "nofile") & str_detect(input_file, "nofile")) {
+  if (str_detect(input_file, "nofile")) {
     # there is a raster file specified
 
     if (str_detect(dem, "none")) { # read an existing raster
-      if (!file.exists(raster)) {
+      if (str_detect(raster, "nofile") | !file.exists(raster)) {
         stop("Must provide a DEM or an existing raster file to read")
       }
       run_partial <- FALSE
@@ -256,32 +256,32 @@ contributing_area <- function(input_file = "nofile",
         dem <- paste0(dem, ".flt")
       }
       if (!file.exists(dem)) {
-        message("Cannot find the DEM file")
-        err <- -1
+        stop("DEM does not exist")
+        # err <- -1
       }
       if (k <= 0.) {
-        message("Saturated hydraulic conductivity not specified or out-of-bounds")
-        err <- -1
+        stop("Saturated hydraulic conductivity not specified or out-of-bounds")
+        # err <- -1
       }
       if (d <= 0.) {
-        message("Storm duration not specified or out-of-bounds")
-        err <- -1
+        stop("Storm duration not specified or out-of-bounds")
+        # err <- -1
       }
       if (length_scale <= 0.) {
-        message("Length scale not specified or out-of-bounds")
-        err <- -1
+        stop("Length scale not specified or out-of-bounds")
+        # err <- -1
       }
-      if (str_detect(scratch_dir, "none")) {
-        message("Scratch directory not specified")
-        err <- -1
+      if (str_detect(scratch_dir, "none") | !dir.exists(scratch_dir)) {
+        stop("Scratch directory does not exist or is not specified")
+        # err <- -1
       }
       if (str_detect(raster, "nofile")) {
-        message("No output raster file specified")
-        err <- -1
+        stop("No output raster file specified")
+        # err <- -1
       }
-      if (err == -1){
-        stop("Inconsistent arguments")
-      }
+      # if (err == -1){
+      #   stop("Inconsistent arguments")
+      # }
 
       accum_input(dem,
                   k,
