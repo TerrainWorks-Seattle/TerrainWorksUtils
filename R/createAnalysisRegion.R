@@ -57,6 +57,10 @@ extractRange <- function(raster,
                          extractionLocations,
                          expansionFactor = 1) {
 
+  if (is.null(raster)) {
+    stop("Must provide a raster with at least 1 layer")
+  }
+
   # Extract all variable values from initiation buffers
   values <- terra::extract(raster, extractionLocations)
   values$ID <- NULL
@@ -94,10 +98,10 @@ extractRange <- function(raster,
 #'
 maskByRange <- function(raster,
                         rangeMx) {
-  rangeRaster <- terra::deepcopy(raster)
+  rep <- 1
 
   for (varName in rownames(rangeMx)) {
-    varRaster <- rangeRaster[[varName]]
+    varRaster <- raster[[varName]]
 
     # Get variable value limits
     minValue <- rangeMx[varName, "min"]
@@ -109,9 +113,19 @@ maskByRange <- function(raster,
     })
 
     # Update the raster in the input raster stack
-    rangeRaster[[varName]] <- varMask
+    if (rep == 1) {
+      rangeRaster <- varMask
+    } else {
+      rangeRaster <- c(rangeRaster, varMask)
+    }
+
+
+    rep <- rep + 1
   }
+
+  names(rangeRaster) = rownames(rangeMx)
 
   # Only include cells with ALL values within the initiation range
   all(rangeRaster)
+
 }

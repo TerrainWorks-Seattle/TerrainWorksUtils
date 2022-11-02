@@ -37,18 +37,21 @@ test_that("extractRange expansion expands correctly", {
 test_that("maskByRange", {
   points <- sample_points(20, analysis_region_mask)
   rangeMx <- extractRange(
-    varsRaster,
+    vars_raster,
     points
   )
 
-  mask <- maskByRange(varsRaster, rangeMx)
+  mask <- maskByRange(vars_raster, rangeMx)
+
+
   expect_setequal(unique(terra::values(mask)), c(NA, 1))
-  ranges <- lapply(varsRaster, function(r) {
+  ranges <- lapply(vars_raster, function(r) {
     range(terra::values(terra::mask(r, mask)), na.rm = TRUE)
   })
 
-  names(ranges) <- names(varsRaster)
+  names(ranges) <- names(vars_raster)
   for (var in rownames(rangeMx)) {
+
     expect_gte(ranges[[var]][[1]], rangeMx[var, "min"])
     expect_lte(ranges[[var]][[2]], rangeMx[var, "max"])
   }
@@ -58,17 +61,17 @@ test_that("maskByRange", {
 test_that("maskByRange for subset of variables", {
   points <- sample_points(20, analysis_region_mask)
   rangeMx <- extractRange(
-    terra::subset(varsRaster, c("elevation", "inverse")),
+    terra::subset(vars_raster, c("elevation", "inverse")),
     points
   )
 
-  mask <- maskByRange(varsRaster, rangeMx)
+  mask <- maskByRange(vars_raster, rangeMx)
   expect_setequal(unique(terra::values(mask)), c(NA, 1))
-  ranges <- lapply(varsRaster, function(r) {
+  ranges <- lapply(vars_raster, function(r) {
     range(terra::values(terra::mask(r, mask)), na.rm = TRUE)
   })
 
-  names(ranges) <- names(varsRaster)
+  names(ranges) <- names(vars_raster)
   for (var in rownames(rangeMx)) {
     expect_gte(ranges[[var]][[1]], rangeMx[var, "min"])
     expect_lte(ranges[[var]][[2]], rangeMx[var, "max"])
