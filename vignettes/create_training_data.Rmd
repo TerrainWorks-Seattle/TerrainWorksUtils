@@ -38,7 +38,7 @@ TerrainWorksUtils uses the package `terra` for working with spatial data.
 ```{r}
 library(terra)
 
-data_path <- system.file("elev_scottsburg", package = "TerrainWorksUtils")
+data_path <- system.file("examples", package = "TerrainWorksUtils")
 elev <- rast(file.path(data_path, "elev_scottsburg.flt"))
 grad <- rast(file.path(data_path, "grad_15.tif"))
 plan <- rast(file.path(data_path, "plan_15.tif"))
@@ -75,11 +75,11 @@ function `createAnalysisRegionMask` to filter our analysis region to only
 include cells which already contain reasonable values for landslides to occur. 
 
 ```{r analysisRegionMask}
-analysis_region_mask <- createAnalysisRegionMask(
+analysis_region_mask <- create_analysis_region_mask(
   vars_raster, 
   initiation_points, 
-  maskVars = c("grad_15", "plan_15", "prof_15"), 
-  expansionFactor = 1
+  mask_vars = c("grad_15", "plan_15", "prof_15"), 
+  expansion_factor = 1
 )
 plot(analysis_region_mask)
 ```
