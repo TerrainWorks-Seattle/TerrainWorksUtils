@@ -5,36 +5,36 @@
 #' \code{NA} values everywhere outside of the analysis region. Cells included
 #' in the anlaysis region are determined by the range of cell values covered
 #' by \code{points}. First, the range of cell values which fall under
-#' \code{points}  for each raster layer included in \code{maskVars} is
+#' \code{points}  for each raster layer included in \code{mask_vars} is
 #' calculated, and only cells whose values fall within that range are included
 #' in the analysis region.
-#' The range can be expanded by a factor indicated by expansionFactor.
+#' The range can be expanded by a factor indicated by expansion_factor.
 #'
 #' @param raster SpatRaster with layers for each analysis variable
 #' @param points SpatVector of points or polygons to be used for calculating
 #' range of allowed values for the analysis region
-#' @param maskVars character vector of names of raster layers to include
+#' @param mask_vars character vector of names of raster layers to include
 #' in calculating allowable ranges. If NULL, all layers will be included.
-#' @param expansionFactor Factor to expand the range by. Default is 1, which
+#' @param expansion_factor Factor to expand the range by. Default is 1, which
 #' indicates no expansion. 0.5 will reduce the range by 50%. 2 will double the
 #' range.
 #'
 #' @return SpatRaster with NA values everywhere outside analysis region
 #' and 1 everywhere within the analysis region.
 #'
-createAnalysisRegionMask <- function(raster,
-                                     points,
-                                     maskVars = NULL,
-                                     expansionFactor = 1) {
-  varsRaster <- terra::subset(raster, maskVars)
-  rangeMx <- extractRange(
-    raster = varsRaster,
-    extractionLocations = points,
-    expansionFactor = expansionFactor
+create_analysis_region_mask <- function(raster,
+                                        points,
+                                        mask_vars = NULL,
+                                        expansion_factor = 1) {
+  vars_raster <- terra::subset(raster, mask_vars)
+  range_mx <- extract_range(
+    raster = vars_raster,
+    extraction_locations = points,
+    expansion_factor = expansion_factor
   )
-  maskByRange(
+  mask_by_range(
     raster = raster,
-    rangeMx = rangeMx
+    range_mx = range_mx
   )
 }
 
@@ -46,41 +46,41 @@ createAnalysisRegionMask <- function(raster,
 #' fall under a set of points or polygons.
 #'
 #' @param raster A SpatRaster of explanatory variables
-#' @param extractionLocations A SpatVector of points or polyogons to extract range from.
-#' @param expansionFactor Factor to expand the range by. 1 indicates no expansion.
+#' @param extraction_locations A SpatVector of points or polyogons to extract range from.
+#' @param expansion_factor Factor to expand the range by. 1 indicates no expansion.
 #' 0.5 will reduce the range by 50\%. 2 will double the range.
 #'
 #' @return A matrix that holds the min & max initiation limits of each raster
 #' layer
 #'
-extractRange <- function(raster,
-                         extractionLocations,
-                         expansionFactor = 1) {
+extract_range <- function(raster,
+                          extraction_locations,
+                          expansion_factor = 1) {
 
   if (is.null(raster)) {
     stop("Must provide a raster with at least 1 layer")
   }
 
   # Extract all variable values from initiation buffers
-  values <- terra::extract(raster, extractionLocations)
+  values <- terra::extract(raster, extraction_locations)
   values$ID <- NULL
 
   # Find the min and max of the maximum variable values in each buffer
-  minValues <- apply(values, 2, min, na.rm = TRUE)
-  maxValues <- apply(values, 2, max, na.rm = TRUE)
+  min_values <- apply(values, 2, min, na.rm = TRUE)
+  max_values <- apply(values, 2, max, na.rm = TRUE)
 
   # Expand each initiation range
-  range <- maxValues - minValues
-  minValues <- minValues - (expansionFactor - 1) * (range / 2)
-  maxValues <- maxValues + (expansionFactor - 1) * (range / 2)
+  range <- max_values - min_values
+  min_values <- min_values - (expansion_factor - 1) * (range / 2)
+  max_values <- max_values + (expansion_factor - 1) * (range / 2)
 
   # Create a matrix that holds each variable's initiation range
-  varCount <- terra::nlyr(raster)
-  rangeMx <- matrix(c(minValues, maxValues), nrow = varCount)
-  colnames(rangeMx) <- c("min", "max")
-  rownames(rangeMx) <- names(minValues)
+  var_count <- terra::nlyr(raster)
+  range_mx <- matrix(c(min_values, max_values), nrow = var_count)
+  colnames(range_mx) <- c("min", "max")
+  rownames(range_mx) <- names(min_values)
 
-  return(rangeMx)
+  return(range_mx)
 }
 
 #' @title Mask a raster
@@ -89,43 +89,43 @@ extractRange <- function(raster,
 #' values
 #'
 #' @param raster A SpatRaster
-#' @param rangeMx A matrix with one row for each layer of the raster to
+#' @param range_mx A matrix with one row for each layer of the raster to
 #' use when calculating mask, and a column each for "min" and "max", indicating
 #' min and max allowable values. Rownames must match layer names in raster.
 #'
 #' @return A SpatRaster mask: Values are NA where values fall outside the
 #' range and 1 where values fall within the range.
 #'
-maskByRange <- function(raster,
-                        rangeMx) {
+mask_by_range <- function(raster,
+                          range_mx) {
   rep <- 1
 
-  for (varName in rownames(rangeMx)) {
-    varRaster <- raster[[varName]]
+  for (var_name in rownames(range_mx)) {
+    var_raster <- raster[[var_name]]
 
     # Get variable value limits
-    minValue <- rangeMx[varName, "min"]
-    maxValue <- rangeMx[varName, "max"]
+    min_value <- range_mx[var_name, "min"]
+    max_value <- range_mx[var_name, "max"]
 
     # NA-out cells with values outside variable initiation range
-    varMask <- terra::app(varRaster, function(x) {
-      ifelse(x < minValue | x > maxValue, NA, 1)
+    var_mask <- terra::app(var_raster, function(x) {
+      ifelse(x < min_value | x > max_value, NA, 1)
     })
 
     # Update the raster in the input raster stack
     if (rep == 1) {
-      rangeRaster <- varMask
+      range_raster <- var_mask
     } else {
-      rangeRaster <- c(rangeRaster, varMask)
+      range_raster <- c(range_raster, var_mask)
     }
 
 
     rep <- rep + 1
   }
 
-  names(rangeRaster) = rownames(rangeMx)
+  names(range_raster) = rownames(range_mx)
 
   # Only include cells with ALL values within the initiation range
-  all(rangeRaster)
+  all(range_raster)
 
 }

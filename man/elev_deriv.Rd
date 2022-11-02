@@ -7,8 +7,8 @@
 elev_deriv(
   input_file = "nofile",
   rasters = vector("list", 0),
-  length_scale = 0,
   dem = "none",
+  length_scale = 0,
   scratch_dir = "none"
 )
 }
