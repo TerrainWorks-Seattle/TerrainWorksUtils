@@ -26,7 +26,11 @@ create_analysis_region_mask <- function(raster,
                                         points,
                                         mask_vars = NULL,
                                         expansion_factor = 1) {
-  vars_raster <- terra::subset(raster, mask_vars)
+
+  if (!is.null(mask_vars)) {
+    vars_raster <- terra::subset(raster, mask_vars)
+  }
+
   range_mx <- extract_range(
     raster = vars_raster,
     extraction_locations = points,

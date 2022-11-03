@@ -75,13 +75,15 @@ create_training_data_from_points <- function(positive_points,
                                              buffer_radius = 15,
                                              negative_proportion = 1,
                                              extraction_method = "centroid",
-                                             extraction_layer = NULL) {
+                                             extraction_layer = NULL,
+                                             rseed = NULL) {
   training_points <- sample_negative_points(
     positive_points = positive_points,
     analysis_region = analysis_region_mask,
     buffer = TRUE,
     buffer_radius = buffer_radius,
-    negative_proportion = negative_proportion
+    negative_proportion = negative_proportion,
+    rseed = rseed
   )
 
   extract_values(
@@ -133,7 +135,8 @@ create_training_data_with_buffer <- function(positive_points,
                                              analysis_region_mask = NULL,
                                              negative_proportion = 1,
                                              extraction_method = "centroid",
-                                             extraction_layer = NULL) {
+                                             extraction_layer = NULL,
+                                             rseed = NULL) {
 
   neg_region <- make_neg_region(positive_points,
                                 predictors_raster,
@@ -154,7 +157,8 @@ create_training_data_with_buffer <- function(positive_points,
                                    buffer_radius = 1,
                                    negative_proportion = 1,
                                    extraction_method = "centroid",
-                                   extraction_layer = NULL)
+                                   extraction_layer = NULL,
+                                   rseed = rseed)
 
 }
 
@@ -247,7 +251,8 @@ sample_negative_points <- function(positive_points,
                                    analysis_region,
                                    buffer = TRUE,
                                    buffer_radius = 15,
-                                   negative_proportion = 1) {
+                                   negative_proportion = 1,
+                                   rseed = NULL) {
 
   # Check params
   if (terra::geomtype(positive_points) != "points") {
@@ -284,7 +289,8 @@ sample_negative_points <- function(positive_points,
     count = negative_buffers_count,
     region = negative_region,
     buffer = buffer,
-    radius = buffer_radius
+    radius = buffer_radius,
+    rseed = rseed
   )
 
   negative_points$class <- "negative"
@@ -321,7 +327,8 @@ sample_negative_points <- function(positive_points,
 sample_points <- function(count,
                           region,
                           buffer = TRUE,
-                          radius = 15) {
+                          radius = 15,
+                          rseed = NULL) {
   if (class(count) != "numeric") stop("count must be a number")
   if (class(region) != "SpatRaster") stop("region must be a raster")
   # NOTE: terra::spatSample() sometimes generates less than the requested
@@ -331,6 +338,12 @@ sample_points <- function(count,
 
   current_request <- count
   has_generated_enough <- FALSE
+
+  if (is.null(rseed)) {
+    set.seed(sample(1:1000, 1))
+  } else {
+    set.seed(rseed)
+  }
 
   while (!has_generated_enough) {
     # Sample points anywhere that fits initiation conditions but recorded no landslides
