@@ -16,7 +16,7 @@
 # TODO: edit to work with training data as points in addition to data frame.
 # TODO: edit y-axis to not cut anything off.
 plot_metric_distribution <- function(training_data,
-                                     parameters,
+                                     parameters = NULL,
                                      plot_type = "hist") {
 
   if (!(plot_type %in% c("hist", "den"))) {
@@ -27,11 +27,15 @@ plot_metric_distribution <- function(training_data,
   positive_data <- training_data[which(training_data$class == "positive"), ]
   negative_data <- training_data[which(training_data$class == "negative"), ]
 
+  if (is.null(parameters)) {
+    parameters = names(training_data)
+  }
+
   # define visual aspects of the plot
   num_parameters = length(parameters)
   par(mfrow = c(ceiling(num_parameters / 3), 3))
-  c1 <- rgb(0, 0, 0, max = 255, alpha = 80)
-  c2 <- rgb(227, 60, 57, max = 255, alpha = 80)
+  blk <- rgb(0, 0, 0, max = 255, alpha = 80)
+  red <- rgb(227, 60, 57, max = 255, alpha = 80)
 
   if (plot_type == "hist") {
     for (p in parameters) {
@@ -45,8 +49,8 @@ plot_metric_distribution <- function(training_data,
         h_neg <- hist(negative_data[, p], breaks = buckets, plot = FALSE)
         plot(h_neg, xlab = p,
              main = paste0("Distribution of ", p),
-             col = c2)
-        plot(h_pos, col = c1,
+             col = red)
+        plot(h_pos, col = blk,
              add = TRUE)
       }
     }
