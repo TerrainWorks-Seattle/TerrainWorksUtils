@@ -49,7 +49,8 @@ plot_metric_distribution <- function(training_data,
         h_neg <- hist(negative_data[, p], breaks = buckets, plot = FALSE)
         plot(h_neg, xlab = p,
              main = paste0("Distribution of ", p),
-             col = red)
+             col = red,
+             ylim = c(0, max(c(h_pos$counts, h_neg$counts))))
         plot(h_pos, col = blk,
              add = TRUE)
       }
@@ -61,9 +62,10 @@ plot_metric_distribution <- function(training_data,
         plot(d_pos,
              main = paste0("Distribution of ", p),
              xlab = p,
-             col = c1)
-        polygon(d_pos, col = c1)
-        polygon(d_neg, col = c2)
+             col = blk,
+             ylim = c(0, max(c(d_pos$y, d_neg$y))))
+        polygon(d_pos, col = blk)
+        polygon(d_neg, col = red)
       }
   }
 }

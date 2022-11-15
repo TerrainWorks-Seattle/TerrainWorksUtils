@@ -32,7 +32,8 @@ create_training_data_from_polygons <- function(polygons,
     sample_rate = sample_rate,
     region_margin = region_margin,
     polygon_class = polygon_class,
-    nonpolygon_class = nonpolygon_class
+    nonpolygon_class = nonpolygon_class,
+    rseed = rseed
   )
 
   extract_values(
@@ -67,6 +68,9 @@ create_training_data_from_polygons <- function(polygons,
 #' @param extraction_layer Layer to use for extracting value. Ignored if
 #' extraction_method = "centroid". Ignored if extraction_method is "all" or
 #' "centroid" or if extractionPoints is not polygon.
+#' @param rseed Optional integer to seed the random sampling. This allows exact
+#' "random"  results to be reproduced multiple times. If no number is given, a
+#' random number will be chosen as a seed.
 #'
 #' @export
 create_training_data_from_points <- function(positive_points,
@@ -124,6 +128,9 @@ create_training_data_from_points <- function(positive_points,
 #' @param extraction_layer Layer to use for extracting value. Ignored if
 #' extraction_method = "centroid". Ignored if extraction_method is "all" or
 #' "centroid" or if extractionPoints is not polygon.
+#' @param rseed Optional integer to seed the random sampling. This allows exact
+#' "random"  results to be reproduced multiple times. If no number is given, a
+#' random number will be chosen as a seed.
 #'
 #' @return a data.frame with values for positive and negative points
 #' @export
@@ -244,6 +251,9 @@ create_training_points_from_polygons <- function(polygons,
 #' point
 #' @param negative_proportion Proportion of negative points to be generated
 #' compared to number of positive points
+#' @param rseed Optional integer to seed the random sampling. This allows exact
+#' "random"  results to be reproduced multiple times. If no number is given, a
+#' random number will be chosen as a seed.
 #'
 #' @return SpatVector with positive and negative points, wtih a field
 #' \code{"class"} indicating whether each point is positive or negative
@@ -322,6 +332,9 @@ sample_negative_points <- function(positive_points,
 #'               cannot be located
 #' @param buffer Should points be returned with a buffer?
 #' @param radius The radius of each buffer (ignored if buffer = FALSE)
+#' @param rseed Optional integer to seed the random sampling. This allows exact
+#' "random"  results to be reproduced multiple times. If no number is given, a
+#' random number will be chosen as a seed.
 #'
 #' @return A SpatVector of buffers.
 sample_points <- function(count,
@@ -339,9 +352,7 @@ sample_points <- function(count,
   current_request <- count
   has_generated_enough <- FALSE
 
-  if (is.null(rseed)) {
-    set.seed(sample(1:1000, 1))
-  } else {
+  if (!is.null(rseed)) {
     set.seed(rseed)
   }
 
