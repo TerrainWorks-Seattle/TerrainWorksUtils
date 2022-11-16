@@ -1,5 +1,6 @@
+
 get_executable_path <- function() {
-  utilities_dir <- system.file("DEMutilities", package = "TerrainWorksUtils")
+  utilities_dir <- system.file("R/dem_executables", package = "TerrainWorksUtils")
   executable_zip <- file.path(utilities_dir, "ExecutableFiles.zip")
   executable_dir <- file.path(utilities_dir, "ExecutableFiles")
   if (!dir.exists(executable_dir) & file.exists(executable_zip)) {
