@@ -25,7 +25,8 @@ create_training_data_from_polygons <- function(polygons,
                                            sample_rate = 0.5,
                                            region_margin = 50,
                                            polygon_class = "positive",
-                                           nonpolygon_class = "negative") {
+                                           nonpolygon_class = "negative",
+                                           rseed = NULL) {
   training_points <- create_training_points_from_polygons(
     polygons = polygons,
     analysis_region = analysis_region,
@@ -188,7 +189,8 @@ create_training_points_from_polygons <- function(polygons,
                                              sample_rate = 0.5,
                                              region_margin = 50,
                                              polygon_class = "positive",
-                                             nonpolygon_class = "negative") {
+                                             nonpolygon_class = "negative",
+                                             rseed) {
   if (class(polygons) != "SpatVector") stop("polygons must be SpatVector")
 
   # Make sure analysis_region is polygon
@@ -210,6 +212,10 @@ create_training_points_from_polygons <- function(polygons,
   }
 
   # Sample from polygons ------------------------------------------------------------
+
+  if (!is.null(rseed)) {
+    set.seed(rseed)
+  }
 
   # Crop the wetland polygons to the region
   positive_polygons <- terra::project(polygons, analysis_region)
