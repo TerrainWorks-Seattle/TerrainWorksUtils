@@ -35,4 +35,5 @@ probs <- c(runif(40, 0.4, 1.0), runif(60, 0.0, 0.6))
 
 rocStats <- calcRocStats(classes, probs, "WET", "UPL")
 }
+
 }

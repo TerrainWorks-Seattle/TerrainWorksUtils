@@ -1,17 +1,27 @@
 Package: TerrainWorksUtils
 Type: Package
 Title: General utility functions for TerrainWorks
-Version: 0.1.0
-Author: TerrainWorks
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Version: 0.1.3
+Authors@R: 
+    c(
+        person("Helen", "Miller", email = "helenthehuman@gmail.com", role = c("aut", "cre")), 
+        person("Tate", "Brasel", role = "aut")
+     )
+Description: TerrainWorks resources for creating and assessing statistical models for predicting landslide susceptibility.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports:
   methods,
+  randomForest,
   ROCR,
   stats,
-  terra
-RoxygenNote: 7.1.1
+  terra (>= 1.5)
+RoxygenNote: 7.1.2
+Suggests: 
+    knitr,
+    covr,
+    testthat (>= 3.0.0),
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr

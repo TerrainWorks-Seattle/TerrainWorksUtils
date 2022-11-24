@@ -1,0 +1,107 @@
+---
+title: "Create Training Data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Create Training Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+```
+
+
+TerrainWorksUtils includes methods which can be helpful for extracting data 
+from spatial objects which can be used to build predictive models like 
+random forests. 
+
+For this example, we will work with landslide susceptibility data from near
+Scottsburg, Oregon. We have a Digital Elevation Model, and several raster 
+files which contain data about slope metrics including gradient, 
+plan curvature, profile curvature, deviation from mean elevation, and 
+partial contributing area. For more details on these metrics, see the 
+DEMUtilities toolbox. 
+
+We also have a set of landslide initiation points, which we will use to train 
+the model. 
+
+TerrainWorksUtils uses the package `terra` for working with spatial data. 
+
+```{r}
+library(terra)
+
+data_path <- system.file("examples", package = "TerrainWorksUtils")
+elev <- rast(file.path(data_path, "elev_scottsburg.tif"))
+grad <- rast(file.path(data_path, "grad_15.tif"))
+plan <- rast(file.path(data_path, "plan_15.tif"))
+prof <- rast(file.path(data_path, "prof_15.tif"))
+dev <- rast(file.path(data_path, "dev_15.tif"))
+pca <- rast(file.path(data_path, "pca_15m_48hr.tif"))
+
+varsRaster <- c(
+  grad,
+  plan,
+  prof,
+  dev,
+  pca
+)
+
+initiation_points <- terra::vect(file.path(data_path,"initiation_points.shp"))
+plot(elev)
+points(initiation_points)
+```
+
+To create training data, we need both initiation and non-initiation points. 
+The methods `createTrainingDataFromPoints` and `createTrainingDataFromPolygons`
+are the two main TerrainWorks functions for creating training data. In this
+case, we are starting with a set of initiation points, so we will use the 
+former. Under the hood, `createTrainingDataFromPoints` accepts a set of points
+which are of a class we are trying to predict ("positive" points), samples 
+"negative" points from our analysis region using the function
+`sampleNegativePoints`, extracts values for each of those points, and formats
+the result into a table. To extract more meaningful points, we can use the 
+function `createAnalysisRegionMask` to filter our analysis region to only 
+include cells which already contain reasonable values for landslides to occur. 
+
+```{r analysisRegionMask}
+analysisRegionMask <- createAnalysisRegionMask(
+  varsRaster, 
+  initiation_points, 
+  maskVars = c("grad_15", "plan_15", "prof_15"), 
+  expansionFactor = 1
+)
+plot(analysisRegionMask)
+```
+
+Now that we have specified our analysis region, we can create our training 
+data. 
+
+```{r create-training-data}
+allPoints <- sampleNegativePoints(
+  initiation_points, 
+  analysisRegion = analysisRegionMask
+)
+trainingPoints <- extractValues(
+  varsRaster, 
+  allPoints, 
+  extractionMethod = "centroid", 
+  returnType = "points"
+)
+plot(elev)
+points(trainingPoints, col = ifelse(trainingPoints$class == "positive", 
+                                    "black", 
+                                    "red")
+         )
+```
+
+
+
+
