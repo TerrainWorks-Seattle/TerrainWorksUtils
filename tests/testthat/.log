@@ -1,22 +1,22 @@
   MakeGrids log file
     Version 1.0.8
     Compiled November 11, 2020
-    Started October 19, 2022 at 10:45 AM
+    Started November 22, 2022 at 1:04 PM
   ==============================================================
-  Input file: \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\makegrids_input.txt
+  Input file: \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/examples\makegrids_input_sample.txt
     copied below
   --------------------------------------------------------------
   # Input file for makeGrids
   # Creating by input_file_utils.R
-  # On 2022-10-19 10:45:59
+  # On 2022-10-19 10:57:24
   DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\examples\elev_scottsburg
   SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\scratch
   LENGTH SCALE: 15
-  GRID: GRADIENT, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\grad
-  GRID: PLAN CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\plan
-  GRID: PROFILE CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\prof
-  GRID: NORMAL SLOPE CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\norm
-  GRID: TANGENTIAL CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\tan
+  GRID: GRADIENT, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/grad.flt
+  GRID: PLAN CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/plan.flt
+  GRID: PROFILE CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/prof.flt
+  GRID: NORMAL SLOPE CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/norm.flt
+  GRID: TANGENTIAL CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/tan.flt
   ====================End Input File==========================
  
   Program runtime output follows
@@ -33,12 +33,12 @@
   Reading DEM
   Calculating surface metrics
   Scale length: 15.00000
-  Created PROFILE CURVATURE file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\prof
-  Created PLAN CURVATURE file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\plan
-  Created GRADIENT file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\grad
-  MakeGrids finished at October 19, 2022 at 10:45:59:732 AM
-  Elapsed CPU (seconds): 0.2812500
-  Created log file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\grad.log
-  Created log file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\plan.log
-  Created log file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch\prof.log
+  Created PROFILE CURVATURE file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/prof
+  Created PLAN CURVATURE file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/plan
+  Created GRADIENT file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/grad
+  MakeGrids finished at November 22, 2022 at 1:04:50:650 PM
+  Elapsed CPU (seconds): 0.1250000
+  Created log file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/grad.log
+  Created log file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/plan.log
+  Created log file \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/prof.log
   Created log file .log

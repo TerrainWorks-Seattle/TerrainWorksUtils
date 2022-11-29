@@ -4,7 +4,7 @@
 \alias{sample_points}
 \title{Sample Points from a region}
 \usage{
-sample_points(count, region, buffer = TRUE, radius = 15)
+sample_points(count, region, buffer = TRUE, radius = 15, rseed = NULL)
 }
 \arguments{
 \item{count}{The number of to sample}
@@ -15,6 +15,10 @@ cannot be located}
 \item{buffer}{Should points be returned with a buffer?}
 
 \item{radius}{The radius of each buffer (ignored if buffer = FALSE)}
+
+\item{rseed}{Optional integer to seed the random sampling. This allows exact
+"random"  results to be reproduced multiple times. If no number is given, a
+random number will be chosen as a seed.}
 }
 \value{
 A SpatVector of buffers.

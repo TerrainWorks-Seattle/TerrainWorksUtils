@@ -11,7 +11,8 @@ create_training_data_from_polygons(
   sample_rate = 0.5,
   region_margin = 50,
   polygon_class = "positive",
-  nonpolygon_class = "negative"
+  nonpolygon_class = "negative",
+  rseed = NULL
 )
 }
 \arguments{

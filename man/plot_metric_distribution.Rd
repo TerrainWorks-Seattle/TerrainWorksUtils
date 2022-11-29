@@ -4,7 +4,7 @@
 \alias{plot_metric_distribution}
 \title{Plot parameters by sample points}
 \usage{
-plot_metric_distribution(training_data, parameters, plot_type = "hist")
+plot_metric_distribution(training_data, parameters = NULL, plot_type = "hist")
 }
 \arguments{
 \item{training_data}{A data frame with the data to be plotted. Must have at
