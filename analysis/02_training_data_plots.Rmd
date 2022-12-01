@@ -1,0 +1,122 @@
+### Analyze the training data produced to assess the negative sampling strategy. 
+Here we investigate how the sampling strategy works to create useful input data for model generation. 
+
+First, load the elevation derivatives. These are calculate in (00) generate_elev_derivatives. 
+
+```{r}
+data_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/DeanCr/"
+
+elev <- rast(file.path(data_path, "elev_deancr.flt"))
+grad <- rast(file.path(data_path, "deriv/grad_15.flt"))
+plan <- rast(file.path(data_path, "deriv/plan_15.flt"))
+prof <- rast(file.path(data_path, "deriv/prof_15.flt"))
+norm <- rast(file.path(data_path, "deriv/norm_15.flt"))
+tan <- rast(file.path(data_path, "deriv/tan_15.flt"))
+pca_5 <- rast(file.path(data_path, "deriv/pca_k1_d5.flt"))
+pca_10 <- rast(file.path(data_path, "deriv/pca_k1_d10.flt"))
+pca_20 <- rast(file.path(data_path, "deriv/pca_k1_d20.flt"))
+
+#calculate mean slopes
+mean <- (norm + tan) / 2
+names(mean) <- "mean_15"
+
+vars_raster <- c(
+  grad,
+  plan,
+  prof,
+  norm, 
+  tan, 
+  mean,
+  pca_5, 
+  pca_10,
+  pca_20
+)
+
+initiation_points <- vect(file.path(data_path, "initiation_points.shp"))
+```
+
+
+```{r}
+neg_region <- make_neg_region(initiation_points, 
+                vars_raster, 
+                inner_buffer = 11, 
+                outer_buffer = 200)
+analysis_mask <- create_analysis_region_mask(raster = vars_raster, 
+                                             points = initiation_points)
+```
+
+```{r}
+plot(elev)
+points(initiation_points)
+plot(terra::mask(neg_region, analysis_mask), add = TRUE, col = rgb(.2, .2, .2, alpha = .5))
+```
+
+
+Now, with the help of random seeding, we want to repeat the training data generation a couple of times, and compare the varying distributions. 
+
+```{r}
+
+seeds = c(1, 50, 32, 56, 3)
+
+training_data <- create_training_data_with_buffer(
+  positive_points = initiation_points,
+  predictors_raster = vars_raster,
+  pos_buffer = 11,
+  neg_buffer = 150,
+  analysis_region_mask = analysis_mask,
+  negative_proportion = 1,
+  extraction_method = "centroid",
+  extraction_layer = NULL,
+  rseed = seeds[2])
+
+```
+
+```{r}
+cols = c("grad_15", "plan_15", "prof_15", "norm_15", "tan_15", "mean_15", "pca_k1_d5", "pca_k1_d10", "pca_k1_d20")
+plot_metric_distribution(training_data,
+                         parameters = cols,
+                         plot_type = 'den')
+```
+
+```{r}
+
+neg_reg <- terra::extract(vars_raster, as.polygons(neg_region))
+
+```
+
+
+```{r}
+# define visual aspects of the plot
+num_parameters = length(cols)
+par(mfrow = c(ceiling(num_parameters / 3), 3))
+blk <- rgb(0, 0, 0, max = 255, alpha = 80)
+red <- rgb(227, 60, 57, max = 255, alpha = 80)
+
+column = "plan_15"
+
+for (column in cols) {
+  
+      d_reg <- density(neg_reg[, column], n = 1024, na.rm = TRUE)
+      d_pts <- density(training_data[which(training_data$class == "negative"), column], n = 1024) 
+
+      
+      plot(d_reg,
+           main = paste0("Distribution of ", column),
+           xlab = column,
+           col = blk,
+           ylim = c(0, max(c(d_reg$y, d_pts$y))),
+           xlim = c(min(d_pts$x), quantile(d_pts$x, probs = c(.95))))
+           # xlim = c(min(d_))
+      polygon(d_reg, col = blk)
+      polygon(d_pts, col = red)
+      
+      # for (iter in neg_pts) {
+      #   d_pts <- density(neg_pts[, "grad_15"], n = 1024)
+      #   polygon(d_pts, col = red)
+      # }
+      
+    }
+
+```
+
+
