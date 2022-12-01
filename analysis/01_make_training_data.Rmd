@@ -1,3 +1,5 @@
+# Training data sampling strategy.
+
 ```{r}
 library(terra)
 ```
@@ -6,9 +8,10 @@ Load the data into R. Right now, I have higher resolution data stored in a
 folder in sandbox/data. These files can be recalculated from the 
 00_generate_elev_derivatives script. 
 
+Replace the data_path to use data. 
 
 ```{r}
-data_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/"
+data_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/DeanCr/"
 
 elev <- rast(file.path(data_path, "elev_scottsburg.flt"))
 grad <- rast(file.path(data_path, "grad_15.flt"))
@@ -36,7 +39,7 @@ initiation_points <- vect(file.path(data_path, "initiation_points.shp"))
 
 ```
 
-Plot elev + initiation points
+Plot elevation + initiation points.
 
 ```{r}
 plot(elev)
@@ -44,6 +47,11 @@ points(initiation_points)
 ```
 
 Create buffers around the initiation points to build our negative region. 
+
+We also build an analysis mask, which selects only the pixels where selected 
+elevation derivatives are within the range that we see in initiation points.
+This step would eliminate areas like stream beds that we can be confident are 
+not prone to landslide intiation. 
 
 ```{r}
 neg_region <- make_neg_region(initiation_points, 
@@ -56,18 +64,18 @@ analysis_mask <- create_analysis_region_mask(raster = vars_raster,
 
 ```
 
+Plot the study region with initiation points and the negative region.
+
 ```{r}
 
 plot(elev)
 points(initiation_points)
-# plot(analysis_mask, add = TRUE, col = rgb(.2, .2, .2, alpha = .6))
-# polys(as.polygons(neg_region))
 plot(terra::mask(neg_region, analysis_mask), add = TRUE, col = rgb(.2, .2, .2, alpha = .5))
 
 ```
 
-
-Sample negative points
+Sample negative points. Here we set a random seed to ensure that the results 
+could be replicated. 
 
 ```{r}
 training_points <- sample_negative_points(
@@ -80,6 +88,8 @@ training_points <- sample_negative_points(
   )
 ```
 
+Plot the study area with positive and negative sampled points. Positive points
+are shown in black, while the negative sampled points are shown in red. 
 
 ```{r}
 plot(elev)
@@ -89,7 +99,8 @@ points(training_points, col = ifelse(training_points$class == "positive",
                                     "red"))
 ```
 
-Next, extract the values and put them into a training data frame. 
+Next, extract the values and put them into a training data frame for model input.
+
 ```{r}
 training_data <- extract_values(
     raster = vars_raster,

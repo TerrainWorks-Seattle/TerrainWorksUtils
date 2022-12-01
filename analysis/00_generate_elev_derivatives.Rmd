@@ -1,11 +1,4 @@
----
-title: "Elevation derivatives"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{DEMutilities}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
----
+# Generate Elevation Derivatives
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -49,11 +42,6 @@ the DEM.
 DEM_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/DeanCr/elev_deancr.flt"
 output_dir <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/DeanCr/deriv/"
 metrics <- c("plan", "grad", "prof", "norm", "tan")
-
-# calculate_surface_metrics(metrics = metrics,
-#                           DEM_path = DEM_path,
-#                           output_dir = output_dir,
-#                           length_scale = 15)
 
 elev_deriv(rasters = c(paste0("GRADIENT,",output_dir,"/grad_15"),
                        paste0("PLAN CURVATURE,",output_dir,"/plan_15"),
