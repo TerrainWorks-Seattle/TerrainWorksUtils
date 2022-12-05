@@ -1,5 +1,4 @@
 
-
 #' @title Build a Random Forest model using cross-validation.
 #'
 #' @description This function acts as a wrapper for the train() function from
@@ -37,29 +36,33 @@
 build_k_fold_rf_model <- function(data = NULL,
                                seed = 123,
                                ctrl_method = "repeatedcv",
-                               k = 5,
+                               folds = 5,
                                repeats = 3) {
 
   set.seed(seed)
 
   #set control parameters.
   ctrl <- trainControl(method = ctrl_method,
-                       number = k,
+                       number = folds,
                        repeats = repeats,
                        # use AUC, specificity and sensitivity as metrics.
                        classProbs = TRUE,
                        summaryFunction = twoClassSummary)
 
+  # Preprocess
+  # process <- preProcess(data, method=c("center", "range"))
+
   # note: use parameter tuneLength to increase the range of tuning parameters
   # tried. can't be more than (number of predictors - 1).
   time <- system.time(model <- train(form = as.factor(class) ~ .,
                                      data = data,
+                                     preProcess = c("center", "range"),
                                      trControl = ctrl,
                                      method = "rf",
                                      metric = "ROC"))
 
   print(model)
-  print("Time spent generating the model:")
+  print("Model generation timed:")
   print(time)
   plot(model)
 }
@@ -101,4 +104,8 @@ build_rf_model <- function(data = NULL,
 
 }
 
+
+probability_raster <- function() {
+  return(NULL)
+}
 
