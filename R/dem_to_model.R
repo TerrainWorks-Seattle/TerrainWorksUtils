@@ -8,7 +8,38 @@
 #' The purpose of this script is to make it easy to evaluate the sensitivity
 #' of the model to various parameters.
 #'
-#' @param dem The DEM of the study area.
+#' @param dem File path for the DEM of the study area.
+#' @param initiation_points File path for the initiation points in the study area
+#' @param output_dir A directory to put output files.
+#' @param elev_derivates The elevation derivatives to calculate and include in
+#'        model generation. Current supported options are grad (gradient), prof
+#'        (profile curvature), plan (planar curvature), norm (normal slope
+#'        curvature), tan (tangential curvature), and mean (mean curvature).
+#' @param pca_durations The storm duration(s) in hours for the partial
+#'        contributing area calculation.
+#' @param pca_conductivity The hydraulic conductivity used in the contributing
+#'        area calculation.
+#' @param length_scale The length scale in m over which to calculate the
+#'        elevation derivatives.
+#' @param use_analysis_mask Whether to use an analysis mask or not. This is an
+#'        optional step which limits the selection of negative data points to
+#'        areas on the DEM where the specific elevation derivatives fall within
+#'        the range observed in the initiation points.
+#' @param analysis_mask_derivs Which elevation derivatives to use for
+#'        generating the analysis mask.
+#' @param analysis_mask_expansion The expansion of the range to use for
+#'        generating the analysis mask.
+#' @param neg_region_buffer The radius in m around the initiation points that
+#'        should be considered the negative region. We assume that any landslide
+#'        within this range would have been observed.
+#' @param pos_region_buffer The radius in m around the initiation points that
+#'        should be considered part of the landslide initiation.
+#' @param neg_sampling_proportion The proportion of negative to positive points
+#'        to be sampled from the negative region.
+#' @param preprocess_norm Should training data be normalized before the model
+#'        is trained
+#' @param preprocess_center Should training data be centered before the model
+#'        is trained
 #'
 #' @return Returns the information needed to evaluate the model. For this, we
 #' could probably look at just ROC, AUC.
@@ -18,7 +49,7 @@ dem_to_model <- function(dem,
                          initiation_points,
                          output_dir,
                          elev_derivatives = c("plan", "norm", "mean", "tan"),
-                         pca_durations = c(5, 48),
+                         pca_durations = c(5, 24),
                          pca_conductivity = 1,
                          length_scale = 15,
                          use_analysis_mask = FALSE,
@@ -110,7 +141,7 @@ dem_to_model <- function(dem,
     names <- append(names, "grad")
   }
   if ("plan" %in% elev_derivatives) {
-    to_calculate <- append(to_calculate, paste0("PLAN CURVATURE,",output_dir,
+    to_calculate <- append(to_calculate, paste0("PLANAR CURVATURE,",output_dir,
                                                 "/plan_", length_scale))
     names <- append(names, "plan")
   }
