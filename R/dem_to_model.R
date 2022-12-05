@@ -171,14 +171,20 @@ dem_to_model <- function(dem,
   names(vars_raster) <- names
 
   for (dur in pca_durations) {
-    vars_raster <- c(vars_raster, contributing_area(raster = paste0(output_dir,
-                                                      "pca_k", pca_conductivity,
-                                                      "_d", dur, ".flt"),
+    pca_loc <- (paste0(output_dir,"pca_k", pca_conductivity,"_d", dur, ".flt"))
+
+    if (file.exists(pca_loc)) {
+        vars_raster <- c(vars_raster, terra::rast(pca_loc))
+    } else {
+
+
+    vars_raster <- c(vars_raster, contributing_area(raster = pca_loc,
                                     dem = dem,
                                     length_scale = length_scale,
                                     k = pca_conductivity,
                                     d = dur,
                                     scratch_dir = output_dir))
+    }
   }
 
   if ("mean" %in% elev_derivatives) {

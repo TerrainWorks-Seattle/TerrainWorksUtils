@@ -56,7 +56,7 @@ build_k_fold_rf_model <- function(data = NULL,
   # tried. can't be more than (number of predictors - 1).
   time <- system.time(model <- train(form = as.factor(class) ~ .,
                                      data = data,
-                                     preProcess = c("center", "range"),
+                                     preProcess = c("center", "scale"),
                                      trControl = ctrl,
                                      method = "rf",
                                      metric = "ROC"))
