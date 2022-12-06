@@ -48,7 +48,7 @@ build_k_fold_rf_model <- function(data = NULL,
                        repeats = repeats,
                        # use AUC, specificity and sensitivity as metrics.
                        classProbs = TRUE,
-                       summaryFunction = twoClassSummary)
+                       summaryFunction = prSummary)
 
   # Preprocess
   # process <- preProcess(data, method=c("center", "range"))
@@ -60,7 +60,7 @@ build_k_fold_rf_model <- function(data = NULL,
                                      preProcess = preprocess,
                                      trControl = ctrl,
                                      method = "rf",
-                                     metric = "ROC"))
+                                     metric = "AUC"))
 
   print(model)
   print("Model generation timed:")
