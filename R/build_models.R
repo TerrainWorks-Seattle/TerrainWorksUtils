@@ -37,7 +37,8 @@ build_k_fold_rf_model <- function(data = NULL,
                                seed = 123,
                                ctrl_method = "repeatedcv",
                                folds = 5,
-                               repeats = 3) {
+                               repeats = 3,
+                               preprocess = c("center", "scale")) {
 
   set.seed(seed)
 
@@ -56,7 +57,7 @@ build_k_fold_rf_model <- function(data = NULL,
   # tried. can't be more than (number of predictors - 1).
   time <- system.time(model <- train(form = as.factor(class) ~ .,
                                      data = data,
-                                     preProcess = c("center", "scale"),
+                                     preProcess = preprocess,
                                      trControl = ctrl,
                                      method = "rf",
                                      metric = "ROC"))

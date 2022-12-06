@@ -134,39 +134,73 @@ dem_to_model <- function(dem,
 
   to_calculate <- list()
   names <- list()
+  missing = FALSE
 
   if ("grad" %in% elev_derivatives) {
+    if (file.exists(paste0(output_dir,"/grad_", length_scale, ".flt"))) {
+      missing = missing | FALSE
+    } else {
+      missing = TRUE
+    }
     to_calculate <- append(to_calculate, paste0("GRADIENT,",output_dir,
                                                 "/grad_", length_scale))
     names <- append(names, "grad")
   }
   if ("plan" %in% elev_derivatives) {
+    if (file.exists(paste0(output_dir,"/plan_", length_scale, ".flt"))) {
+      missing = missing | FALSE
+    } else {
+      missing = TRUE
+    }
     to_calculate <- append(to_calculate, paste0("PLANAR CURVATURE,",output_dir,
                                                 "/plan_", length_scale))
     names <- append(names, "plan")
   }
   if ("prof" %in% elev_derivatives) {
+    if (file.exists(paste0(output_dir,"/prof_", length_scale, ".flt"))) {
+      missing = missing | FALSE
+    } else {
+      missing = TRUE
+    }
     to_calculate <- append(to_calculate, paste0("PROFILE CURVATURE,",output_dir,
                                                 "/prof_", length_scale))
     names <- append(names, "prof")
   }
   if ("norm" %in% elev_derivatives) {
+    if (file.exists(paste0(output_dir,"/norm_", length_scale, ".flt"))) {
+      missing = missing | FALSE
+    } else {
+      missing = TRUE
+    }
     to_calculate <- append(to_calculate, paste0("NORMAL SLOPE CURVATURE,",output_dir,
                                                 "/norm_", length_scale))
     names <- append(names, "norm")
   }
   if ("tan" %in% elev_derivatives) {
+    if (file.exists(paste0(output_dir,"/tan_", length_scale, ".flt"))) {
+      missing = missing | FALSE
+    } else {
+      missing = TRUE
+    }
     to_calculate <- append(to_calculate, paste0("TANGENTIAL CURVATURE,",output_dir,
                                                 "/tan_", length_scale))
     names <- append(names, "tan")
 
   }
 
-
-  vars_raster <- elev_deriv(rasters = to_calculate,
+  if (missing) {
+    print("need to recalculate metrics")
+    vars_raster <- elev_deriv(rasters = to_calculate,
                             length_scale = length_scale,
                             dem = dem,
                             scratch_dir = output_dir)
+  } else {
+    vars_raster <- elev_deriv(rasters = to_calculate,
+                              length_scale = length_scale,
+                              scratch_dir = output_dir)
+  }
+
+
 
   names(vars_raster) <- names
 
@@ -174,16 +208,14 @@ dem_to_model <- function(dem,
     pca_loc <- (paste0(output_dir,"pca_k", pca_conductivity,"_d", dur, ".flt"))
 
     if (file.exists(pca_loc)) {
-        vars_raster <- c(vars_raster, terra::rast(pca_loc))
+      vars_raster <- c(vars_raster, terra::rast(pca_loc))
     } else {
-
-
-    vars_raster <- c(vars_raster, contributing_area(raster = pca_loc,
-                                    dem = dem,
-                                    length_scale = length_scale,
-                                    k = pca_conductivity,
-                                    d = dur,
-                                    scratch_dir = output_dir))
+      vars_raster <- c(vars_raster, contributing_area(raster = pca_loc,
+                                      dem = dem,
+                                      length_scale = length_scale,
+                                      k = pca_conductivity,
+                                      d = dur,
+                                      scratch_dir = output_dir))
     }
   }
 
@@ -238,10 +270,21 @@ dem_to_model <- function(dem,
 
   print("Building model...")
 
+  if (!preprocess_norm & !preprocess_center) {
+    preproc_steps = NULL
+  } else if (preprocess_center & !preprocess_norm) {
+    preproc_steps <- c("center")
+  } else if (preprocess_norm & !preprocess_center) {
+    preproc_steps <- c("scale")
+  } else if (preprocess_norm & preprocess_center) {
+    preproc_steps <- c("center", "scale")
+  }
+
   build_k_fold_rf_model(data = training_data,
                         seed = 123,
                         ctrl_method = "repeatedcv",
                         folds = 5,
-                        repeats = 3) # add control for this
+                        repeats = 3,
+                        preprocess = preproc_steps) # add control for this
 
 }
