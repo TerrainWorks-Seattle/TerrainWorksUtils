@@ -34,11 +34,11 @@
 #' @export
 #'
 build_k_fold_rf_model <- function(data = NULL,
-                               seed = 123,
-                               ctrl_method = "repeatedcv",
-                               folds = 5,
-                               repeats = 3,
-                               preprocess = c("center", "scale")) {
+                                  seed = 123,
+                                  ctrl_method = "repeatedcv",
+                                  folds = 5,
+                                  repeats = 3,
+                                  preprocess = c("center", "scale")) {
 
   set.seed(seed)
 

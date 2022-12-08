@@ -32,8 +32,7 @@ create_training_data_from_polygons <- function(polygons,
     sample_rate = sample_rate,
     region_margin = region_margin,
     polygon_class = polygon_class,
-    nonpolygon_class = nonpolygon_class,
-    rseed = rseed
+    nonpolygon_class = nonpolygon_class
   )
 
   extract_values(
@@ -162,7 +161,7 @@ create_training_data_with_buffer <- function(positive_points,
                                    predictors_raster,
                                    analysis_region_mask = region_mask,
                                    buffer_radius = 1,
-                                   negative_proportion = 1,
+                                   negative_proportion = negative_proportion,
                                    extraction_method = "centroid",
                                    extraction_layer = NULL,
                                    rseed = rseed)
