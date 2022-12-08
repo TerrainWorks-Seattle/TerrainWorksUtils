@@ -12,7 +12,8 @@ create_training_data_with_buffer(
   analysis_region_mask = NULL,
   negative_proportion = 1,
   extraction_method = "centroid",
-  extraction_layer = NULL
+  extraction_layer = NULL,
+  rseed = NULL
 )
 }
 \arguments{
@@ -42,6 +43,10 @@ polygon}
 \item{extraction_layer}{Layer to use for extracting value. Ignored if
 extraction_method = "centroid". Ignored if extraction_method is "all" or
 "centroid" or if extractionPoints is not polygon.}
+
+\item{rseed}{Optional integer to seed the random sampling. This allows exact
+"random"  results to be reproduced multiple times. If no number is given, a
+random number will be chosen as a seed.}
 }
 \value{
 a data.frame with values for positive and negative points
