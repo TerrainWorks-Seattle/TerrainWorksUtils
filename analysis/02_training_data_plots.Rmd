@@ -7,16 +7,16 @@ First, load the elevation derivatives. These are calculate in (00) generate_elev
 Replace data_path as needed.
 
 ```{r}
-data_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/DeanCr"
-# data_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/scottsburg"
+# data_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/DeanCr"
+data_path <- "\\\\Mac/Home/Documents/terrainworks/code/sandbox/data/scottsburg"
 
-elev <- terra::rast(file.path(data_path, "elev_deancr.flt"))
+elev <- terra::rast(file.path(data_path, "elev_scottsburg.flt"))
 grad <- rast(file.path(data_path, "deriv/grad_15.flt"))
 plan <- rast(file.path(data_path, "deriv/plan_15.flt"))
 prof <- rast(file.path(data_path, "deriv/prof_15.flt"))
 norm <- rast(file.path(data_path, "deriv/norm_15.flt"))
 tan <- rast(file.path(data_path, "deriv/tan_15.flt"))
-pca_5 <- rast(file.path(data_path, "deriv/pca_k1_d5.flt"))
+# pca_5 <- rast(file.path(data_path, "deriv/pca_k1_d5.flt"))
 pca_10 <- rast(file.path(data_path, "deriv/pca_k1_d10.flt"))
 pca_20 <- rast(file.path(data_path, "deriv/pca_k1_d20.flt"))
 
@@ -31,12 +31,12 @@ vars_raster <- c(
   norm, 
   tan, 
   mean,
-  pca_5, 
+  # pca_5, 
   pca_10,
   pca_20
 )
 
-initiation_points <- vect(file.path(data_path, "DeanCr_Initiation_Points.shp"))
+initiation_points <- vect(file.path(data_path, "initiation_points.shp"))
 ```
 
 Generate the negative region and analysis mask for visualization. 
@@ -69,7 +69,7 @@ training_data <- create_training_data_with_buffer(
   pos_buffer = 11,
   neg_buffer = 150,
   analysis_region_mask = NULL,
-  negative_proportion = 1,
+  negative_proportion = 3,
   extraction_method = "centroid",
   extraction_layer = NULL,
   rseed = seeds[2])
@@ -168,14 +168,15 @@ Plot the distribution of elevation derivatives for the entire negative region
 vs sampled points within the negative region. 
 
 ```{r}
+
+cols = c("grad_15", "plan_15", "prof_15", "norm_15", "tan_15", "mean_15", "pca_k1_d10", "pca_k1_d20")
+
 # define visual aspects of the plot
 num_parameters = length(cols)
 par(mfrow = c(ceiling(num_parameters / 3), 3), mar = c(2, 2, 1, 1),
       oma = c(2,1,1,1))
 blk <- rgb(0, 0, 0, max = 255, alpha = 80)
 red <- rgb(227, 60, 57, max = 255, alpha = 80)
-
-column = "plan_15"
 
 for (column in cols) {
   
