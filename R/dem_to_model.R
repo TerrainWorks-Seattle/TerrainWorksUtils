@@ -8,7 +8,7 @@
 #' The purpose of this script is to make it easy to evaluate the sensitivity
 #' of the model to various parameters.
 #'
-#' @param dem File path for the DEM of the study area.
+#' @param dems File path for the DEM of the study area.
 #' @param initiation_points File path for the initiation points in the study area
 #' @param output_dir A directory to put output files.
 #' @param elev_derivates The elevation derivatives to calculate and include in
@@ -45,11 +45,11 @@
 #' could probably look at just ROC, AUC.
 #' @export
 #'
-dem_to_model <- function(dem,
+dem_to_model <- function(dems,
                          initiation_points,
                          output_dir,
                          elev_derivatives = c("plan", "norm", "mean", "tan"),
-                         pca_durations = c(5, 24),
+                         pca_durations = c(5),
                          pca_conductivity = 1,
                          length_scale = 15,
                          use_analysis_mask = FALSE,
@@ -63,19 +63,17 @@ dem_to_model <- function(dem,
 
   # ---------------- Error checking input values ---------------------- #
 
-  if (!file.exists(dem)) {
-    stop("Must provide a valid DEM file.")
-  }
+  # if (!file.exists(dem)) {
+  #   stop("Must provide a valid DEM file.")
+  # }
 
-  if (!file.exists(initiation_points)) {
-    stop("Must provide a valid file with initiation points.")
-  }
+  # if (!file.exists(initiation_points)) {
+  #   stop("Must provide a valid file with initiation points.")
+  # }
 
   if (!dir.exists(output_dir)) {
     stop("Output directory does not exist or was not specified.")
   }
-
-  dem_input <- terra::rast(dem)
 
   if (!all(elev_derivatives %in%
            c("grad", "plan", "mean", "tan", "prof", "norm"))) {
@@ -90,9 +88,10 @@ dem_to_model <- function(dem,
   if (length_scale <= 0) {
     stop("Length scale must be larger than 0.")
   }
-
-  dem_width = dim(dem_input)[1] * terra::res(dem_input)[1]
-  dem_length = dim(dem_input)[2] * terra::res(dem_input)[2]
+#
+#   dem_input <- terra::rast(dem)
+#   dem_width = dim(dem_input)[1] * terra::res(dem_input)[1]
+#   dem_length = dim(dem_input)[2] * terra::res(dem_input)[2]
 
   if (length_scale > 100) {
     warning("Using too large of a length scale may lead to bad results.")
@@ -115,9 +114,9 @@ dem_to_model <- function(dem,
     stop("Negative region buffer length must be greater than the positive region buffer")
   }
 
-  if (neg_region_buffer > dem_width | neg_region_buffer > dem_length) {
-    warning("Negative region buffer is larger than the study area.")
-  }
+  # if (neg_region_buffer > dem_width | neg_region_buffer > dem_length) {
+  #   warning("Negative region buffer is larger than the study area.")
+  # }
 
   if (neg_sampling_proportion < 0) {
     stop("Negative sampling proportion must be positive.")
@@ -132,138 +131,164 @@ dem_to_model <- function(dem,
 
   print("Calculating elevation derivatives...")
 
-  to_calculate <- list()
-  names <- list()
-  missing = FALSE
+  n <- 1
+  all_train_data <- data.frame()
 
-  if ("grad" %in% elev_derivatives) {
-    if (file.exists(paste0(output_dir,"/grad_", length_scale, ".flt"))) {
-      missing = missing | FALSE
-    } else {
-      missing = TRUE
+  for (dem in dems) {
+
+    if (!file.exists(dem)) {
+      stop("Must provide a valid DEM file.")
     }
-    to_calculate <- append(to_calculate, paste0("GRADIENT,",output_dir,
-                                                "/grad_", length_scale))
-    names <- append(names, "grad")
-  }
-  if ("plan" %in% elev_derivatives) {
-    if (file.exists(paste0(output_dir,"/plan_", length_scale, ".flt"))) {
-      missing = missing | FALSE
-    } else {
-      missing = TRUE
+
+    if (!file.exists(initiation_points[1])) {
+      stop("Must provide a valid file with initiation points.")
     }
-    to_calculate <- append(to_calculate, paste0("PLANAR CURVATURE,",output_dir,
-                                                "/plan_", length_scale))
-    names <- append(names, "plan")
-  }
-  if ("prof" %in% elev_derivatives) {
-    if (file.exists(paste0(output_dir,"/prof_", length_scale, ".flt"))) {
-      missing = missing | FALSE
-    } else {
-      missing = TRUE
+
+    output_subdir = paste0(output_dir, n)
+    if (!dir.exists(output_subdir)) {
+      dir.create(output_subdir)
     }
-    to_calculate <- append(to_calculate, paste0("PROFILE CURVATURE,",output_dir,
-                                                "/prof_", length_scale))
-    names <- append(names, "prof")
-  }
-  if ("norm" %in% elev_derivatives) {
-    if (file.exists(paste0(output_dir,"/norm_", length_scale, ".flt"))) {
-      missing = missing | FALSE
-    } else {
-      missing = TRUE
+
+
+    to_calculate <- list()
+    names <- list()
+    missing = FALSE
+
+    if ("grad" %in% elev_derivatives) {
+      if (file.exists(paste0(output_subdir,"/grad_", length_scale, ".flt"))) {
+        missing = missing | FALSE
+      } else {
+        missing = TRUE
+      }
+      to_calculate <- append(to_calculate, paste0("GRADIENT,",output_subdir,
+                                                  "/grad_", length_scale))
+      names <- append(names, "grad")
     }
-    to_calculate <- append(to_calculate, paste0("NORMAL SLOPE CURVATURE,",output_dir,
-                                                "/norm_", length_scale))
-    names <- append(names, "norm")
-  }
-  if ("tan" %in% elev_derivatives) {
-    if (file.exists(paste0(output_dir,"/tan_", length_scale, ".flt"))) {
-      missing = missing | FALSE
-    } else {
-      missing = TRUE
+    if ("plan" %in% elev_derivatives) {
+      if (file.exists(paste0(output_subdir,"/plan_", length_scale, ".flt"))) {
+        missing = missing | FALSE
+      } else {
+        missing = TRUE
+      }
+      to_calculate <- append(to_calculate, paste0("PLANAR CURVATURE,",output_subdir,
+                                                  "/plan_", length_scale))
+      names <- append(names, "plan")
     }
-    to_calculate <- append(to_calculate, paste0("TANGENTIAL CURVATURE,",output_dir,
-                                                "/tan_", length_scale))
-    names <- append(names, "tan")
-
-  }
-
-  if (missing) {
-    print("need to recalculate metrics")
-    vars_raster <- elev_deriv(rasters = to_calculate,
-                            length_scale = length_scale,
-                            dem = dem,
-                            scratch_dir = output_dir)
-  } else {
-    vars_raster <- elev_deriv(rasters = to_calculate,
-                              length_scale = length_scale,
-                              scratch_dir = output_dir)
-  }
-
-
-
-  names(vars_raster) <- names
-
-  for (dur in pca_durations) {
-    pca_loc <- (paste0(output_dir,"pca_k", pca_conductivity,"_d", dur, ".flt"))
-
-    if (file.exists(pca_loc)) {
-      vars_raster <- c(vars_raster, terra::rast(pca_loc))
-    } else {
-      vars_raster <- c(vars_raster, contributing_area(raster = pca_loc,
-                                      dem = dem,
-                                      length_scale = length_scale,
-                                      k = pca_conductivity,
-                                      d = dur,
-                                      scratch_dir = output_dir))
+    if ("prof" %in% elev_derivatives) {
+      if (file.exists(paste0(output_subdir,"/prof_", length_scale, ".flt"))) {
+        missing = missing | FALSE
+      } else {
+        missing = TRUE
+      }
+      to_calculate <- append(to_calculate, paste0("PROFILE CURVATURE,",output_subdir,
+                                                  "/prof_", length_scale))
+      names <- append(names, "prof")
     }
+    if ("norm" %in% elev_derivatives) {
+      if (file.exists(paste0(output_subdir,"/norm_", length_scale, ".flt"))) {
+        missing = missing | FALSE
+      } else {
+        missing = TRUE
+      }
+      to_calculate <- append(to_calculate, paste0("NORMAL SLOPE CURVATURE,",output_subdir,
+                                                  "/norm_", length_scale))
+      names <- append(names, "norm")
+    }
+    if ("tan" %in% elev_derivatives) {
+      if (file.exists(paste0(output_subdir,"/tan_", length_scale, ".flt"))) {
+        missing = missing | FALSE
+      } else {
+        missing = TRUE
+      }
+      to_calculate <- append(to_calculate, paste0("TANGENTIAL CURVATURE,",output_subdir,
+                                                  "/tan_", length_scale))
+      names <- append(names, "tan")
+
+    }
+
+    if (missing) {
+      print("need to recalculate metrics")
+      vars_raster <- elev_deriv(rasters = to_calculate,
+                                length_scale = length_scale,
+                                dem = dem,
+                                scratch_dir = output_subdir)
+    } else {
+      vars_raster <- elev_deriv(rasters = to_calculate,
+                                length_scale = length_scale,
+                                scratch_dir = output_subdir)
+    }
+
+
+
+    names(vars_raster) <- names
+
+    for (dur in pca_durations) {
+      pca_loc <- (paste0(output_subdir,"pca_k", pca_conductivity,"_d", dur, ".flt"))
+
+      if (file.exists(pca_loc)) {
+        vars_raster <- c(vars_raster, terra::rast(pca_loc))
+      } else {
+        vars_raster <- c(vars_raster, contributing_area(raster = pca_loc,
+                                        dem = dem,
+                                        length_scale = length_scale,
+                                        k = pca_conductivity,
+                                        d = dur,
+                                        scratch_dir = output_subdir))
+      }
+    }
+
+    if ("mean" %in% elev_derivatives) {
+      mean <- (vars_raster$norm + vars_raster$tan) / 2
+      names(mean) <- "mean"
+      vars_raster = c(vars_raster, mean)
+    }
+
+
+    # ------------------------------------------------------------------- #
+    # ------------------- Creating training data ------------------------ #
+
+    init_points <- vect(initiation_points[n])
+
+    print("Generating training data...")
+
+    if (use_analysis_mask) {
+      analysis_mask <- create_analysis_region_mask(
+                          raster = vars_raster,
+                          points = init_points,
+                          mask_vars = analysis_mask_derivs,
+                          expansion_factor = analysis_mask_expansion)
+
+      training_data <- create_training_data_with_buffer(
+                          positive_points = init_points,
+                          predictors_raster = vars_raster,
+                          pos_buffer = pos_region_buffer,
+                          neg_buffer = neg_region_buffer,
+                          analysis_region_mask = analysis_mask,
+                          negative_proportion = neg_sampling_proportion,
+                          extraction_method = "centroid",
+                          extraction_layer = NULL,
+                          rseed = 123)
+    } else {
+
+      training_data <- create_training_data_with_buffer(
+                          positive_points = init_points,
+                          predictors_raster = vars_raster,
+                          pos_buffer = pos_region_buffer,
+                          neg_buffer = neg_region_buffer,
+                          analysis_region_mask = NULL,
+                          negative_proportion = neg_sampling_proportion,
+                          extraction_method = "centroid",
+                          extraction_layer = NULL,
+                          rseed = 123)
+    }
+
+    training_data <- training_data[, c(names(vars_raster), "class")]
+    training_data$region <- n
+
+    all_train_data <- append(all_train_data, training_data)
+
+    n <- n + 1
   }
-
-  if ("mean" %in% elev_derivatives) {
-    mean <- (vars_raster$norm + vars_raster$tan) / 2
-    names(mean) <- "mean"
-    vars_raster = c(vars_raster, mean)
-  }
-
-  # ------------------------------------------------------------------- #
-  # ------------------- Creating training data ------------------------ #
-
-  init_points <- vect(initiation_points)
-
-  print("Generating training data...")
-
-  if (use_analysis_mask) {
-    analysis_mask <- create_analysis_region_mask(
-                        raster = vars_raster,
-                        points = init_points,
-                        mask_vars = analysis_mask_derivs,
-                        expansion_factor = analysis_mask_expansion)
-
-    training_data <- create_training_data_with_buffer(
-                        positive_points = init_points,
-                        predictors_raster = vars_raster,
-                        pos_buffer = pos_region_buffer,
-                        neg_buffer = neg_region_buffer,
-                        analysis_region_mask = analysis_mask,
-                        negative_proportion = neg_sampling_proportion,
-                        extraction_method = "centroid",
-                        extraction_layer = NULL,
-                        rseed = 123)
-  } else {
-
-    training_data <- create_training_data_with_buffer(
-                        positive_points = init_points,
-                        predictors_raster = vars_raster,
-                        pos_buffer = pos_region_buffer,
-                        neg_buffer = neg_region_buffer,
-                        analysis_region_mask = NULL,
-                        negative_proportion = neg_sampling_proportion,
-                        extraction_method = "centroid",
-                        extraction_layer = NULL,
-                        rseed = 123)
-  }
-
-  training_data <- training_data[, c(names(vars_raster), "class")]
 
   # ------------------------------------------------------------------- #
   # ------------------------- Build model ----------------------------- #
