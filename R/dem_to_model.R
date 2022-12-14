@@ -142,7 +142,7 @@ dem_to_model <- function(dem,
     } else {
       missing = TRUE
     }
-    to_calculate <- append(to_calculate, paste0("GRADIENT,",output_dir,
+    to_calculate <- append(to_calculate, paste0("GRADIENT, ",output_dir,
                                                 "/grad_", length_scale))
     names <- append(names, "grad")
   }
@@ -152,7 +152,7 @@ dem_to_model <- function(dem,
     } else {
       missing = TRUE
     }
-    to_calculate <- append(to_calculate, paste0("PLANAR CURVATURE,",output_dir,
+    to_calculate <- append(to_calculate, paste0("PLAN CURVATURE, ",output_dir,
                                                 "/plan_", length_scale))
     names <- append(names, "plan")
   }
@@ -162,7 +162,7 @@ dem_to_model <- function(dem,
     } else {
       missing = TRUE
     }
-    to_calculate <- append(to_calculate, paste0("PROFILE CURVATURE,",output_dir,
+    to_calculate <- append(to_calculate, paste0("PROFILE CURVATURE, ",output_dir,
                                                 "/prof_", length_scale))
     names <- append(names, "prof")
   }
@@ -172,7 +172,7 @@ dem_to_model <- function(dem,
     } else {
       missing = TRUE
     }
-    to_calculate <- append(to_calculate, paste0("NORMAL SLOPE CURVATURE,",output_dir,
+    to_calculate <- append(to_calculate, paste0("NORMAL SLOPE CURVATURE, ",output_dir,
                                                 "/norm_", length_scale))
     names <- append(names, "norm")
   }
@@ -182,7 +182,7 @@ dem_to_model <- function(dem,
     } else {
       missing = TRUE
     }
-    to_calculate <- append(to_calculate, paste0("TANGENTIAL CURVATURE,",output_dir,
+    to_calculate <- append(to_calculate, paste0("TANGENTIAL CURVATURE, ",output_dir,
                                                 "/tan_", length_scale))
     names <- append(names, "tan")
 
