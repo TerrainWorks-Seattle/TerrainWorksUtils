@@ -44,14 +44,14 @@ you should save them somewhere that makes sense, like the same directory as
 the DEM. 
 
 ```{r calculate-metrics}
-DEM_path <- system.file("examples/elev_scottsburg.tif", 
+DEM_path <- system.file("elev_scottsburg/elev_scottsburg.flt", 
                         package = "TerrainWorksUtils")
-output_dir <- tempdir()
-metrics <- c("plan", "grad", "prof")
+output_dir <- "\\\\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/elev_scottsburg"
+metrics <- c("plan", "grad", "prof", "dev")
 calculate_surface_metrics(metrics = metrics, 
                           DEM_path = DEM_path, 
                           output_dir = output_dir, 
-                          length_scale = 40)
+                          length_scale = 15)
 ```
 
 This will have written rasters to the output directory for plan curvature, 

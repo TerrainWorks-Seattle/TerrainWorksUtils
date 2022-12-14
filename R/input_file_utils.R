@@ -297,7 +297,7 @@ accum_input <- function(dem,
   # Normalize paths
   dem <- normalizePath(dem)
   scratch_dir <- normalizePath(scratch_dir)
-  out_raster <- normalizePath(out_raster)
+  suppressWarnings(out_raster <- normalizePath(out_raster))
 
   out_file <- paste0(scratch_dir, "\\partial_input.txt")
 
