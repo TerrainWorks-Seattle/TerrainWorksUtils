@@ -49,7 +49,7 @@ dem_to_model <- function(dems,
                          initiation_points,
                          output_dir,
                          elev_derivatives = c("plan", "norm", "mean", "tan"),
-                         pca_durations = c(5),
+                         pca_durations = c(5, 24),
                          pca_conductivity = 1,
                          length_scale = 15,
                          use_analysis_mask = FALSE,
@@ -144,7 +144,7 @@ dem_to_model <- function(dems,
       stop("Must provide a valid file with initiation points.")
     }
 
-    output_subdir = paste0(output_dir, n)
+    output_subdir = paste0(output_dir, n, "/")
     if (!dir.exists(output_subdir)) {
       dir.create(output_subdir)
     }
@@ -155,53 +155,53 @@ dem_to_model <- function(dems,
     missing = FALSE
 
     if ("grad" %in% elev_derivatives) {
-      if (file.exists(paste0(output_subdir,"/grad_", length_scale, ".flt"))) {
+      if (file.exists(paste0(output_subdir,"grad_", length_scale, ".flt"))) {
         missing = missing | FALSE
       } else {
         missing = TRUE
       }
       to_calculate <- append(to_calculate, paste0("GRADIENT,",output_subdir,
-                                                  "/grad_", length_scale))
+                                                  "grad_", length_scale))
       names <- append(names, "grad")
     }
     if ("plan" %in% elev_derivatives) {
-      if (file.exists(paste0(output_subdir,"/plan_", length_scale, ".flt"))) {
+      if (file.exists(paste0(output_subdir,"plan_", length_scale, ".flt"))) {
         missing = missing | FALSE
       } else {
         missing = TRUE
       }
-      to_calculate <- append(to_calculate, paste0("PLANAR CURVATURE,",output_subdir,
-                                                  "/plan_", length_scale))
+      to_calculate <- append(to_calculate, paste0("PLAN CURVATURE,",output_subdir,
+                                                  "plan_", length_scale))
       names <- append(names, "plan")
     }
     if ("prof" %in% elev_derivatives) {
-      if (file.exists(paste0(output_subdir,"/prof_", length_scale, ".flt"))) {
+      if (file.exists(paste0(output_subdir,"prof_", length_scale, ".flt"))) {
         missing = missing | FALSE
       } else {
         missing = TRUE
       }
       to_calculate <- append(to_calculate, paste0("PROFILE CURVATURE,",output_subdir,
-                                                  "/prof_", length_scale))
+                                                  "prof_", length_scale))
       names <- append(names, "prof")
     }
     if ("norm" %in% elev_derivatives) {
-      if (file.exists(paste0(output_subdir,"/norm_", length_scale, ".flt"))) {
+      if (file.exists(paste0(output_subdir,"norm_", length_scale, ".flt"))) {
         missing = missing | FALSE
       } else {
         missing = TRUE
       }
       to_calculate <- append(to_calculate, paste0("NORMAL SLOPE CURVATURE,",output_subdir,
-                                                  "/norm_", length_scale))
+                                                  "norm_", length_scale))
       names <- append(names, "norm")
     }
     if ("tan" %in% elev_derivatives) {
-      if (file.exists(paste0(output_subdir,"/tan_", length_scale, ".flt"))) {
+      if (file.exists(paste0(output_subdir,"tan_", length_scale, ".flt"))) {
         missing = missing | FALSE
       } else {
         missing = TRUE
       }
       to_calculate <- append(to_calculate, paste0("TANGENTIAL CURVATURE,",output_subdir,
-                                                  "/tan_", length_scale))
+                                                  "tan_", length_scale))
       names <- append(names, "tan")
 
     }
@@ -285,7 +285,7 @@ dem_to_model <- function(dems,
     training_data <- training_data[, c(names(vars_raster), "class")]
     training_data$region <- n
 
-    all_train_data <- append(all_train_data, training_data)
+    all_train_data <- rbind(all_train_data, training_data)
 
     n <- n + 1
   }
@@ -305,7 +305,7 @@ dem_to_model <- function(dems,
     preproc_steps <- c("center", "scale")
   }
 
-  build_k_fold_rf_model(data = training_data,
+  build_k_fold_rf_model(data = subset(all_train_data, select = -c(region)),
                         seed = 123,
                         ctrl_method = "repeatedcv",
                         folds = 5,
