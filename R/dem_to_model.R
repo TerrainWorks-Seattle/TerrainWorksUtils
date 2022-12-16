@@ -59,7 +59,8 @@ dem_to_model <- function(dems,
                          pos_region_buffer = 11,
                          neg_sampling_proportion = 1,
                          preprocess_norm = FALSE,
-                         preprocess_center = FALSE) {
+                         preprocess_center = FALSE,
+                         plot_probability_raster = FALSE) {
 
   # ---------------- Error checking input values ---------------------- #
 
@@ -314,26 +315,53 @@ dem_to_model <- function(dems,
                                  repeats = 3,
                                  preprocess = preproc_steps)
 
-  # ------------------------------------------------------------------- #
-  # ---------------- Predict landslide initiation --------------------- #
-
-  # names(all_data)
-
-  make_probability_raster(model, all_data)
-}
-
-
-
-make_probability_raster <- function(model,
-                                    data) {
-
-  predicted <- predict(model,
-                       newdata = subset(data, select = -c(x, y)),
-                       type  = "prob")
-
-  predicted <- cbind(data$x, data$y, predicted$positive)
-
-  plot(rast(predicted), col = rev(head.colors(50)))
-
 
 }
+
+make_prob_raster <- function(model,
+                             data,
+                             plot_prob_raster = FALSE) {
+
+  # Predict landslide initiation probabilities
+  pred <- predict(model,
+                  newdata = data,
+                  type  = "prob")
+
+  # Create bins and convert to raster
+  breaks = seq(0, 1, 0.1)
+  pred_bins <- cut(pred$positive, breaks = breaks)
+
+  pred <- cbind(data$x, data$y, pred$positive, pred_bins)
+  colnames(pred) <- c("x", "y", "prob", "prob_bins")
+
+  return(rast(pred, type = "xyz"))
+
+}
+
+generate_success_curve(predicted_raster,
+                       initiation_points) {
+
+  # create a plot with proportion of initiation points on x
+  # and y is probability % region
+
+  # for each region of probability (bin #):
+  #   find how many initiation points are within this region
+  #   figure out the proportion of total initiation points
+  #         (init_in_region / total_init_pts)
+  #
+  # plot this.
+  # return the data frame
+
+  # new plan:
+  # extract prob_bins values for all initiation_points.
+  # find the frequencies of each prob_bins value
+
+  extract(predicted_raster, initiation_points)
+  freqs <- as.data.frame(table(init_probs$prob_bins))
+
+  freqs$cumul <- (cumsum(freqs$Freq) / sum(freqs$Freq))
+  plot(cbind(as.numeric(as.character(freqs$Var1)), freqs$cumul),
+       xlim = c(0, 10),
+       ylim = c(0, 1))
+}
+
