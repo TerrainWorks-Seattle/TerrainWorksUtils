@@ -49,7 +49,7 @@ dem_to_model <- function(dems,
                          initiation_points,
                          output_dir,
                          elev_derivatives = c("plan", "norm", "mean", "tan"),
-                         pca_durations = c(5),
+                         pca_durations = c(5, 24),
                          pca_conductivity = 1,
                          length_scale = 15,
                          use_analysis_mask = FALSE,
@@ -133,6 +133,7 @@ dem_to_model <- function(dems,
 
   n <- 1
   all_train_data <- data.frame()
+  all_data <- data.frame()
 
   for (dem in dems) {
 
@@ -286,6 +287,7 @@ dem_to_model <- function(dems,
     training_data$region <- n
 
     all_train_data <- rbind(all_train_data, training_data)
+    all_data <- rbind(all_data, as.data.frame(vars_raster, xy = TRUE))
 
     n <- n + 1
   }
@@ -305,11 +307,33 @@ dem_to_model <- function(dems,
     preproc_steps <- c("center", "scale")
   }
 
-  build_k_fold_rf_model(data = subset(all_train_data, select = -c(region)),
-                        seed = 123,
-                        ctrl_method = "repeatedcv",
-                        folds = 5,
-                        repeats = 3,
-                        preprocess = preproc_steps) # add control for this
+  model <- build_k_fold_rf_model(data = subset(all_train_data, select = -c(region)),
+                                 seed = 123,
+                                 ctrl_method = "repeatedcv",
+                                 folds = 5,
+                                 repeats = 3,
+                                 preprocess = preproc_steps)
+
+  # ------------------------------------------------------------------- #
+  # ---------------- Predict landslide initiation --------------------- #
+
+  # names(all_data)
+
+  make_probability_raster(model, all_data)
+}
+
+
+
+make_probability_raster <- function(model,
+                                    data) {
+
+  predicted <- predict(model,
+                       newdata = subset(data, select = -c(x, y)),
+                       type  = "prob")
+
+  predicted <- cbind(data$x, data$y, predicted$positive)
+
+  plot(rast(predicted), col = rev(head.colors(50)))
+
 
 }

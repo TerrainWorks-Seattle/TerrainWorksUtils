@@ -66,6 +66,8 @@ build_k_fold_rf_model <- function(data = NULL,
   print("Model generation timed:")
   print(time)
   plot(model)
+
+  return(model)
 }
 
 
