@@ -318,6 +318,14 @@ dem_to_model <- function(dems,
 
 }
 
+#' Make probability raster
+#'
+#' @param model A model object that can be called with the predict function.
+#' @param data The full dataset to be predicted.
+#' @param plot_prob_raster Whether to produce a plot of the prediction raster.
+#'
+#' @return The predicted raster
+#' @export
 make_prob_raster <- function(model,
                              data,
                              plot_prob_raster = FALSE) {
@@ -327,41 +335,64 @@ make_prob_raster <- function(model,
                   newdata = data,
                   type  = "prob")
 
-  # Create bins and convert to raster
-  breaks = seq(0, 1, 0.1)
-  pred_bins <- cut(pred$positive, breaks = breaks)
-
-  pred <- cbind(data$x, data$y, pred$positive, pred_bins)
-  colnames(pred) <- c("x", "y", "prob", "prob_bins")
+  # Only return the probability of landslide initiation (positive class)
+  pred <- cbind(data$x, data$y, pred$positive)
+  colnames(pred) <- c("x", "y", "prob")
 
   return(rast(pred, type = "xyz"))
 
 }
 
-generate_success_curve(predicted_raster,
-                       initiation_points) {
+#' @title Generate success curve
+#'
+#' @description Produces a success curve for a give prediction raster. The
+#' success curve divides the predicted raster into 10 probability regions, then
+#' finds the proportion of total inititation points in each probability region.
+#'
+#' @param predicted_raster A raster of the study area with predicted
+#' probabilities. This must have a layer called "positive", indicating the
+#' probability of an initiation point, with values ranging from 0 to 1.
+#' @param initiation_points A vector object with initiation points.
+#' @param step_size A parameter indicating how big each probability region range
+#' should be.
+#' @param silence_plot If TRUE, the plot will not be produced.
+#'
+#' @return The values associated with the success curve.
+#' @export
+generate_success_curve <- function(predicted_raster,
+                                   initiation_points,
+                                   step_size = 0.1,
+                                   silence_plot = FALSE) {
 
-  # create a plot with proportion of initiation points on x
-  # and y is probability % region
+  init_regions <- extract(predicted_raster, initiation_points)
 
-  # for each region of probability (bin #):
-  #   find how many initiation points are within this region
-  #   figure out the proportion of total initiation points
-  #         (init_in_region / total_init_pts)
-  #
-  # plot this.
-  # return the data frame
+  # Create bins and convert to raster
+  breaks = seq(0, 1, step_size)
+  init_regions$binned <- cut(init_regions$prob, breaks = breaks)
 
-  # new plan:
-  # extract prob_bins values for all initiation_points.
-  # find the frequencies of each prob_bins value
-
-  extract(predicted_raster, initiation_points)
-  freqs <- as.data.frame(table(init_probs$prob_bins))
-
+  # Find the frequencies of each region
+  freqs <- as.data.frame(table(init_regions$binned))
   freqs$cumul <- (cumsum(freqs$Freq) / sum(freqs$Freq))
-  plot(cbind(as.numeric(as.character(freqs$Var1)), freqs$cumul),
-       xlim = c(0, 10),
-       ylim = c(0, 1))
+
+  xs <- seq(1, length(breaks) - 1)
+  ys <- rep(0, length(breaks) - 1)
+  ys <- freqs$cumul
+  success_curve <- cbind(xs / max(xs), ys)
+  colnames(success_curve) <- c("region_cutoff", "init_proportion")
+
+  # Plot the success_curve
+  if (!silence_plot) {
+    plot(success_curve,
+       pch = 20,
+       xlim = c(0, 1),
+       xlab = "% probability region",
+       ylim = c(0, 1),
+       ylab = "proportion of initation points",
+       type = "b",
+       col = "blue",
+       )
+  }
+
+  return(success_curve)
 }
 

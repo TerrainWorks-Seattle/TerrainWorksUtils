@@ -5,7 +5,7 @@
 \title{Dem to model}
 \usage{
 dem_to_model(
-  dem,
+  dems,
   initiation_points,
   output_dir,
   elev_derivatives = c("plan", "norm", "mean", "tan"),
@@ -19,11 +19,12 @@ dem_to_model(
   pos_region_buffer = 11,
   neg_sampling_proportion = 1,
   preprocess_norm = FALSE,
-  preprocess_center = FALSE
+  preprocess_center = FALSE,
+  plot_probability_raster = FALSE
 )
 }
 \arguments{
-\item{dem}{File path for the DEM of the study area.}
+\item{dems}{File path for the DEM of the study area.}
 
 \item{initiation_points}{File path for the initiation points in the study area}
 
