@@ -8,9 +8,10 @@
 #' The purpose of this script is to make it easy to evaluate the sensitivity
 #' of the model to various parameters.
 #'
-#' @param dems File path for the DEM of the study area.
-#' @param initiation_points File path for the initiation points in the study area
-#' @param output_dir A directory to put output files.
+#' @param dems File path(s) for the DEM of the study area.
+#' @param initiation_points File path(s) for the initiation points in the study area
+#' @param output_dir File path(s) for a directory where output files will be
+#'        created.
 #' @param elev_derivates The elevation derivatives to calculate and include in
 #'        model generation. Current supported options are grad (gradient), prof
 #'        (profile curvature), plan (planar curvature), norm (normal slope
@@ -142,11 +143,11 @@ dem_to_model <- function(dems,
       stop("Must provide a valid DEM file.")
     }
 
-    if (!file.exists(initiation_points[1])) {
+    if (!file.exists(initiation_points[n])) {
       stop("Must provide a valid file with initiation points.")
     }
 
-    output_subdir = paste0(output_dir, n, "/")
+    output_subdir = output_dir[n]
     if (!dir.exists(output_subdir)) {
       dir.create(output_subdir)
     }
