@@ -33,14 +33,25 @@
 #' @return Nothing
 #' @export
 #'
-build_k_fold_rf_model <- function(data = NULL,
-                                  seed = 123,
+build_k_fold_rf_model <- function(data,
+                                  seed = NULL,
                                   ctrl_method = "repeatedcv",
                                   folds = 5,
                                   repeats = 3,
                                   preprocess = c("center", "scale")) {
 
-  set.seed(seed)
+  if (is.null(data)) {
+    stop("Must provide data.")
+  }
+
+  if (!is.data.frame(data) | is.null(data$class)) {
+    stop("Data must be a data frame (or coercible) with a \"class\" column")
+  }
+
+
+  if (!is.null(seed)) {
+      set.seed(seed)
+  }
 
   #set control parameters.
   ctrl <- trainControl(method = ctrl_method,
@@ -53,8 +64,6 @@ build_k_fold_rf_model <- function(data = NULL,
   # Preprocess
   # process <- preProcess(data, method=c("center", "range"))
 
-  # note: use parameter tuneLength to increase the range of tuning parameters
-  # tried. can't be more than (number of predictors - 1).
   time <- system.time(model <- train(form = as.factor(class) ~ .,
                                      data = data,
                                      preProcess = preprocess,
