@@ -59,8 +59,8 @@ dem_to_model <- function(dems,
                          neg_region_buffer = 150,
                          pos_region_buffer = 11,
                          neg_sampling_proportion = 1,
-                         preprocess_norm = FALSE,
-                         preprocess_center = FALSE,
+                         preprocess_norm = TRUE,
+                         preprocess_center = TRUE,
                          plot_probability_raster = FALSE) {
 
   # ---------------- Error checking input values ---------------------- #
@@ -323,13 +323,13 @@ dem_to_model <- function(dems,
 #'
 #' @param model A model object that can be called with the predict function.
 #' @param data The full dataset to be predicted.
-#' @param plot_prob_raster Whether to produce a plot of the prediction raster.
+#' @param plot Whether to produce a plot of the prediction raster.
 #'
 #' @return The predicted raster
 #' @export
 make_prob_raster <- function(model,
                              data,
-                             plot_prob_raster = FALSE) {
+                             plot = FALSE) {
 
   # Predict landslide initiation probabilities
   pred <- predict(model,
@@ -356,14 +356,14 @@ make_prob_raster <- function(model,
 #' @param initiation_points A vector object with initiation points.
 #' @param step_size A parameter indicating how big each probability region range
 #' should be.
-#' @param silence_plot If TRUE, the plot will not be produced.
+#' @param plot If FALSE, the plot will not be produced.
 #'
 #' @return The values associated with the success curve.
 #' @export
 generate_success_curve <- function(predicted_raster,
                                    initiation_points,
                                    step_size = 0.1,
-                                   silence_plot = FALSE) {
+                                   plot = TRUE) {
 
   init_regions <- extract(predicted_raster, initiation_points)
 
