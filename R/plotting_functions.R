@@ -67,7 +67,8 @@ plot_metric_distribution <- function(training_data,
         polygon(d_pos, col = blk)
         polygon(d_neg, col = red)
       }
-  }
+    }
+
 }
 
 

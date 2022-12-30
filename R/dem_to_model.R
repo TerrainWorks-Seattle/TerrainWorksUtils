@@ -8,9 +8,10 @@
 #' The purpose of this script is to make it easy to evaluate the sensitivity
 #' of the model to various parameters.
 #'
-#' @param dems File path for the DEM of the study area.
-#' @param initiation_points File path for the initiation points in the study area
-#' @param output_dir A directory to put output files.
+#' @param dems File path(s) for the DEM of the study area.
+#' @param initiation_points File path(s) for the initiation points in the study area
+#' @param output_dir File path(s) for a directory where output files will be
+#'        created.
 #' @param elev_derivates The elevation derivatives to calculate and include in
 #'        model generation. Current supported options are grad (gradient), prof
 #'        (profile curvature), plan (planar curvature), norm (normal slope
@@ -49,7 +50,7 @@ dem_to_model <- function(dems,
                          initiation_points,
                          output_dir,
                          elev_derivatives = c("plan", "norm", "mean", "tan"),
-                         pca_durations = c(5),
+                         pca_durations = c(5, 24),
                          pca_conductivity = 1,
                          length_scale = 15,
                          use_analysis_mask = FALSE,
@@ -58,8 +59,9 @@ dem_to_model <- function(dems,
                          neg_region_buffer = 150,
                          pos_region_buffer = 11,
                          neg_sampling_proportion = 1,
-                         preprocess_norm = FALSE,
-                         preprocess_center = FALSE) {
+                         preprocess_norm = TRUE,
+                         preprocess_center = TRUE,
+                         plot_probability_raster = FALSE) {
 
   # ---------------- Error checking input values ---------------------- #
 
@@ -133,6 +135,7 @@ dem_to_model <- function(dems,
 
   n <- 1
   all_train_data <- data.frame()
+  all_data <- data.frame()
 
   for (dem in dems) {
 
@@ -140,11 +143,11 @@ dem_to_model <- function(dems,
       stop("Must provide a valid DEM file.")
     }
 
-    if (!file.exists(initiation_points[1])) {
+    if (!file.exists(initiation_points[n])) {
       stop("Must provide a valid file with initiation points.")
     }
 
-    output_subdir = paste0(output_dir, n, "/")
+    output_subdir = output_dir[n]
     if (!dir.exists(output_subdir)) {
       dir.create(output_subdir)
     }
@@ -286,6 +289,7 @@ dem_to_model <- function(dems,
     training_data$region <- n
 
     all_train_data <- rbind(all_train_data, training_data)
+    all_data <- rbind(all_data, as.data.frame(vars_raster, xy = TRUE))
 
     n <- n + 1
   }
@@ -305,11 +309,91 @@ dem_to_model <- function(dems,
     preproc_steps <- c("center", "scale")
   }
 
-  build_k_fold_rf_model(data = subset(all_train_data, select = -c(region)),
-                        seed = 123,
-                        ctrl_method = "repeatedcv",
-                        folds = 5,
-                        repeats = 3,
-                        preprocess = preproc_steps) # add control for this
+  model <- build_k_fold_rf_model(data = subset(all_train_data, select = -c(region)),
+                                 seed = 123,
+                                 ctrl_method = "repeatedcv",
+                                 folds = 5,
+                                 repeats = 3,
+                                 preprocess = preproc_steps)
+
 
 }
+
+#' Make probability raster
+#'
+#' @param model A model object that can be called with the predict function.
+#' @param data The full dataset to be predicted.
+#' @param plot Whether to produce a plot of the prediction raster.
+#'
+#' @return The predicted raster
+#' @export
+make_prob_raster <- function(model,
+                             data,
+                             plot = FALSE) {
+
+  # Predict landslide initiation probabilities
+  pred <- predict(model,
+                  newdata = data,
+                  type  = "prob")
+
+  # Only return the probability of landslide initiation (positive class)
+  pred <- cbind(data$x, data$y, pred$positive)
+  colnames(pred) <- c("x", "y", "prob")
+
+  return(rast(pred, type = "xyz"))
+
+}
+
+#' @title Generate success curve
+#'
+#' @description Produces a success curve for a give prediction raster. The
+#' success curve divides the predicted raster into 10 probability regions, then
+#' finds the proportion of total inititation points in each probability region.
+#'
+#' @param predicted_raster A raster of the study area with predicted
+#' probabilities. This must have a layer called "positive", indicating the
+#' probability of an initiation point, with values ranging from 0 to 1.
+#' @param initiation_points A vector object with initiation points.
+#' @param step_size A parameter indicating how big each probability region range
+#' should be.
+#' @param plot If FALSE, the plot will not be produced.
+#'
+#' @return The values associated with the success curve.
+#' @export
+generate_success_curve <- function(predicted_raster,
+                                   initiation_points,
+                                   step_size = 0.1,
+                                   plot = TRUE) {
+
+  init_regions <- extract(predicted_raster, initiation_points)
+
+  # Create bins and convert to raster
+  breaks = seq(0, 1, step_size)
+  init_regions$binned <- cut(init_regions$prob, breaks = breaks)
+
+  # Find the frequencies of each region
+  freqs <- as.data.frame(table(init_regions$binned))
+  freqs$cumul <- (cumsum(freqs$Freq) / sum(freqs$Freq))
+
+  xs <- seq(1, length(breaks) - 1)
+  ys <- rep(0, length(breaks) - 1)
+  ys <- freqs$cumul
+  success_curve <- cbind(xs / max(xs), ys)
+  colnames(success_curve) <- c("region_cutoff", "init_proportion")
+
+  # Plot the success_curve
+  if (!silence_plot) {
+    plot(success_curve,
+       pch = 20,
+       xlim = c(0, 1),
+       xlab = "Probability region",
+       ylim = c(0, 1),
+       ylab = "Proportion of initation points",
+       type = "b",
+       col = "blue",
+       )
+  }
+
+  return(success_curve)
+}
+
