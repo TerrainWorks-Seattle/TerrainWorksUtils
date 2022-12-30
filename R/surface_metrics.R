@@ -66,11 +66,11 @@ elev_deriv <- function(input_file = "nofile",
         loc <- str_locate(rasters[[i]], ",")
         type_name <- str_sub(rasters[[i]], 1, loc[1,1] - 1)
         file_name <- str_sub(rasters[[i]], loc[1,1] + 1, -1)
-        if (!file.exists(file_name)) {
-          stop("All given files must exist to run in read mode")
-        }
         if (str_detect(file_name, ".flt") == FALSE) { # currently, makegrids
           file_name <- paste0(file_name, ".flt")      # only reads .flt
+        }
+        if (!file.exists(file_name)) {
+          stop("All given files must exist to run in read mode")
         }
         file_list <- c(file_list, file_name)
         type_list <- c(type_list, type_name)

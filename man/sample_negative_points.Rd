@@ -9,7 +9,8 @@ sample_negative_points(
   analysis_region,
   buffer = TRUE,
   buffer_radius = 15,
-  negative_proportion = 1
+  negative_proportion = 1,
+  rseed = NULL
 )
 }
 \arguments{
@@ -28,6 +29,10 @@ point}
 
 \item{negative_proportion}{Proportion of negative points to be generated
 compared to number of positive points}
+
+\item{rseed}{Optional integer to seed the random sampling. This allows exact
+"random"  results to be reproduced multiple times. If no number is given, a
+random number will be chosen as a seed.}
 }
 \value{
 SpatVector with positive and negative points, wtih a field

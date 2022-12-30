@@ -8,8 +8,9 @@ build_k_fold_rf_model(
   data = NULL,
   seed = 123,
   ctrl_method = "repeatedcv",
-  k = 5,
-  repeats = 3
+  folds = 5,
+  repeats = 3,
+  preprocess = c("center", "scale")
 )
 }
 \arguments{
@@ -23,13 +24,13 @@ Default is 123.}
 \item{ctrl_method}{Can be either \code{"cv"} for cross-validation without
 repeats or \code{"repeatedcv"}.}
 
-\item{k}{The number of folds, or divisions of the data. Default is 5, which
-produces a 80/20 ratio between training data and testing data for each
-repetition.}
-
 \item{repeats}{Number of times to repeat cross validation. The folds change
 with each repeat. If \code{ctrl_method} is \code{"cv"}, this parameter is
 ignored.}
+
+\item{k}{The number of folds, or divisions of the data. Default is 5, which
+produces a 80/20 ratio between training data and testing data for each
+repetition.}
 }
 \value{
 Nothing

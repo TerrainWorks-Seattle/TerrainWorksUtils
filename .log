@@ -1,0 +1,42 @@
+  MakeGrids log file
+    Version 1.0.8
+    Compiled October 6, 2022
+    Started December 13, 2022 at 2:03 PM
+  ==============================================================
+  Input file: //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1\makegrids_input.txt
+    copied below
+  --------------------------------------------------------------
+  # Input file for makeGrids
+  # Creating by input_file_utils.R
+  # On 2022-12-13 14:03:49
+  DEM: \\Mac\Home\Documents\terrainworks\code\sandbox\data\scottsburg\elev_scottsburg
+  SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\sandbox\data\scratch\1
+  LENGTH SCALE: 15
+  GRID: GRADIENT, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/grad_15
+  GRID: PLANAR CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/plan_15
+  GRID: PROFILE CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/prof_15
+  GRID: NORMAL SLOPE CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/norm_15
+  GRID: TANGENTIAL CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/tan_15
+  ====================End Input File==========================
+ 
+  Program runtime output follows
+ 
+  DEM file: \\Mac\Home\Documents\terrainworks\code\sandbox\data\scottsburg\elev_scottsburg
+ 
+  Grids to construct:
+  SLOPE
+ 
+  PROFCURV
+  PROFILE
+  TANGENTIAL
+ 
+  Reading DEM
+  Calculating surface metrics
+  Scale length: 15.00000
+  Created PROFILE CURVATURE file //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/prof_15
+  Created PROFILE CURVATURE file
+  Created TANGENTIAL CURVATURE file
+  Created GRADIENT file //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/grad_15
+  MakeGrids finished at December 13, 2022 at 2:05:15:491 PM
+  Elapsed CPU (seconds): 77.93750
+  Created log file //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/grad_15.log
