@@ -1,4 +1,3 @@
-
 #' @title Create Training Data from Polygons
 #'
 #' @export
@@ -41,7 +40,7 @@ create_training_data_from_polygons <- function(polygons,
     xy = FALSE
   )
 }
-
+#------------------------------------------------------------------------------------------
 #' @title Create Training Data from Points
 #'
 #' @description Given an input dataset and set of positive points, generate
@@ -98,6 +97,7 @@ create_training_data_from_points <- function(positive_points,
   )
 }
 
+#--------------------------------------------------------------------------------
 #' @title Create training data from a negative buffer region
 #'
 #' @description Given an input dataset and set of positive points, generate
@@ -109,13 +109,15 @@ create_training_data_from_points <- function(positive_points,
 #' landslide had occurred there, it would have been recorded.
 #'
 #' @param positive_points SpatVector with locations of all points with positive
-#' class
+#' class; that is landslide initiation points
 #' @param predictors_raster SpatRaster with a layer for each predictor variable
-#' @param pos_buffer The radius around a positive point that should be
-#' considered positive
-#' @param neg_buffer The radius around a positive point that should be
-#' considered negative
-#' @param analysis_region_mask SpatRaster with non-NA values everywhere that
+#' @param pos_buffer The radius in meters around a positive point that is
+#' considered within the landslide initiation zone; negative sample points 
+#' are excluded from within this buffer
+#' @param neg_buffer The radius around a positive point within which we are
+#' confident that no landslides were observed; negative (nonlandslide) points
+#' are sampled from the area between the pos_buffer and neg_buffer radius.
+#' @param analysis_region_mask SpatRaster with data values everywhere that
 #' points can be sampled from. All locations that should be excluded from
 #' sampling should be NA. If NULL, all cells which are non-NA for all layers
 #' of the predictors_raster will be used.
@@ -168,7 +170,7 @@ create_training_data_with_buffer <- function(positive_points,
 
 }
 
-#' @export
+#----------------------------------------------------------------------------
 #' @title Sample training points from a set of polygons
 #'
 #' @param polygons SpatVector of polygons indicating all locations belonging
@@ -181,6 +183,7 @@ create_training_data_with_buffer <- function(positive_points,
 #' which will not be used for sampling.
 #' @param polygon_class label for points sampled from within polygons
 #' @param nonpolygon_class label for points sampled outside polygons
+#' @export
 #'
 create_training_points_from_polygons <- function(polygons,
                                              analysis_region,
@@ -233,7 +236,7 @@ create_training_points_from_polygons <- function(polygons,
   training_points
 }
 
-#' @export
+#----------------------------------------------------------------------------
 #' @title Sample negative points
 #'
 #' @description randomly sample points from an analysis area to create a
@@ -241,9 +244,9 @@ create_training_points_from_polygons <- function(polygons,
 #'
 #' @param positive_points SpatVector with locations of all points with positive
 #' class
-#' @param analysis_region SpatRaster with non-NA values everywhere that
+#' @param analysis_region SpatRaster with data values everywhere that
 #' points can be sampled from. All locations that should be excluded from
-#' sampling should be NA. If NULL, all cells which are non-NA for all layers
+#' sampling should be NA. If NULL, all cells which contain data for all layers
 #' of the predictors_raster will be used.
 #' @param buffer Return buffer around points?
 #' @param buffer_radius minimum possible distance between a positive and negative
@@ -254,8 +257,10 @@ create_training_points_from_polygons <- function(polygons,
 #' "random"  results to be reproduced multiple times. If no number is given, a
 #' random number will be chosen as a seed.
 #'
-#' @return SpatVector with positive and negative points, wtih a field
+#' @return SpatVector with positive and negative points, with a field
 #' \code{"class"} indicating whether each point is positive or negative
+#' @export
+#' 
 sample_negative_points <- function(positive_points,
                                    analysis_region,
                                    buffer = TRUE,
@@ -275,14 +280,12 @@ sample_negative_points <- function(positive_points,
     stop("positive_points and analysis_region crs does not match!")
   }
 
-
   positive_points$class <- "positive"
   # Buffer positive points
   positive_buffers <- terra::buffer(positive_points,
-    width = buffer_radius * 2
-  )
+    width = buffer_radius)
 
-  # remove remove positive buffers from analysis_region
+  # remove positive buffers from analysis_region
   negative_region <- terra::deepcopy(analysis_region)
   positive_cell_indices <- terra::extract(negative_region,
     positive_buffers,
@@ -315,9 +318,7 @@ sample_negative_points <- function(positive_points,
   }
 }
 
-
-#' @export
-#'
+#-----------------------------------------------------------------------
 #' @title Sample Points from a region
 #'
 #' @description Generates a SpatVector of points in a given
@@ -326,7 +327,7 @@ sample_negative_points <- function(positive_points,
 #' @details This extends \code{terra::spatSample()} to generate the correct
 #' number of sampled points when the sample raster has a lot of NAs.
 #'
-#' @param count  The number of to sample
+#' @param count  The number of points to sample
 #' @param region A SpatRaster with NA cells anywhere a sampled point
 #'               cannot be located
 #' @param buffer Should points be returned with a buffer?
@@ -336,6 +337,8 @@ sample_negative_points <- function(positive_points,
 #' random number will be chosen as a seed.
 #'
 #' @return A SpatVector of buffers.
+#' @export
+#' 
 sample_points <- function(count,
                           region,
                           buffer = TRUE,
@@ -402,9 +405,8 @@ sample_points <- function(count,
   }
 }
 
+#--------------------------------------------------------------------------------------
 #' @title Extract buffer values
-#'
-#' @export
 #'
 #' @description Extracts values for all layers of a raster for a set of points
 #' or polygons. If
@@ -429,6 +431,8 @@ sample_points <- function(count,
 #'
 #' @return A dataframe of extracted raster values with an additional "class"
 #' column.
+#' @export
+#' 
 extract_values <- function(raster,
                           points,
                           extraction_method = "all",
@@ -530,6 +534,7 @@ extract_values <- function(raster,
   }
 }
 
+#----------------------------------------------------------------------------
 #' @title Make a negative region raster
 #'
 #' @description Creates a negative region with which to sample from that exists
@@ -539,31 +544,29 @@ extract_values <- function(raster,
 #' not marked as landslide initiation points did not have landslide.
 #'
 #' @param initiation_points A SpatVector that contains the initiation points.
-#' @param inner_buffer_rad The size of the inner buffer, as a radius. This is
+#' @param ref_raster SpatRaster used as a spatial reference; typically a DEM.
+#' @param inner_buffer_rad The radius in meters of the inner buffer. This is
 #' the area around the initiation point that should be considered "positive",
-#' or part of the landslide.
-#' @param outer_buffer_rad The size of the outer buffer, as a radius. This is
-#' the area around the landslide that can be considered "negative", or if there
-#' had been a landslide here, it would have been recorded.
-#'
-#'
+#' that is, within the landslide initiation zone.
+#' @param outer_buffer_rad The radius in meters of the outer buffer. This is
+#' the area around the landslide that can be considered "negative", that is
+#' where no landslides were observed.
 #' @return SpatVector with polygons outlining the presumed negative region.
-#'
 #' @export
 make_neg_region <- function(positive_points,
-                            predictors_raster,
+                            ref_raster,
                             inner_buffer,
                             outer_buffer,
                             return_raster = TRUE) {
 
   # create a positive region around the positive points
   pos_region <- terra::buffer(positive_points,
-                              width = inner_buffer * 2)
+                              width = inner_buffer)
   pos_region <- terra::aggregate(pos_region)
 
   # create a negative region
   neg_buffer <- terra::buffer(positive_points,
-                              width = outer_buffer * 2)
+                              width = outer_buffer)
   neg_buffer <- terra::aggregate(neg_buffer)
   neg_region <- terra::symdif(neg_buffer, pos_region)
 
@@ -571,7 +574,7 @@ make_neg_region <- function(positive_points,
   if (isFALSE(return_raster)) {
     return(neg_region)
   } else {
-    rast_extent = rast(predictors_raster)
+    rast_extent = rast(ref_raster)
     return(rasterize(neg_region, rast_extent))
   }
 

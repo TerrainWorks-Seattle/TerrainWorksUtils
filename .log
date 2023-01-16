@@ -1,42 +1,36 @@
   MakeGrids log file
     Version 1.0.8
     Compiled October 6, 2022
-    Started December 13, 2022 at 2:03 PM
+    Started December 29, 2022 at 3:50 PM
   ==============================================================
-  Input file: //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1\makegrids_input.txt
+  Input file: c:/work/scratch\makegrids_input.txt
     copied below
   --------------------------------------------------------------
   # Input file for makeGrids
   # Creating by input_file_utils.R
-  # On 2022-12-13 14:03:49
-  DEM: \\Mac\Home\Documents\terrainworks\code\sandbox\data\scottsburg\elev_scottsburg
-  SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\sandbox\data\scratch\1
+  # On 2022-12-29 15:49:51
+  DEM: C:\Work\Sandbox\git\TerrainWorksUtils\inst\data\elev_BigCrSmith.tif
+  SCRATCH DIRECTORY: C:\Work\scratch
   LENGTH SCALE: 15
-  GRID: GRADIENT, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/grad_15
-  GRID: PLANAR CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/plan_15
-  GRID: PROFILE CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/prof_15
-  GRID: NORMAL SLOPE CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/norm_15
-  GRID: TANGENTIAL CURVATURE, OUTPUT FILE =  //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/tan_15
+  GRID: GRADIENT, OUTPUT FILE =  c:/work/data/Dogami/grad15_BigCr
+  GRID: SLOPE NORMAL CURVATURE, OUTPUT FILE =  c:/work/data/Dogami/norm15_BigCr
+  GRID: TANGENTIAL CURVATURE, OUTPUT FILE =  c:/work/data/Dogami/tan15_BigCr
   ====================End Input File==========================
  
   Program runtime output follows
  
-  DEM file: \\Mac\Home\Documents\terrainworks\code\sandbox\data\scottsburg\elev_scottsburg
+  DEM file: C:\Work\Sandbox\git\TerrainWorksUtils\inst\data\elev_BigCrSmith
  
   Grids to construct:
   SLOPE
  
-  PROFCURV
-  PROFILE
   TANGENTIAL
  
   Reading DEM
   Calculating surface metrics
   Scale length: 15.00000
-  Created PROFILE CURVATURE file //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/prof_15
-  Created PROFILE CURVATURE file
   Created TANGENTIAL CURVATURE file
-  Created GRADIENT file //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/grad_15
-  MakeGrids finished at December 13, 2022 at 2:05:15:491 PM
-  Elapsed CPU (seconds): 77.93750
-  Created log file //Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/1/grad_15.log
+  Created GRADIENT file c:/work/data/Dogami/grad15_BigCr
+  MakeGrids finished at December 29, 2022 at 3:56:34:867 PM
+  Elapsed CPU (seconds): 393.3281
+  Created log file c:/work/data/Dogami/grad15_BigCr.log

@@ -28,22 +28,19 @@ create_analysis_region_mask <- function(raster,
                                         expansion_factor = 1) {
 
   if (!is.null(mask_vars)) {
-    vars_raster <- terra::subset(raster, mask_vars)
+    vars_raster <- terra::subset(raster,
+                                 mask_vars)
   }
 
-  range_mx <- extract_range(
-    raster = vars_raster,
-    extraction_locations = points,
-    expansion_factor = expansion_factor
-  )
-  mask_by_range(
-    raster = raster,
-    range_mx = range_mx
-  )
+  range_mx <- extract_range(raster = vars_raster,
+                            extraction_locations = points,
+                            expansion_factor = expansion_factor)
+
+  mask_by_range(raster = raster,
+                range_mx = range_mx)
 }
 
-#'
-#' @export
+#----------------------------------------------------------------------------------------
 #' @title Extract range of values from raster
 #'
 #' @description Finds the range of values for each layer of a raster which
@@ -53,9 +50,8 @@ create_analysis_region_mask <- function(raster,
 #' @param extraction_locations A SpatVector of points or polyogons to extract range from.
 #' @param expansion_factor Factor to expand the range by. 1 indicates no expansion.
 #' 0.5 will reduce the range by 50\%. 2 will double the range.
-#'
-#' @return A matrix that holds the min & max initiation limits of each raster
-#' layer
+#' @export
+#' @return A matrix that holds the min & max initiation limits of each raster layer
 #'
 extract_range <- function(raster,
                           extraction_locations,
@@ -87,10 +83,10 @@ extract_range <- function(raster,
   return(range_mx)
 }
 
+#-------------------------------------------------------------------------
 #' @title Mask a raster
 #'
-#' @description Create a raster mask based on an allowable range of
-#' values
+#' @description Create a raster mask based on an allowable range of values
 #'
 #' @param raster A SpatRaster
 #' @param range_mx A matrix with one row for each layer of the raster to
@@ -112,7 +108,7 @@ mask_by_range <- function(raster,
     max_value <- range_mx[var_name, "max"]
 
     # NA-out cells with values outside variable initiation range
-    var_mask <- terra::app(var_raster, function(x) {
+    var_mask <- terra::app(var_raster, fun = function(x) {
       ifelse(x < min_value | x > max_value, NA, 1)
     })
 
@@ -122,7 +118,6 @@ mask_by_range <- function(raster,
     } else {
       range_raster <- c(range_raster, var_mask)
     }
-
 
     rep <- rep + 1
   }
