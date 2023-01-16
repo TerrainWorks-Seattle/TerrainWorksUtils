@@ -2,5 +2,15 @@
 .Rhistory
 .RData
 .Ruserdata
+*.dll
+*.exe
+*.Rd
+*.DS_Store
 data-cache
 inst/doc
+
+*.html
+
+PFA_landslide_initiation_files/figure-html/
+
+NAMESPACE
