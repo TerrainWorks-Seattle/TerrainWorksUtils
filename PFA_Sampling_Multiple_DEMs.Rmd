@@ -1,0 +1,472 @@
+---
+title: "Sample points from multiple DEMs"
+output:
+  html_document: 
+    toc: true
+  html_notebook:
+    df_print: paged
+params:
+  output_dir:
+    label: Output Directory
+    value: c:/tempDir/out/
+    input: text
+  data_dir:
+    label: Data Directory
+    value: c:/tempDir/in
+    input: text
+  length_scale:
+    label: Length Scale (m)
+    value: 15.0
+    input: numeric
+  input_list:
+    label: Text file containing a list of DEM .flt rasters and initiation point shapefiles.
+    value: c:/tempDir/in/DEMs/input_list.txt
+    input: text
+  inner_buffer:
+    label: Inner Buffer for Landslide Points (m)
+    value: 15.0
+    input: numeric
+  outer_buffer:
+    label: Outer Buffer for Landslide Points (m)
+    value: 250.0
+    input: numeric
+  expansion_factor:
+    label: Expansion Factor
+    value: 1.1
+    input: numeric
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  error = FALSE
+)
+```
+
+```{r load, include = FALSE}
+library(TerrainWorksUtils)
+library(terra)
+library(stringr)
+library(shiny)
+library(car)
+```
+
+Julia has written a function "dem_to_model" that works with multiple DEMs, but I'd like to separate the steps explicitly so we can see what's being done and look at intermediate results. I've used the Fortran "watershed" program to clip out small basins containing landslide initiation points and runout tracks from the DOGAMI Special Paper 53 landslide inventory. These are output as binary floating point files (.flt) along with point shapefiles of the initiation points within each small basin. 
+
+The names for these raster and point shapefiles are listed in a text file specified in the parameter list for this notebook. The directory containing the raster and vector files must include projection (.prj) files. The input file has a header line "DEM, Initiation_points" followed by one row for each input DEM and its corresponding initiation-point shapefile, separated by a comma. Use full-path names; this allows files from different data directories to be used.
+
+For now, I'll stick with the same set of explanatory variables explored with PFA_landslide_initiation.Rmd: gradient, mean curvature, and partial contributing area for 5-, 10-, 20-, and 40-hour duration storms.
+
+```{r set_up_covariates}
+output_dir <- params$output_dir
+
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir)
+}
+
+length_scale = params$length_scale # Default is a 15-meter length scale (7.5-meter radius) for calculating derivatives.
+
+data_files <- read.table(params$input_list, 
+                         header = TRUE,
+                         sep = ",")
+
+```
+
+Fist iterate through the DEMs, building covariate rasters for each and overlaying the landslide initiation-point locations to get the covariate values associated with each landslide. I'll store the accumulated values in dataframe ls_pnts. Let's take a quick look at the size of the input data files:
+
+```{r data_file_size}
+  num_files <- nrow(data_files)
+  num_points <- 0
+  for (i in 1:num_files) {
+    initiation_points <- terra::vect(paste0(str_squish(data_files$Initiation_points[[i]]), ".shp"))
+    num_points <- num_points + nrow(initiation_points)
+  }
+```
+
+This list contains `r print(num_files)` files with `r print(num_points)` landslide initiation points.
+
+``` {r landslide_point_values, results = 'hide'}
+ls_pnts <- data.frame()
+
+for (i in 1:num_files) {
+  DEM <- data_files$DEM[[i]]
+  initiation_points <- terra::vect(paste0(str_squish(data_files$Initiation_points[[i]]), ".shp"))
+  
+# Binary floating point rasters are created in the output_dir by function TerrainWorksUtils::elev_deriv. 
+# It can take a long time to create them, so if they're already there, read them in.
+  grad_name = paste0("gradient_", as.character(i))
+  mean_name = paste0("meancurv_", as.character(i))
+  
+  if (file.exists(paste0(output_dir, grad_name, ".flt")) & file.exists(paste0(output_dir, mean_name, ".flt"))) {
+    
+    grad <- terra::rast(paste0(output_dir, grad_name, ".flt"))
+    mean <- terra::rast(paste0(output_dir, mean_name, ".flt"))
+  
+  } else {
+  
+    rasters <- c(paste0("GRADIENT,", output_dir, grad_name),
+               paste0("MEAN CURVATURE,", output_dir, mean_name))
+
+    elev_deriv(rasters = rasters,
+               length_scale = length_scale,
+               dem = DEM,
+               scratch_dir = output_dir)
+  
+    grad <- terra::rast(paste0(output_dir, grad_name, ".flt"))
+
+    mean <- terra::rast(paste0(output_dir, mean_name, ".flt"))
+
+
+  }
+
+  names(grad) <- "gradient"
+  names(mean) <- "mean_curv"
+  
+  covariates <- c(grad, mean)
+  
+  # Get the gradient and mean curvature values at each initiation site and append them to the ls_pnts dataframe
+  ls_vals_i <- terra::extract(covariates,
+                              initiation_points,
+                              method = "bilinear")
+  
+  ls_pnts <- rbind(ls_pnts,  ls_vals_i)
+  
+}
+
+```
+
+The ls_pnts dataframe provides the upper and lower limits for gradient and mean curvature in defining the analysis region from which to sample nonlandslide points. 
+
+```{r range}
+grad_min <- min(ls_pnts$gradient)
+grad_max <- max(ls_pnts$gradient)
+mean_min <- min(ls_pnts$mean_curv)
+mean_max <- max(ls_pnts$mean_curv)
+
+if (!params$expansion_factor == 1) {
+  range <- grad_max - grad_min
+  dgrad <- (params$expansion_factor - 1.0) * (range / 2.)
+  grad_min <- grad_min - dgrad
+  grad_max <- grad_max + dgrad
+  range <- mean_max - mean_min
+  dmean <- (params$expansion_factor - 1.0) * (range / 2.)
+  mean_min <- mean_min - dmean
+  mean_max <- mean_max + dmean
+  }
+
+```
+
+We could use create_analysis_region_mask here, but that works with a set of initiation_points associated with a single DEM. Rather, we need to set the analysis region for each DEM independently, but based on the range of gradient and mean curvature values over the entire set of DEMs. We got that range above; here we set the analysis region for each DEM. While iterating through the DEM files, we'll also build the partial-accumulation-area rasters and the the values for the landslide and nonlandslide points from these.
+
+``` {r, results = 'hide'}
+range_mx <- matrix(c(grad_min, mean_min, grad_max, mean_max), ncol = 2, nrow = 2)
+colnames(range_mx) <- c("min", "max")
+rownames(range_mx) <- c("gradient", "mean_curv")
+
+nonls_pnts <- data.frame()
+ls_pnts <- data.frame()
+
+for (i in 1:nrow(data_files)) {
+  DEM <- data_files$DEM[[i]]
+  initiation_points <- terra::vect(paste0(str_squish(data_files$Initiation_points[[i]]), ".shp"))
+  
+  grad_name = paste0("gradient_", as.character(i))
+  mean_name = paste0("meancurv_", as.character(i))
+  grad <- terra::rast(paste0(output_dir, grad_name, ".flt"))
+  names(grad) <- "gradient"
+  mean <- terra::rast(paste0(output_dir, mean_name, ".flt"))
+  names(mean) <- "mean_curv"
+  
+  # Get the partial contributing areas here; we don't need to save the rasters.
+  # This does take awhile.
+  
+  k = 1.0 # saturated hydraulic conductivity in meters per hour
+  d = 5.0 # storm duration in hours
+
+  # Get contributing area for a 5-hour-duration storm.
+  contributing_area(raster = paste0(output_dir, "pca_k1_d5.flt"),  
+                    dem = DEM,
+                    length_scale = length_scale, 
+                    k = k, 
+                    d = d, 
+                    scratch_dir = output_dir)
+  pca5 <- rast(paste0(output_dir, "pca_k1_d5.flt"))
+  names(pca5) <- "pca5"
+
+  d = 10.0 # for a 10-hour-duration storm.
+  contributing_area(raster = paste0(output_dir, "pca_k1_d10.flt"),
+                    dem = DEM, 
+                    length_scale = length_scale, 
+                    k = 1, 
+                    d = d, 
+                    scratch_dir = output_dir)
+  pca10 <- rast(paste0(output_dir, "pca_k1_d10.flt"))
+  names(pca10) <- "pca10"
+
+  d = 20.0 # for a 20-hour-duration storm.
+  contributing_area(raster = paste0(output_dir, "pca_k1_d20.flt"),
+                    dem = DEM, 
+                    length_scale = length_scale, 
+                    k = k, 
+                    d = d, 
+                    scratch_dir = output_dir)
+  pca20 <- rast(paste0(output_dir, "pca_k1_d20.flt"))
+  names(pca20) <- "pca20"
+
+  d = 40.0 # for a 20-hour-duration storm.
+  contributing_area(raster = paste0(output_dir, "pca_k1_d40.flt"),
+                    dem = DEM, 
+                    length_scale = length_scale, 
+                    k = k, 
+                    d = d, 
+                    scratch_dir = output_dir)
+  pca40 <- rast(paste0(output_dir, "pca_k1_d40.flt"))
+  names(pca40) <- "pca40"
+
+  covariates <- c(grad, mean, pca5, pca10, pca20, pca40)
+  
+# Get all the covariate values at the landslide initiation points
+  ls_vals_i <- terra::extract(covariates,
+                              initiation_points,
+                              method = "bilinear")
+  
+  ls_pnts <- rbind(ls_pnts,  ls_vals_i)
+  
+# Now sample the nonlandslide analysis zone
+  neg_region <- make_neg_region(positive_points = initiation_points, 
+                  ref_raster = DEM, 
+                  inner_buffer = params$inner_buffer, 
+                  outer_buffer = params$outer_buffer,
+                  return_raster = TRUE)
+
+# Set values within the inner buffer and beyond the outer buffer to nodata
+  grad <- grad * neg_region
+  mean <- mean * neg_region
+  
+  limiting_vars <- c(grad, mean)
+  analysis_mask <- mask_by_range(limiting_vars, range_mx)
+  
+  grad <- grad * analysis_mask
+  mean <- mean * analysis_mask
+  analysis_mask <- analysis_mask * neg_region
+  pca5 <- pca5 * analysis_mask
+  pca10 <- pca10 * analysis_mask
+  pca20 <- pca20 * analysis_mask
+  pca40 <- pca40 * analysis_mask
+    
+  covariates <- c(grad, mean, pca5, pca10, pca20, pca40)
+  
+  num_points <- ceiling(length(initiation_points))
+
+  neg_points <- sample_points(count = num_points,
+                              region = analysis_mask,
+                              buffer = FALSE,
+                              rseed = 12)
+  
+  nonls_vals_i <- terra::extract(covariates,
+                              neg_points,
+                              method = "bilinear")
+  
+  # append these to the nonls_pnts data frame
+  nonls_pnts <- rbind(nonls_pnts,  nonls_vals_i)
+  
+}
+
+```
+
+Let's compare the landslide and nonlandslide points.
+```{r compare_grad}
+
+par(mfrow = c(1, 2))
+
+ls_grad_den <- density(ls_pnts$gradient)
+
+nonls_grad_den <- density(nonls_pnts$gradient)
+
+ymax <- max(max(ls_grad_den$y), max(nonls_grad_den$y))
+
+num_ls = length(ls_pnts)
+num_nonls = length(nonls_pnts)
+
+this_title = paste0("N nonlandslide = ", as.character(nrow(nonls_pnts)))
+
+plot(nonls_grad_den,
+     ylim = c(0., ymax),
+     col = "black",
+     lwd = 2,
+     main = this_title,
+     xlab = "Gradient")
+
+lines(ls_grad_den,
+      col = "red",
+      lwd = 2)
+
+grid(nx = NULL,
+     ny = NULL,
+     col = "gray",
+     lty = "dotted",
+     lwd = 1)
+
+legend(x = "topleft",
+       cex = 0.7,
+       bty = "n",
+       legend = c("Nonlandslide", "Landslide"),
+       lty = c(1,1),
+       col = c("black", "red"),
+       lwd = 2)
+
+ls_curv_den <- density(ls_pnts$mean_curv)
+
+nonls_curv_den <- density(nonls_pnts$mean_curv)
+
+ymax <- max(max(ls_curv_den$y), max(nonls_curv_den$y))
+
+this_title = paste0("N landslide = ", as.character(nrow(ls_pnts)))
+
+plot(nonls_curv_den,
+     ylim = c(0., ymax),
+     col = "black",
+     lwd = 2,
+     main = this_title,
+     xlab = "Mean Curvature")
+
+lines(ls_curv_den,
+      col = "red",
+      lwd = 2)
+
+grid(nx = NULL,
+     ny = NULL,
+     col = "gray",
+     lty = "dotted",
+     lwd = 1)
+
+legend(x = "topright",
+       cex = 0.7,
+       bty = "n",
+       legend = c("Nonlandslide", "Landslide"),
+       lty = c(1,1),
+       col = c("black", "red"),
+       lwd = 2)
+
+```
+```{r scatterplot}
+scatterplot(mean_curv ~ gradient, ls_pnts)
+```
+
+```{r}
+par(mfrow = c(2,2))
+
+ls_pca5_den <- density(ls_pnts$pca5)
+
+nonls_pca5_den <- density(nonls_pnts$pca5)
+
+ymax <- max(max(nonls_pca5_den$y), max(ls_pca5_den$y))
+
+plot(nonls_pca5_den,
+        col = "black",
+        ylim = c(0., ymax),
+        lwd = 2,
+        main = "5hr-duration",
+        xlab = "DEM cells")
+
+lines(ls_pca5_den,
+      lwd = 2,
+      col = "red")
+
+grid(nx = NULL,
+     ny = NULL,
+     col = "gray",
+     lty = "dotted",
+     lwd = 1)
+
+legend(x = "topleft",
+       cex = 0.7,
+       legend = c("Nonlandslide", "Landslide"),
+       lty = c(1,1),
+       col = c("black", "red"),
+       lwd = 2,
+       bty = "n")
+
+ls_pca10_den <- density(ls_pnts$pca10)
+
+nonls_pca10_den <- density(nonls_pnts$pca10)
+
+ymax <- max(max(nonls_pca10_den$y), max(ls_pca10_den$y))
+
+plot(nonls_pca10_den,
+        col = "black",
+        lwd = 2,
+        ylim = c(0., ymax),
+        main = "10-hr duration",
+        xlab = "DEM cells")
+
+lines(ls_pca10_den,
+      lwd = 2,
+      col = "red")
+
+grid(nx = NULL,
+     ny = NULL,
+     col = "gray",
+     lty = "dotted",
+     lwd = 1)
+
+ls_pca20_den <- density(ls_pnts$pca20)
+
+nonls_pca20_den <- density(nonls_pnts$pca20)
+
+ymax = max(max(nonls_pca20_den$y), max(ls_pca20_den$y))
+
+plot(nonls_pca20_den,
+        col = "black",
+        lwd = 2,
+        ylim = c(0., ymax),
+        main = "20-hr duration",
+        xlab = "DEM cells")
+
+lines(ls_pca20_den,
+      lwd = 2,
+      col = "red")
+
+grid(nx = NULL,
+     ny = NULL,
+     col = "gray",
+     lty = "dotted",
+     lwd = 1)
+
+ls_pca40_den <- density(ls_pnts$pca40)
+
+nonls_pca40_den <- density(nonls_pnts$pca40)
+
+ymax = max(max(ls_pca40_den$y), max(nonls_pca40_den$y))
+
+plot(nonls_pca40_den,
+        col = "black",
+        lwd = 2,
+        ylim = c(0., ymax),
+        main = "40-hr duration",
+        xlab = "DEM cells")
+
+lines(ls_pca40_den,
+      lwd = 2,
+      col = "red")
+
+grid(nx = NULL,
+     ny = NULL,
+     col = "gray",
+     lty = "dotted",
+     lwd = 1)
+
+par(mfrow = c(1, 1))
+```
+```{r}
+ls_pnts <- ls_pnts[,-1] # remove the ID columne
+scatterplotMatrix(ls_pnts,
+                  main = "Landslide Points")
+
+nonls_pnts <- nonls_pnts[,-1]
+scatterplotMatrix(nonls_pnts, 
+                  main = "Nonlandslide Points")
+```
+
+

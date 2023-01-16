@@ -23,7 +23,7 @@
 #'   a Windows Explorer window opens for file selection.
 #' @param rasters: A character vector. Each element contains two strings
 #'   separated by a comma. The first specifies the type of derivative,
-#'   the second specifies the file location. These may be either input files
+#'   the second specifies the file name. These may be either input files
 #'   to read or output files to write. Available elevation derivatives are:
 #'   \enumerate{
 #'     \item GRADIENT
@@ -84,7 +84,9 @@ elev_deriv <- function(input_file = "nofile",
         stop("Length scale not specified or out-of-bounds")
       }
       if (!file.exists(dem)) {
-        stop("DEM does not exist")
+        print("Cannot find specified DEM")
+        print(dem)
+        stop()
       }
       if (!dir.exists(scratch_dir)) {
         stop("Scratch directory does not exist")

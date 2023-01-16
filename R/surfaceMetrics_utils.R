@@ -1,12 +1,18 @@
 get_executable_path <- function() {
-  utilities_dir <- system.file("R/dem_executables", package = "TerrainWorksUtils")
+  utilities_dir <- system.file("/inst/", package = "TerrainWorksUtils")
   executable_zip <- file.path(utilities_dir, "ExecutableFiles.zip")
-  executable_dir <- file.path(utilities_dir, "ExecutableFiles")
+  executable_dir <- file.path(utilities_dir, "files")
   if (!dir.exists(executable_dir) & file.exists(executable_zip)) {
     utils::unzip(executable_zip, exdir = utilities_dir)
   }
-  if (!dir.exists(executable_dir)) stop("Could not find executables directory")
-  executable_dir
+  if (!dir.exists(executable_dir)) {
+    executable_dir <- paste0(getwd(), "/inst/files")
+    if (!dir.exists(executable_dir)) {
+      print(paste0("Cannot find ", executable_dir))
+      stop("Good Bye")
+    }
+  }
+  return(executable_dir)
 }
 
 # Write input file for MakeGrids.exe
