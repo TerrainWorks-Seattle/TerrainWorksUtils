@@ -1,0 +1,109 @@
+# Training data sampling strategy.
+
+```{r}
+library(terra)
+```
+
+This example uses the elevation derivatives created with "Generate Elevation Derivatives" Markdown document. We'll use the same DEM and look for the created rasters in the c:/tempDir directory created with that document.
+
+```{r}
+
+DEM <- paste0(system.file("/inst/data/", package = "TerrainWorksUtils"), "/elev_BigCrSmith.flt")
+elev <- rast(DEM)
+output_dir <- "c:/tempDir/"
+grad <- rast(paste0(output_dir, "grad_15.flt"))
+norm <- rast(paste0(output_dir, "norm_15.flt"))
+tan <- rast(paste0(output_dir, "tan_15.flt"))
+pca5 <- rast(paste0(output_dir, "pca_k1_d5.flt"))
+pca10 <- rast(paste0(output_dir, "pca_k1_d10.flt"))
+pca20 <- rast(paste0(output_dir, "pca_k1_d20.flt"))
+
+#calculate mean slopes
+mean <- (norm + tan) / 2
+names(mean) <- "mean_15"
+
+vars_raster <- c(
+  grad,
+  mean,
+  pca5,
+  pca10,
+  pca20
+)
+
+initiation_points <- vect(paste0(system.file("/inst/data/", package = "TerrainWorksUtils"), "/initiation_points.shp"))
+
+```
+
+Make a shaded relief image using the elevation raster and overlay the elevation and initiation points.
+
+```{r}
+slope <- terrain(elev, "slope", unit="radians")
+aspect <- terrain(elev, "aspect", unit="radians")
+elev_shade <- shade(slope, aspect, 45, 315)
+plot(elev_shade, col=grey(1:100/100))
+plot(elev, col = topo.colors(255), main = "topo.colors()", alpha=0.5, add=TRUE)
+plot(initiation_points, add=TRUE)
+```
+
+Create buffers around the initiation points to build the negative (no landslides) region. 
+
+We also build an analysis mask, which selects only the pixels where selected 
+elevation derivatives are within the range that we see in initiation points.
+This step would eliminate areas like stream beds that we can be confident are 
+not prone to landslide intiation. 
+
+```{r}
+mask_rasters <- c("grad_15", "mean_15")
+analysis_mask <- create_analysis_region_mask(raster = vars_raster, 
+                                             points = initiation_points,
+                                             mask_vars = mask_rasters)
+
+neg_region <- make_neg_region(initiation_points, 
+                vars_raster, 
+                inner_buffer = 15., 
+                outer_buffer = 250.,
+                return_raster=TRUE)
+
+final_mask <- analysis_mask * neg_region
+
+plot(elev_shade, col=grey(1:100/100))
+plot(final_mask, col=rgb(1,0,0,0.5), add=TRUE)
+plot(initiation_points, add=TRUE)
+
+```
+
+Sample negative points. Here we set a random seed to ensure that the results 
+could be replicated. 
+
+```{r}
+training_points <- sample_negative_points(
+    positive_points = initiation_points,
+    analysis_region = analysis_mask,
+    buffer = TRUE,
+    buffer_radius = 11,
+    negative_proportion = 1., 
+    rseed = 2
+  )
+```
+
+Plot the study area with positive and negative sampled points. Positive points
+are shown in black, while the negative sampled points are shown in red. 
+
+```{r}
+plot(elev_shade, col=grey(1:255/255))
+plot(training_points, col = ifelse(training_points$class == "positive", 
+                                    "black", "red"), add=TRUE)
+```
+
+Next, extract the values and put them into a training data frame for model input.
+
+```{r}
+training_data <- extract_values(
+    raster = vars_raster,
+    points = training_points,
+    extraction_method = "centroid",
+    extraction_layer = NULL,
+    xy = FALSE
+  )
+```
+
