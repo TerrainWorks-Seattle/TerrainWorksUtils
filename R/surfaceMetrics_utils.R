@@ -1,12 +1,12 @@
 get_executable_path <- function() {
-  utilities_dir <- system.file(package = "TerrainWorksUtils")
+  utilities_dir <- system.file( package = "TerrainWorksUtils")
   executable_zip <- file.path(utilities_dir, "ExecutableFiles.zip")
   executable_dir <- file.path(utilities_dir, "files")
   if (!dir.exists(executable_dir) & file.exists(executable_zip)) {
     utils::unzip(executable_zip, exdir = utilities_dir)
   }
   if (!dir.exists(executable_dir)) {
-    executable_dir <- paste0(getwd(), "/inst/files")
+    executable_dir <- paste0(getwd(), "/files")
     if (!dir.exists(executable_dir)) {
       print(paste0("Cannot find ", executable_dir))
       stop("Good Bye")
