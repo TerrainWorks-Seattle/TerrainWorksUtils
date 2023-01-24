@@ -1,16 +1,24 @@
+#' Get executable path
+#'
+#' Returns the filepath to the executable files for calculating elevation
+#' derivatives. There must be a .zip file called "files.zip" in a directory
+#' called "DEMutilities", OR the executables must be unzipped into a
+#' "/DEMutilities/files/" folder.
+#'
+#'
+#' @return The directory of the executable files.
+#' @export
 get_executable_path <- function() {
-  utilities_dir <- system.file(package = "TerrainWorksUtils")
-  executable_zip <- file.path(utilities_dir, "ExecutableFiles.zip")
+  utilities_dir <- system.file(dir = "/DEMUtilities", package = "TerrainWorksUtils")
+  executable_zip <- file.path(utilities_dir, "files.zip")
   executable_dir <- file.path(utilities_dir, "files")
-  if (!dir.exists(executable_dir) & file.exists(executable_zip)) {
-    utils::unzip(executable_zip, exdir = utilities_dir)
+  if ((!dir.exists(executable_dir) | length(list.files(path = executable_dir)) == 0)
+        & file.exists(executable_zip)) {
+    utils::unzip(executable_zip, exdir = executable_dir)
   }
-  if (!dir.exists(executable_dir)) {
-    executable_dir <- paste0(getwd(), "/inst/files")
-    if (!dir.exists(executable_dir)) {
-      print(paste0("Cannot find ", executable_dir))
+  if (!dir.exists(executable_dir) & !file.exists(executable_zip)) {
+      print(paste0("Cannot find ", executable_zip))
       stop("Good Bye")
-    }
   }
   return(executable_dir)
 }

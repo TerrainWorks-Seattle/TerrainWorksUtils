@@ -9,7 +9,7 @@
 #'   \item As a wrapper for the Fortran makegrids executable,
 #'   with an existing makegrids input_file.
 #'   \item As a wrapper for makegrids, but with the makegrids input file
-#'   constructed by elev_deriv.
+#'   constructed by elev_deriv.test
 #'   \item To read existing raster files from disk.
 #' }
 #' In modes 1 and 2, elev_deriv calls makegrids which creates the requested
