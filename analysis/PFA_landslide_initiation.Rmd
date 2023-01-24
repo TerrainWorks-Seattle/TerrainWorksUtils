@@ -2,11 +2,11 @@
 title: "PFA Landslide Susceptibility"
 author: Dan Miller
 output:
-  html_document: 
-    toc: true
   html_notebook:
     df_print: paged
-bibliography: inst/citations/PFA_citations.bib
+  html_document: 
+    toc: true
+bibliography: PFA_citations.bib
 params:
   output_dir:
     label: Output Directory
@@ -40,6 +40,10 @@ params:
     label: Outer Buffer (m)
     value: 250.
     input: numeric
+  duration_list:
+    label: List of storm durations
+    value: duration_list.txt
+    input: text
 editor_options:
   chunk_output_type: inline
 ---
@@ -57,6 +61,7 @@ library(TerrainWorksUtils)
 library(terra)
 library(stringr)
 library(shiny)
+library(car)
 ```
 
 This document describes the steps for building and evaluating (a little bit) training data for a landslide susceptibility model. The code chunks here borrow from the .Rmd files Julia wrote. The focus is on developing methods for updating the landslide initiation and runout models used for the Private Forest Accord. I will use the landslide inventory published by [DOGAMI](https://www.oregongeology.org/) in [Special Paper 53](https://www.oregongeology.org/pubs/sp/SP-53/p-SP-53.htm). This inventory focused on landslides that triggered debris flows and includes two vector GIS layers: a point feature class indicating the initiation site and a line feature class delineating the extent of debris flow runout. I'll cover initiation and runout separately because they rely on two different modeling strategies, starting below with initiation.
@@ -118,7 +123,6 @@ Here's code to create the covariate rasters. This is working with a single DEM f
 
 ```{r elevation_derivatives}
 output_dir <- params$output_dir
-print(output_dir)
 
 if (!dir.exists(output_dir)) {
   dir.create(output_dir)
@@ -131,97 +135,80 @@ rasters <- c(paste0("GRADIENT,", output_dir, "gradient"),
              paste0("MEAN CURVATURE,", output_dir, "mean_curv"))
 
 # elev_deriv creates these rasters and places them in the output_dir.
-elev_deriv(rasters = rasters,
-           length_scale = length_scale,
-           dem = DEM,
-           scratch_dir = output_dir)
+if (file.exists(paste0(output_dir, "gradient.flt")) & file.exists(paste0(output_dir, "mean_curv.flt"))) {
+  grad <- rast(paste0(output_dir, "gradient.flt"))
+  mean_curv <- rast(paste0(output_dir, "mean_curv.flt"))
+  mask_rasters <- c(grad, mean_curv)
+
+  } else {
+ 
+  elev_deriv(rasters = rasters,
+             length_scale = length_scale,
+             dem = DEM,
+             scratch_dir = output_dir)
+
+  mask_rasters <- rast(paste0(output_dir, "gradient.flt"))
+  mask_rasters <- c(mask_rasters, paste0(output_dir, "mean_curv.flt"))
+}
+covariates <- mask_rasters
+
+# Get the partial contributing areas
+duration_list <- params$duration_list
+if (file.exists(params$duration_list)) {
+  durations <- read.csv(duration_list, header = FALSE)
+} else {
+  durations <- c(5, 10, 20, 40)
+}
 
 k = 1.0 # saturated hydraulic conductivity in meters per hour
-d = 5.0 # storm duration in hours
 
-# Get contributing area for a 5-hour-duration storm.
-contributing_area(raster = paste0(output_dir, "pca_k1_d5.flt"),
-                  dem = DEM, 
-                  length_scale = length_scale, 
-                  k = k, 
-                  d = d, 
-                  scratch_dir = output_dir)
-
-d = 10.0 # for a 10-hour-duration storm.
-contributing_area(raster = paste0(output_dir, "pca_k1_d10.flt"),
-                  dem = DEM, 
-                  length_scale = length_scale, 
-                  k = 1, 
-                  d = d, 
-                  scratch_dir = output_dir)
-
-d = 20.0 # for a 20-hour-duration storm.
-contributing_area(raster = paste0(output_dir, "pca_k1_d20.flt"),
-                  dem = DEM, 
-                  length_scale = length_scale, 
-                  k = k, 
-                  d = d, 
-                  scratch_dir = output_dir)
-
-d = 40.0 # for a 20-hour-duration storm.
-contributing_area(raster = paste0(output_dir, "pca_k1_d40.flt"),
-                  dem = DEM, 
-                  length_scale = length_scale, 
-                  k = k, 
-                  d = d, 
-                  scratch_dir = output_dir)
-
-# Create spatrasters from these .flt files
-grad <- rast(paste0(output_dir, "gradient.flt"))
-mean <- rast(paste0(output_dir, "mean_curv.flt"))
-pca5 <- rast(paste0(output_dir, "pca_k1_d5.flt"))
-pca10 <- rast(paste0(output_dir, "pca_k1_d10.flt"))
-pca20 <- rast(paste0(output_dir, "pca_k1_d20.flt"))
-pca40 <- rast(paste0(output_dir, "pca_k1_d40.flt"))
+for (d in durations) {
+  raster_name <- paste0(output_dir, "pca_k1_", as.character(d))
+  if (file.exists(paste0(raster_name, ".flt"))) {
+    covariates <- c(covariates, rast(paste0(raster_name, ".flt")))
+  } else {
+    covariates <- c(covariates, contributing_area(raster = raster_name,
+                    dem = DEM, 
+                    length_scale = length_scale, 
+                    k = k, 
+                    d = d, 
+                    scratch_dir = output_dir))
+  }
+}
 
 # Get the raster values at each initiation site
-ls_grad <- extract(grad, initiation_points, method = "bilinear")
-ls_mean <- extract(mean, initiation_points, method = "bilinear")
-ls_pca5 <- extract(pca5, initiation_points)
-ls_pca10 <- extract(pca10, initiation_points)
-ls_pca20 <- extract(pca20, initiation_points)
-ls_pca40 <- extract(pca40, initiation_points)
-
+ls_pnts <- extract(covariates, initiation_points, method = "bilinear")
 ```
 ## Sampling
-Below is the distribution of landslide in the DOGAMI inventory across Oregon. As you can see, these are scattered in clumps over a broad range of western Oregon.
+Below is the distribution of landslide sites in the DOGAMI inventory across Oregon. As you can see, these are scattered in clumps over a broad range of western Oregon.
 
-![**Figure 1. DOGAMI Landslide Inventory Sites**](inst/extdata/DOGAMI_points.png){width="500px"}
+![**Figure 1. DOGAMI Landslide Inventory Sites**](images/DOGAMI_points.png){width="500px"}
 
-The inventory was focused on landslides with debris-flow runout and the sites were selected from several different studies. Hence, this is not a census of landslides within some well-defined boundary for which landslide density can be defined. This presents a dilemma, because we use landslide density as a measure of susceptibility. To deal with this, I employ a strategy described by Zhu et al. [-@RN4226] (see also @RN4224). Place a buffer of specified radius around each initiation point. This represents the area within which the landslide initiation occurred and will be excluded from the area available for sampling nonlandslide points. Then place a second, larger buffer around the point. This represents the area within which we can be (fairly) confident that no other landslides were observed, or they would have been included in the DOGAMI inventory. The zone between the two circular buffers then serves as the area of no landslide occurrence (in the inventory) from which to sample nonlandslide points for training a model.
+The inventory was focused on landslides with debris-flow runout and the sites were selected from several different studies. Hence, this is not a census of landslides within some well-defined boundary for which landslide density can be defined. This presents a dilemma, because we use landslide density as a measure of susceptibility. 
+
+### Constraining the sampling area: buffer initiation points
+To deal with the unconstrained boundary for this landslide inventory, I employ a strategy described by Zhu et al. [-@RN4226] (see also @RN4224). Place a buffer of specified radius around each initiation point. This represents the area within which the landslide initiation occurred and will be excluded from the area available for sampling nonlandslide points. Then place a second, larger buffer around the point. This represents the area within which we can be (fairly) confident that no other landslides were observed, or they would have been included in the DOGAMI inventory. The zone between the two circular buffers then serves as the area of no landslide occurrence (in the inventory) from which to sample nonlandslide points for training a model.
 
 ```{r limit_analysis_area}
-vars_raster <- c(
-  grad,
-  mean,
-  pca5,
-  pca10,
-  pca20
-)
-
-mask_rasters <- c("gradient", "mean_curv") # the rational for this will be explained below
 
 # In the call to create_analysis_region_mask I use a very large expansion_factor here so that all (most?) of the DEM is included.
-analysis_mask <- create_analysis_region_mask(raster = vars_raster, 
+# Recall, mask_rasters contains the gradient and mean curvature rasters calculated above.
+analysis_mask <- create_analysis_region_mask(raster = covariates, 
                                              points = initiation_points,
-                                             mask_vars = mask_rasters,
+                                             mask_vars = c("gradient", "mean_curv"),
                                              expansion_factor = 100.)
 
 neg_region <- make_neg_region(initiation_points, 
-                vars_raster, 
-                inner_buffer = params$inner_buffer, 
-                outer_buffer = params$outer_buffer,
-                return_raster = TRUE)
+                              covariates, 
+                              inner_buffer = params$inner_buffer, 
+                              outer_buffer = params$outer_buffer,
+                              return_raster = TRUE)
 
 final_mask <- analysis_mask * neg_region
 
 plot(elev_shade,
-     col = grey(1:100/100))
+     col = grey(1:100/100),
+     ext = terra::ext(initiation_points))
 
 plot(final_mask,
      col = rgb(1,0,0,0.5),
@@ -230,28 +217,32 @@ plot(final_mask,
 plot(initiation_points,
      add = TRUE)
 
-gradmask <- grad * final_mask
-
-meanmask <- mean * final_mask
+covariatess <- covariates * final_mask
 
 ```
-To further constrain the area of nonlandslide terrain from which to sample training points, we can restrict the available area to that falling within the range of observed values of any immutable explanatory variables within which landslides were observed. Zones outside of this range should get a modeled probability of landslide occurrence of zero; we can simply set the probability within these zones to zero and focus the sampling scheme within the zone where landslide probability is greater than zero. This is constraint applies only for attributes that don't change over the time scales of interest. For the list of candidate explanatory variables presented, these are gradient and curvature. The partial contributing areas depend on the storm duration.
+### Constraining the sampling area: exclude values outside landslide range
+To further constrain the area of nonlandslide terrain from which to sample training points, we can restrict the sample area to that falling within the range of observed values of any immutable explanatory variables within which landslides were observed. Zones outside of this range should get a modeled probability of landslide occurrence of zero; we can simply set the probability within those zones to zero and focus the sampling scheme within the zone where landslide probability is greater than zero. This constraint applies only for attributes that don't change over the time scales of interest. For the list of candidate explanatory variables presented, these are gradient and curvature. The partial contributing areas depend on the storm duration.
 
-Here's a density plot comparing gradient values over the analysis area to those at the landslide initiation points.
+Here are density plots comparing gradient and cuvature values over the analysis area to those at the landslide initiation points.
 
 ```{r check_out_grad}
-ls_grad_den <- density(ls_grad$gradient)
+ls_grad_den <- density(ls_pnts$gradient)
 
 # We're not really interested in cliffs, so let's clamp gradient values to a maximum of 150%
-gradmask <- terra::clamp(gradmask,
+covariates$gradient <- terra::clamp(covariates$gradient,
                          lower = 0.,
                          upper = 1.5,
                          values = FALSE) # set anything greater than 1.5 to NA
 
-density(gradmask,
+par(mfrow = c(1, 2))
+
+density_grad <- density(covariates$gradient, plot = FALSE)
+ymax <- max(max(density_grad[[1]]$y), max(ls_grad_den$y))
+
+density(covariates$gradient,
         col = "black",
         lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
+        ylim = c(0., ymax),
         main = params$huc12_name,
         xlab = "Gradient")
 
@@ -260,114 +251,119 @@ lines(ls_grad_den,
       col = "red")
 
 legend(x = "topleft",
-       legend = c("Analysis Region", "Initiation Points"),
+       legend = c("Nonlandslide", "Landslide"),
        lty = c(1,1),
        col = c("black", "red"),
-       lwd = 2)
-```
-The smallest landslide-initiation-point gradient is `r min(ls_grad$gradient)` and the largest value is `r max(ls_grad$gradient)`. Landslides tend to initiate on steeper ground and a substantial portion of the analysis area has gradients less than the smallest value associated with a landslide initiation point. These areas may include ridge tops, valley floors, and lower-gradient hillslopes. Likewise, some small portion of the analysis area has gradients greater than the largest initiation-point value. These may include cliffs and rocky slopes too steep to accumulate soil. 
+       lwd = 2,
+       bty = "n",
+       cex = 0.7,)
 
-Here's a plot for mean curvature.
-``` {r check_out_mean}
-ls_mean_den <- density(ls_mean$mean_curv)
+ls_mean_den <- density(ls_pnts$mean_curv)
 
-density(meanmask,
+density_mean <- density(covariates$mean_curv, plot = FALSE)
+ymax <- max(max(density_mean[[1]]$y), max(ls_mean_den$y))
+
+density(covariates$mean_curv,
         col = "black",
         lwd = 2,
-        main = "Mean Curvature")
+        ylim = c(0., ymax),
+        main = params$huc12_name,
+        xlab = "Mean Curvature")
 
 lines(ls_mean_den,
       lwd = 2,
       col = "red")
 
-legend(x = "topleft",
-       legend = c("Analysis Region", "Initiation Points"),
+legend(x = "topright",
+       legend = c("Nonlandslide", "Landslide"),
        lty = c(1,1),
        col = c("black", "red"),
-       lwd = 2)
+       lwd = 2,
+       cex = 0.7,
+       bty = "n")
 ```
-The smallest mean curvature value is `r min(ls_mean$mean_curv)` and the largest value is `r max(ls_mean$mean_curv)`. Landslides tend to occur in topographically convergent zones (which I've calculated as positive here) indicated by the slight offset of the initiation-point curve from the analysis-area curve. The differences are more subtle than seen with gradient, but there are still some small portion of the analysis area with curvature less than the initiation-point minimum and greater than the initiation-point maximum.
+The smallest landslide-initiation-point gradient is `r min(ls_pnts$gradient)` and the largest value is `r max(ls_pnts$gradient)`. Landslides tend to initiate on steeper ground and a substantial portion of the analysis area has gradients less than the smallest value associated with a landslide initiation point. These areas may include ridge tops, valley floors, and lower-gradient hillslopes. Likewise, some small portion of the analysis area has gradients greater than the largest initiation-point value. These may include cliffs and rocky slopes too steep to accumulate soil. 
 
-Here is how gradient and mean curvature are correlated through this range:
+The smallest mean curvature value is `r min(ls_pnts$mean_curv)` and the largest value is `r max(ls_pnts$mean_curv)`. Landslides tend to occur in topographically convergent zones (which I've calculated as positive here) indicated by the slight offset of the initiation-point curve from the analysis-area curve. The differences are more subtle than seen with gradient, but there are still some small portion of the analysis area with curvature less than the initiation-point minimum and greater than the initiation-point maximum.
+
+Here is how gradient and mean curvature of the landslide points are correlated through this range:
 ```{r plot_mean_vs_gradient}
-m1 <- data.frame(ls_grad$gradient, ls_mean$mean_curv)
-
-plot(m1,
-     xlab = "Gradient",
-     ylab = "Mean Curvature")
-
-fit <- lm(ls_mean$mean_curv ~ ls_grad$gradient, m1)
-
-abline(fit)
-
+scatterplot(ls_pnts$mean_curv ~ ls_pnts$gradient)
 ```
 If these variables were highly correlated for the initiation sites, it could be worthwhile to define new variable values using a rotated data space. That would better delineate those areas with and without landslides. However, the correlation is slight and the scatter large, so that doesn't look worth the effort here.
 
 Let's look at how gradient values compare between the analysis area and the initiation points just for those areas where the DEM gradient and mean-curvature values fall within the range of initiation-point values.
 
 ``` {r mask_rasters}
-mask_rasters <- c("gradient", "mean_curv")
 
 # Now use a much tighter expansion_factor.
-analysis_mask <- create_analysis_region_mask(raster = vars_raster, 
+analysis_mask <- create_analysis_region_mask(raster = covariates, 
                                              points = initiation_points,
-                                             mask_vars = mask_rasters,
+                                             mask_vars = c("gradient", "mean_curv"),
                                              expansion_factor = 1.1)
 
-neg_region <- make_neg_region(initiation_points, 
-                vars_raster, 
-                inner_buffer = params$inner_buffer, 
-                outer_buffer = params$outer_buffer,
-                return_raster = TRUE)
-
 final_mask <- analysis_mask * neg_region
-grad <- grad * final_mask
-mean <- mean * final_mask
-pca5 <- pca5 * final_mask
-pca10 <- pca10 * final_mask
-pca20 <- pca20 * final_mask
-pca40 <- pca40 * final_mask
+covariates <- covariates * final_mask
+
+plot(elev_shade,
+     col = grey(1:100/100),
+     ext = terra::ext(initiation_points))
+
+plot(final_mask,
+     col = rgb(1,0,0,0.5),
+     add = TRUE)
+
+plot(initiation_points,
+     add = TRUE)
 
 ```
 
 ```{r gradient_limits}
-density(grad,
+par(mfrow = c(1, 2))
+
+density_grad <- density(covariates$gradient, plot = FALSE)
+ymax <- max(max(density_grad[[1]]$y), max(ls_grad_den$y))
+density(covariates$gradient,
         col = "black",
         lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
-        main = "Gradient")
+        ylim = c(0., ymax),
+        main = "Masked analysis area",
+        xlab = "Gradient")
 
 lines(ls_grad_den,
       lwd = 2,
       col = "red")
 
-legend(x = "topright",
-       legend = c("Masked Analysis Area", "Initiation Points"),
+legend(x = "topleft",
+       legend = c("Nonlandslide", "Landslide"),
        lty = c(1,1),
        col = c("black", "red"),
-       lwd = 2)
+       lwd = 2,
+       cex = 0.7,
+       bty = "n")
 
-```
-Although constrained to the same range, the distribution of values is distinclty (I hope) different for the entire analysis area than for the initiation sites. We can focus model calibration over this range.
-Here are the densities for mean curvature.
-
-```{r mean_limits}
-density(mean,
+density_mean <- density(covariates$mean_curv, plot = FALSE)
+ymax = max(max(density_mean[[1]]$y), max(ls_mean_den$y))
+density(covariates$mean_curv,
         col = "black",
         lwd = 2,
-        main = "Mean Curvature")
+        ylim = c(0., ymax),
+        xlab = "Mean Curvature",
+        main = "Masked analysis area")
 
 lines(ls_mean_den,
       lwd = 2,
       col = "red")
 
 legend(x = "topright",
-       legend = c("Masked Analysis Area", "Initiation Points"),
+       legend = c("Nonlandslide", "Landslide"),
        lty = c(1,1),
        col = c("black", "red"),
-       lwd = 2)
+       lwd = 2,
+       cex = 0.7,
+       bty = "n")
 ```
-Here too we find a difference in the distribution of values, although not as distinct as for gradient. 
+Although constrained to the same range, the distribution of values is distinclty (I hope) different for the entire analysis area than for the initiation sites. We can focus model calibration over this range.
 
 Now to sample nonlandslide points from the analysis region. 
 ```{r nonlandslide_points}
@@ -379,7 +375,8 @@ nonlandslide <- sample_points(count = num_points,
                           rseed = 12)
 
 plot(elev_shade,
-     col = grey(1:100/100))
+     col = grey(1:100/100),
+     ext = ext(initiation_points))
 
 plot(final_mask,
      col = rgb(1,0,0,0.5),
@@ -390,24 +387,27 @@ plot(nonlandslide,
      add = TRUE)
 
 ```
-Let's compare the non-landslide sample to the analysis area and the landslide initiation points.
+Compare the non-landslide sample to the analysis area and the landslide initiation points.
 
-```{r compare_gradient}
-nonls_grad <- extract(grad,
+```{r compare}
+par(mfrow = c(1, 2))
+
+nonls_pnts <- extract(covariates,
                       nonlandslide,
                       method = "bilinear")
 
-nonls_mean <- extract(mean,
-                      nonlandslide,
-                      method = "bilinear")
+nonls_grad_den <- density(nonls_pnts$gradient)
 
-density(grad, col = "black",
+density_grad <- density(covariates$gradient, plot = FALSE)
+
+ymax <- max(max(density_grad[[1]]$y), max(nonls_grad_den$y), max(ls_grad_den$y))
+
+density(covariates$gradient,
+        col = "black",
         lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
+        ylim = c(0., ymax),
         main = params$huc12_name,
         xlab = "Gradient")
-
-nonls_grad_den <- density(nonls_grad$gradient)
 
 lines(nonls_grad_den,
       lwd = 2,
@@ -418,24 +418,23 @@ lines(ls_grad_den,
       col = "red")
 
 legend(x = "topleft",
-       legend = c("Analysis Area", "Sample Points", "Landslide Points"),
+       legend = c("Nonlanslide Area", "Nonlandslide Points", "Landslide Points"),
        lty = c(1,1,1),
        col = c("black", "blue", "red"),
-       lwd = 2)
-```
-Same for mean curvature.
+       lwd = 2,
+       cex = 0.7,
+       bty = "n")
 
-```{r compare_mean}
-nonls_mean <- extract(mean,
-                      nonlandslide,
-                      method = "bilinear")
+nonls_mean_den <- density(nonls_pnts$mean_curv)
 
-nonls_mean_den <- density(nonls_mean$mean_curv)
+density_mean <- density(covariates$mean_curv, plot = FALSE)
 
-density(mean,
+ymax <- max(max(density_mean[[1]]$y), max(nonls_mean_den$y), max(ls_mean_den$y))
+
+density(covariates$mean_curv,
         col = "black",
         lwd = 2,
-        ylim = c(0., max(nonls_mean_den$y)),
+        ylim = c(0., ymax),
         main = params$huc12_name,
         xlab = "Mean Curvature")
 
@@ -448,387 +447,371 @@ lines(ls_mean_den,
       col = "red")
 
 legend(x = "topright",
-       legend = c("Analysis Area", "Sample Points", "Landslide Points"),
+       legend = c("Nonlanslide Area", "Nonlandslide Points", "Landslide Points"),
        lty = c(1,1,1), 
        col = c("black", "blue", "red"),
-       lwd = 2)
+       lwd = 2,
+       cex = 0.7,
+       bty = "n")
 
 ```
 Now compare partial contributing areas between the masked analysis region and the landslide initiation points.
 
 ```{r partial_area_plots, fig.show = "hold"}
-par(mfrow = c(2,2))
+num_d = length(durations)
+par(mfrow = c(ceiling(num_d / 2), 2))
 
-ls_pca5_den <- density(ls_pca5$pca_k1_d5)
+for (i in 1:num_d) {
 
-nonls_pca5 <- extract(pca5,
-                      nonlandslide)
+  d <- durations[[i]]
+  raster_name <- paste0("covariates$pca_k1_", as.character(d))
+  this_col <- 3 + i
+  vals <- data.frame(ls_pnts[this_col])
+  ls_den <- density(vals[[1]])
+  vals <- data.frame(nonls_pnts[this_col])
+  nonls_den <- density(vals[[1]])
 
-nonls_pca5_den <- density(nonls_pca5$pca_k1_d5)
+  area_den <- density(subset(covariates, 2 + i), plot = FALSE)
+  ymax = max(max(area_den[[1]]$y), max(ls_den$y), max(nonls_den$y))
 
-density(pca5,
-        col = "black",
-        ylim = c(0., max(nonls_pca5_den$y)),
+  terra::density(subset(covariates, 2 + i),
+          col = "black",
+          ylim = c(0., ymax),
+          lwd = 2,
+          main = paste0(d, "-hr duration"),
+          xlab = "Number of DEM cells")
+
+  lines(nonls_den,
         lwd = 2,
-        main = "Contributing Area, 5-Hour Duration",
-        xlab = "Number of DEM cells")
+        col = "blue")
 
-lines(nonls_pca5_den,
-      lwd = 2,
-      col = "blue")
-
-lines(ls_pca5_den,
-      lwd = 2,
-      col = "red")
-
-legend(x = "topleft",
-       cex = 0.7,
-       legend = c("Analysis Area", "Sample", "Landslide"),
-       lty = c(1,1,1),
-       col = c("black", "blue", "red"),
-       lwd = 2,
-       bty = "n")
-
-ls_pca10_den <- density(ls_pca10$pca_k1_d10)
-
-nonls_pca10 <- extract(pca10,
-                       nonlandslide)
-
-nonls_pca10_den <- density(nonls_pca10$pca_k1_d10)
-
-density(pca10,
-        col = "black",
+  lines(ls_den,
         lwd = 2,
-        ylim = c(0., max(nonls_pca10_den$y)),
-        main = "Contributing Area, 10-Hour Duration",
-        xlab = "Number of DEM cells")
+        col = "red")
 
-lines(nonls_pca10_den,
-      lwd = 2,
-      col = "blue")
+  legend(x = "topleft",
+         cex = 0.7,
+         legend = c("Area", "Sample", "Landslide"),
+         lty = c(1,1,1),
+         col = c("black", "blue", "red"),
+         lwd = 2,
+         bty = "n")
 
-lines(ls_pca10_den,
-      lwd = 2,
-      col = "red")
-
-ls_pca20_den <- density(ls_pca20$pca_k1_d20)
-
-nonls_pca20 <- extract(pca20,
-                       nonlandslide)
-
-nonls_pca20_den <- density(nonls_pca20$pca_k1_d20)
-
-density(pca20,
-        col = "black",
-        lwd = 2,
-        ylim = c(0., max(nonls_pca20_den$y)),
-        main = "Contributing Area, 20-Hour Duration",
-        xlab = "Number of DEM cells")
-
-lines(nonls_pca20_den,
-      lwd = 2,
-      col = "blue")
-
-lines(ls_pca20_den,
-      lwd = 2,
-      col = "red")
-
-ls_pca40_den <- density(ls_pca40$pca_k1_d40)
-
-nonls_pca40 <- extract(pca40,
-                       nonlandslide)
-
-nonls_pca40_den <- density(nonls_pca40$pca_k1_d40)
-
-density(pca40,
-        col = "black",
-        lwd = 2,
-        xlim = c(0., 30.),
-        ylim = c(0., max(nonls_pca40_den$y)),
-        main = "Contributing Area, 40-Hour Duration",
-        xlab = "Number of DEM cells")
-
-lines(nonls_pca40_den,
-      lwd = 2,
-      col = "blue")
-
-lines(ls_pca40_den,
-      lwd = 2,
-      col = "red")
-
+}
 ```
 
 As the storm duration increases, the partial contributing area values within the masked analysis region become more tightly grouped and, for each case, the landslide points are offset to higher contributing areas than the analysis area. At least that is the case for the Big Creek Smith HUC12; results might vary for different regions and different sets of landslide initiation points.
 
+### Sample density
 The sampled non-landslide points characterize covariate values across the analysis region. Within any increment of covariate space, the density of landslide points (number per unit area or area of initiating zones per unit area) provides a relative measure of susceptibility. It is this proportion of landslide occurrence to analysis area as a function of the covariate values that statistical models use to estimate probability of encountering an initiation site. We therefore want the sampled non-landslide points to provide a good characterization of the set of covariate values found within the analysis area. The relative densities will depend on the balance of the sample - the number of initiation points relative to the number of sample points. In these examples, the number of non-landslide points equals the number of landslide points. Comparing the black and blue lines shows how well the sampled non-landslide points represent the analysis area. These don't look terrible, but What happens if we use a different random sample of points or increase the number of non-landslide points?
 
 Let's try a different random seed. We initially obtained the current sample points in chunk "nonlandslide_points". It's copied here, but with a different seed:
 
 ```{r nonlandslide_points_again}
+par(mfrow = c(1, 2))
+
 nonlandslide2 <- sample_points(count = num_points,
                           region = final_mask,
                           buffer = FALSE,
                           rseed = 120)
 
-nonls_grad2 <- extract(grad,
+nonls_pnts2 <- extract(covariates,
                        nonlandslide2,
                        method = "bilinear")
 
-nonls_grad_den2 <- density(nonls_grad2$gradient)
-```
-Now plot it.
+nonls_grad_den2 <- density(nonls_pnts2$gradient)
 
-``` {r replot_gradient}
+nonlandslide3 <- sample_points(count = num_points,
+                               region = final_mask,
+                               buffer = FALSE,
+                               rseed = 240)
 
-density(grad, col = "black",
-        lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
-        main = "Big Creek Smith HUC12",
-        xlab = "Gradient")
-
-lines(nonls_grad_den,
-      lwd = 2,
-      col = "blue")
-
-lines(nonls_grad_den2,
-      lwd = 4,
-      col = "blue")
-
-lines(ls_grad_den,
-      lwd = 2,
-      col = "red")
-
-legend(x = "topleft",
-       legend = c("Analysis Area", "Sample Points 1", "Sample Points 2", "Landslide Points"),
-       lty = c(1,1,1,1),
-       col = c("black", "blue", "blue", "red"),
-       lwd = c(2, 2, 4, 2))
-```
-OK, that's a bit unnerving. Let's try doubling the number of sample points.
-```{r double_sample}
-nonlandslide3 <- sample_points(count = num_points * 2,
-                          region = final_mask,
-                          buffer = FALSE,
-                          rseed = 12) # using the original seed
-
-nonls_grad3 <- extract(grad,
+nonls_pnts3 <- extract(covariates,
                        nonlandslide3,
                        method = "bilinear")
 
-nonls_grad_den3 <- density(nonls_grad3$gradient)
+nonls_grad_den3 <- density(nonls_pnts3$gradient)
 
-density(grad, col = "black",
-        lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
-        main = "Big Creek Smith HUC12",
-        xlab = "Gradient")
+density_grad <- density(covariates$gradient, plot = FALSE)
+ymax = max(max(density_grad[[1]]$y), 
+           max(nonls_grad_den$y), 
+           max(nonls_grad_den2$y),
+           max(nonls_grad_den3$y),
+           max(ls_grad_den$y))
+
+density(covariates$gradient,
+        col = "black",
+        lwd = 3,
+        ylim = c(0., ymax),
+        main = "New random seeds",
+        xlab = "Gradient",
+        lty = 1)
 
 lines(nonls_grad_den,
       lwd = 2,
-      col = "blue")
+      col = "blue",
+      lty = 1)
 
 lines(nonls_grad_den2,
-      lwd = 4,
-      col = "blue")
+      lwd = 2,
+      col = "blue",
+      lty = 2)
 
 lines(nonls_grad_den3,
-      lwd = 6,
-      col = "blue")
+      lwd = 2,
+      col = "blue",
+      lty = 3)
 
 lines(ls_grad_den,
-      lwd = 2,
-      col = "red")
+      lwd = 3,
+      col = "red",
+      lty = 1)
 
 legend(x = "topright",
-       legend = c("Analysis Area", "Sample 1", "Sample 2", "Sample 3", "Landslide Points"),
-       lty = c(1,1,1,1,1),
+       legend = c("Area", "Seed 1", "Seed 2", "Seed 3", "Landslide"),
+       lty = c(1,1,2,3,1),
        col = c("black", "blue", "blue", "blue", "red"),
-       lwd = c(2, 2, 4, 6, 2))
-```
-Tripling?
-```{r triple_sample}
-nonlandslide4 <- sample_points(count = num_points * 3,
-                          region = final_mask,
-                          buffer = FALSE,
-                          rseed = 12) # using the original seed
+       lwd = c(3, 2, 2, 2, 3),
+       cex = 0.7,
+       bty = "n")
 
-nonls_grad4 <- extract(grad,
-                       nonlandslide4,
+num_points <- 2 * num_points
+
+nonlandslide1 <- sample_points(count = num_points,
+                               region = final_mask,
+                               buffer = FALSE,
+                               rseed = 12)
+
+nonls_pnts1 <- extract(covariates,
+                       nonlandslide1,
                        method = "bilinear")
 
-nonls_grad_den4 <- density(nonls_grad4$gradient)
+nonls_grad_den1 <- density(nonls_pnts1$gradient)
 
-density(grad, col = "black",
-        lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
-        main = "Big Creek Smith HUC12",
-        xlab = "Gradient")
-
-lines(nonls_grad_den,
-      lwd = 2,
-      col = "blue")
-
-lines(nonls_grad_den2,
-      lwd = 4,
-      col = "blue")
-
-lines(nonls_grad_den3,
-      lwd = 6,
-      col = "blue")
-
-lines(nonls_grad_den4,
-      lwd = 8,
-      col = "blue")
-
-lines(ls_grad_den,
-      lwd = 2,
-      col = "red")
-
-legend(x = "topright",
-       legend = c("Analysis Area", "Sample 1", "Sample 2", "Sample 3", "Sample 4", "Landslide Points"),
-       lty = c(1,1,1,1,1,1),
-       col = c("black", "blue", "blue", "blue", "blue", "red"),
-       lwd = c(2, 2, 4, 6, 8, 2))
-```
-Interesting. The triple-point sample closely matches the double-point sample density. What if we change the seed instead?
-```{r another_new_seed}
-nonlandslide4 <- sample_points(count = num_points * 3,
+nonlandslide2 <- sample_points(count = num_points,
                           region = final_mask,
                           buffer = FALSE,
-                          rseed = 120) 
+                          rseed = 120)
 
-nonls_grad4 <- extract(grad,
-                       nonlandslide4,
+nonls_pnts2 <- extract(covariates,
+                       nonlandslide2,
                        method = "bilinear")
 
-nonls_grad_den4 <- density(nonls_grad4$gradient)
+nonls_grad_den2 <- density(nonls_pnts2$gradient)
 
-density(grad, col = "black",
-        lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
-        main = "Big Creek Smith HUC12",
-        xlab = "Gradient")
+nonlandslide3 <- sample_points(count = num_points,
+                               region = final_mask,
+                               buffer = FALSE,
+                               rseed = 240)
 
-lines(nonls_grad_den,
+nonls_pnts3 <- extract(covariates,
+                       nonlandslide3,
+                       method = "bilinear")
+
+nonls_grad_den3 <- density(nonls_pnts3$gradient)
+
+density_grad <- density(covariates$gradient, plot = FALSE)
+ymax = max(max(density_grad[[1]]$y), 
+           max(nonls_grad_den1$y), 
+           max(nonls_grad_den2$y),
+           max(nonls_grad_den3$y),
+           max(ls_grad_den$y))
+
+density(covariates$gradient,
+        col = "black",
+        lwd = 3,
+        ylim = c(0., ymax),
+        main = "Doubled points",
+        xlab = "Gradient",
+        lty = 1)
+
+lines(nonls_grad_den1,
       lwd = 2,
-      col = "blue")
+      col = "blue",
+      lty = 1)
 
 lines(nonls_grad_den2,
-      lwd = 4,
-      col = "blue")
+      lwd = 2,
+      col = "blue",
+      lty = 2)
 
 lines(nonls_grad_den3,
-      lwd = 6,
-      col = "blue")
-
-lines(nonls_grad_den4,
-      lwd = 8,
-      col = "blue")
+      lwd = 2,
+      col = "blue",
+      lty = 3)
 
 lines(ls_grad_den,
-      lwd = 2,
-      col = "red")
+      lwd = 3,
+      col = "red",
+      lty = 1)
 
 legend(x = "topright",
-       legend = c("Analysis Area", "Sample 1", "Sample 2", "Sample 3", "Sample 4", "Landslide Points"),
-       lty = c(1,1,1,1,1,1),
-       col = c("black", "blue", "blue", "blue", "blue", "red"),
-       lwd = c(2, 2, 4, 6, 8, 2))
+       legend = c("Area", "Seed 1", "Seed 2", "Seed 3", "Landslide"),
+       lty = c(1,1,2,3,1),
+       col = c("black", "blue", "blue", "blue", "red"),
+       lwd = c(3, 2, 2, 2, 3),
+       cex = 0.7,
+       bty = "n")
 ```
-
-How about 50 times?
+OK, that's a bit unnerving. Let's try doubling the number of sample points again.
 ```{r}
-nonlandslide4 <- sample_points(count = num_points * 50,
-                          region = final_mask,
-                          buffer = FALSE,
-                          rseed = 120) 
+par(mfrow = c(1, 2))
 
-nonls_grad4 <- extract(grad,
-                       nonlandslide4,
+nonlandslide1 <- sample_points(count = num_points,
+                               region = final_mask,
+                               buffer = FALSE,
+                               rseed = 12)
+
+nonls_pnts1 <- extract(covariates,
+                       nonlandslide1,
                        method = "bilinear")
 
-nonls_grad_den4 <- density(nonls_grad4$gradient)
+nonls_grad_den1 <- density(nonls_pnts1$gradient)
 
-density(grad, col = "black",
-        lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
-        main = "Big Creek Smith HUC12",
-        xlab = "Gradient")
-
-lines(nonls_grad_den,
-      lwd = 2,
-      col = "blue")
-
-lines(nonls_grad_den2,
-      lwd = 4,
-      col = "blue")
-
-lines(nonls_grad_den3,
-      lwd = 6,
-      col = "blue")
-
-lines(nonls_grad_den4,
-      lwd = 8,
-      col = "blue")
-
-lines(ls_grad_den,
-      lwd = 2,
-      col = "red")
-
-legend(x = "topright",
-       legend = c("Analysis Area", "Sample 1", "Sample 2", "Sample 3", "Sample 4", "Landslide Points"),
-       lty = c(1,1,1,1,1,1),
-       col = c("black", "blue", "blue", "blue", "blue", "red"),
-       lwd = c(2, 2, 4, 6, 8, 2))
-```
-
-Let's try the original seed again:
-```{r}
-nonlandslide4 <- sample_points(count = num_points * 50,
+nonlandslide2 <- sample_points(count = num_points,
                           region = final_mask,
                           buffer = FALSE,
-                          rseed = 12) 
+                          rseed = 120)
 
-nonls_grad4 <- extract(grad,
-                       nonlandslide4,
+nonls_pnts2 <- extract(covariates,
+                       nonlandslide2,
                        method = "bilinear")
 
-nonls_grad_den4 <- density(nonls_grad4$gradient)
+nonls_grad_den2 <- density(nonls_pnts2$gradient)
 
-density(grad, col = "black",
-        lwd = 2,
-        ylim = c(0., max(ls_grad_den$y)),
-        main = "Big Creek Smith HUC12",
-        xlab = "Gradient")
+nonlandslide3 <- sample_points(count = num_points,
+                               region = final_mask,
+                               buffer = FALSE,
+                               rseed = 240)
 
-lines(nonls_grad_den,
+nonls_pnts3 <- extract(covariates,
+                       nonlandslide3,
+                       method = "bilinear")
+
+nonls_grad_den3 <- density(nonls_pnts3$gradient)
+
+density_grad <- density(covariates$gradient, plot = FALSE)
+ymax = max(max(density_grad[[1]]$y), 
+           max(nonls_grad_den1$y), 
+           max(nonls_grad_den2$y),
+           max(nonls_grad_den3$y),
+           max(ls_grad_den$y))
+
+density(covariates$gradient,
+        col = "black",
+        lwd = 3,
+        ylim = c(0., ymax),
+        main = "Doubled points",
+        xlab = "Gradient",
+        lty = 1)
+
+lines(nonls_grad_den1,
       lwd = 2,
-      col = "blue")
+      col = "blue",
+      lty = 1)
 
 lines(nonls_grad_den2,
-      lwd = 4,
-      col = "blue")
+      lwd = 2,
+      col = "blue",
+      lty = 2)
 
 lines(nonls_grad_den3,
-      lwd = 6,
-      col = "blue")
-
-lines(nonls_grad_den4,
-      lwd = 8,
-      col = "blue")
+      lwd = 2,
+      col = "blue",
+      lty = 3)
 
 lines(ls_grad_den,
-      lwd = 2,
-      col = "red")
+      lwd = 3,
+      col = "red",
+      lty = 1)
 
 legend(x = "topright",
-       legend = c("Analysis Area", "Sample 1", "Sample 2", "Sample 3", "Sample 4", "Landslide Points"),
-       lty = c(1,1,1,1,1,1),
-       col = c("black", "blue", "blue", "blue", "blue", "red"),
-       lwd = c(2, 2, 4, 6, 8, 2))
-```
+       legend = c("Area", "Seed 1", "Seed 2", "Seed 3", "Landslide"),
+       lty = c(1,1,2,3,1),
+       col = c("black", "blue", "blue", "blue", "red"),
+       lwd = c(3, 2, 2, 2, 3),
+       cex = 0.7,
+       bty = "n")
 
-We're not going to get a perfect representation of the covariate distribution using a finite sample. This will probably get worse with partial contributing areas, because the values become increasingly concentrated with larger storm durations. When the time comes, here's another strategy to try, based on a methodology described in [Halibisky et al. (2022)](https://egusphere.copernicus.org/preprints/2022/egusphere-2022-665/). Build an initial model using a random spatial sample of points. Then stratify on the modeled probability to obtain a new sample. We can do this by using a uniform random sample on the cumulative distribution of modeled probability. 
+num_points <- 2 * num_points
+
+nonlandslide1 <- sample_points(count = num_points,
+                               region = final_mask,
+                               buffer = FALSE,
+                               rseed = 12)
+
+nonls_pnts1 <- extract(covariates,
+                       nonlandslide1,
+                       method = "bilinear")
+
+nonls_grad_den1 <- density(nonls_pnts1$gradient)
+
+nonlandslide2 <- sample_points(count = num_points,
+                          region = final_mask,
+                          buffer = FALSE,
+                          rseed = 120)
+
+nonls_pnts2 <- extract(covariates,
+                       nonlandslide2,
+                       method = "bilinear")
+
+nonls_grad_den2 <- density(nonls_pnts2$gradient)
+
+nonlandslide3 <- sample_points(count = num_points,
+                               region = final_mask,
+                               buffer = FALSE,
+                               rseed = 240)
+
+nonls_pnts3 <- extract(covariates,
+                       nonlandslide3,
+                       method = "bilinear")
+
+nonls_grad_den3 <- density(nonls_pnts3$gradient)
+
+density_grad <- density(covariates$gradient, plot = FALSE)
+ymax = max(max(density_grad[[1]]$y), 
+           max(nonls_grad_den1$y), 
+           max(nonls_grad_den2$y),
+           max(nonls_grad_den3$y),
+           max(ls_grad_den$y))
+
+density(covariates$gradient,
+        col = "black",
+        lwd = 3,
+        ylim = c(0., ymax),
+        main = "Quadrupled points",
+        xlab = "Gradient",
+        lty = 1)
+
+lines(nonls_grad_den1,
+      lwd = 2,
+      col = "blue",
+      lty = 1)
+
+lines(nonls_grad_den2,
+      lwd = 2,
+      col = "blue",
+      lty = 2)
+
+lines(nonls_grad_den3,
+      lwd = 2,
+      col = "blue",
+      lty = 3)
+
+lines(ls_grad_den,
+      lwd = 3,
+      col = "red",
+      lty = 1)
+
+legend(x = "topright",
+       legend = c("Area", "Seed 1", "Seed 2", "Seed 3", "Landslide"),
+       lty = c(1,1,2,3,1),
+       col = c("black", "blue", "blue", "blue", "red"),
+       lwd = c(3, 2, 2, 2, 3),
+       cex = 0.7,
+       bty = "n")
+```
+More points provides a better representation, but we'll probably never get a perfect representation of the covariate distribution using a finite sample. This will probably get worse with partial contributing areas, because the high values become increasingly concentrated with larger storm durations. When the time comes, here's another strategy to try, based on a methodology described in [Halibisky et al. (2022)](https://egusphere.copernicus.org/preprints/2022/egusphere-2022-665/). Build an initial model using a random spatial sample of points. Then stratify on the modeled probability to obtain a new sample. We can do this by using a uniform random sample on the cumulative distribution of modeled probability. 
 
 I am unsure about the sample balance to aim for. We'll ultimately base susceptibility on proportions, which removes dependence on absolute density (probability), but larger values (e.g., from a balanced sample) will probably reduce rounding error and provide better results. Except that smaller samples produce greater variability in modeled probability. 
 
