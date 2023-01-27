@@ -1,0 +1,53 @@
+---
+title: "Principal component analysis on landslide training data"
+author: Julia Lober
+output:
+  html_notebook:
+    df_print: paged
+  html_document: 
+    toc: true
+params:
+  data_dir:
+    label: Data Directory
+    value: //Mac/Home/Documents/terrainworks/code/sandbox/data/
+    input: text
+  training_data:
+    label: Training data .Rdata file
+    value:  /sample_umpqua.Rdata
+    input: text
+editor_options:
+  chunk_output_type: inline
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  error = FALSE
+)
+```
+
+# Principal component analysis
+A principal component analysis (PCA) allows us to reduce the dimensionality of data and visualize the variation in a dataset. It is usually an exploratory analysis rather than a key part of a quantitative analysis. Here, we do it to see where different covariates might be correlated and how the initiation points vs. non-inititation points are reflected in the overall variability. 
+
+```{r}
+
+load(paste0(params$data_dir, params$training_data))
+
+pc <- prcomp(sample_pnts[,2:7],
+             center = TRUE,
+             scale. = TRUE)
+
+plot(pc$x[sample_pnts$class == "neg",], pch = 19)
+points(pc$x[sample_pnts$class == "pos",], col = "red", pch = 19)
+
+legend("topright", 
+       legend = c("Negative points", "Initiation points"), 
+       pch = 19, 
+       col = c("black", "red"),
+       bty= "n")
+
+
+```
+
