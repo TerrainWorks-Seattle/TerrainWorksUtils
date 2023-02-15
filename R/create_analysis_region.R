@@ -93,6 +93,7 @@ extract_range <- function(raster,
 #' use when calculating mask, and a column each for "min" and "max", indicating
 #' min and max allowable values. Rownames must match layer names in raster.
 #'
+#' @export
 #' @return A SpatRaster mask: Values are NA where values fall outside the
 #' range and 1 where values fall within the range.
 #'
