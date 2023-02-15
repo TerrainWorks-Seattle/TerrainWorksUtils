@@ -94,7 +94,7 @@ This list contains `r print(num_files)` files with `r print(num_points)` landsli
 ls_pnts <- data.frame()
 
 for (i in 1:num_files) {
-  DEM <- data_files$DEM[[i]]
+  DEM <- paste0(data_files$DEM[[i]], ".flt")
   initiation_points <- terra::vect(paste0(str_squish(data_files$Initiation_points[[i]]), ".shp"))
   
 # Binary floating point rasters are created in the output_dir by function TerrainWorksUtils::elev_deriv. 
@@ -107,10 +107,10 @@ for (i in 1:num_files) {
     rasters <- c(paste0("GRADIENT,", output_dir, grad_name),
                  paste0("MEAN CURVATURE,", output_dir, mean_name))
 
-    elev_deriv(rasters = rasters,
-               length_scale = length_scale,
-               dem = DEM,
-               scratch_dir = output_dir)
+    TerrainWorksUtils::elev_deriv(rasters = rasters,
+                                  length_scale = length_scale,
+                                  dem = DEM,
+                                  scratch_dir = output_dir)
     
   }
 
@@ -120,9 +120,16 @@ for (i in 1:num_files) {
   names(derivs[[2]]) <- "mean_curv"
   
   # Get the gradient and mean curvature values at each initiation site and append them to the ls_pnts dataframe
-  ls_pnts <- rbind(ls_pnts,  terra::extract(derivs,
-                              initiation_points,
-                              method = "bilinear"))
+  vals <- terra::extract(derivs,
+                         initiation_points,
+                         method = "bilinear")
+  
+  # Add the x-y coordinates of each point
+  coords <- terra::crds(initiation_points)
+  vals$x <- coords[,1]
+  vals$y <- coords[,2]
+  
+  ls_pnts <- rbind(ls_pnts,  vals)
   
 }
 
@@ -167,7 +174,7 @@ if (file.exists(params$duration_list)) {
 }
 
 for (i in 1:num_files) {
-  DEM <- data_files$DEM[[i]]
+  DEM <- paste0(data_files$DEM[[i]], ".flt")
   initiation_points <- terra::vect(paste0(str_squish(data_files$Initiation_points[[i]]), ".shp"))
   
   grad_name = paste0("gradient_", as.character(i))
@@ -185,43 +192,56 @@ for (i in 1:num_files) {
   for (j in 1:ncol(durations)) {
     d <- durations[[j]]
     raster_name <- paste0("pca_k1_", as.character(d))
-    covariates <- c(covariates, contributing_area(raster = paste0(output_dir, raster_name),
-                                                    dem = DEM, 
-                                                    length_scale = length_scale, 
-                                                    k = k, 
-                                                    d = d, 
-                                                    scratch_dir = output_dir))
+    covariates <- c(covariates, 
+                    TerrainWorksUtils::contributing_area(raster = paste0(output_dir, raster_name),
+                                                         dem = DEM, 
+                                                         length_scale = length_scale, 
+                                                         k = k, 
+                                                         d = d, 
+                                                         scratch_dir = output_dir))
     names(covariates[[2+j]]) <- raster_name
     
   }
   
-  ls_pnts <- rbind(ls_pnts, terra::extract(covariates,
-                                           initiation_points,
-                                           method = "bilinear"))
+  vals <- terra::extract(covariates,
+                         initiation_points,
+                         method = "bilinear")
+  
+  coords <- terra::crds(initiation_points)
+  vals$x <- coords[,1]
+  vals$y <- coords[,2]
+  
+  ls_pnts <- rbind(ls_pnts, vals)
   
 # Now sample the nonlandslide analysis zone
-  neg_region <- make_neg_region(positive_points = initiation_points, 
-                  ref_raster = DEM, 
-                  inner_buffer = params$inner_buffer, 
-                  outer_buffer = params$outer_buffer,
-                  return_raster = TRUE)
+  neg_region <- TerrainWorksUtils::make_neg_region(positive_points = initiation_points, 
+                                                   ref_raster = DEM, 
+                                                   inner_buffer = params$inner_buffer, 
+                                                   outer_buffer = params$outer_buffer,
+                                                   return_raster = TRUE)
 
 # Set values within the inner buffer and beyond the outer buffer to nodata
-  analysis_mask <- mask_by_range(covariates[[1:2]], range_mx)
+  analysis_mask <- TerrainWorksUtils::mask_by_range(covariates[[1:2]], range_mx)
   analysis_mask <- analysis_mask * neg_region
   
   covariates <- covariates * analysis_mask
   
   num_points <- ceiling(length(initiation_points))
 
-  neg_points <- sample_points(count = num_points,
-                              region = analysis_mask,
-                              buffer = FALSE,
-                              rseed = 12)
+  neg_points <- TerrainWorksUtils::sample_points(count = num_points,
+                                                 region = analysis_mask,
+                                                 buffer = FALSE,
+                                                  rseed = 12)
   
-  nonls_pnts <- rbind(nonls_pnts,  terra::extract(covariates,
-                                                  neg_points,
-                                                  method = "bilinear"))
+  vals <- terra::extract(covariates,
+                         neg_points,
+                         method = "bilinear")
+  
+  coords <- crds(neg_points)
+  vals$x <- coords[,1]
+  vals$y <- coords[,2]
+  
+  nonls_pnts <- rbind(nonls_pnts, vals)
   
 }
 
@@ -313,118 +333,48 @@ scatterplot(mean_curv ~ gradient, ls_pnts)
 ```
 
 ```{r}
-par(mfrow = c(2,2))
+num_d = length(durations)
+par(mfrow = c(ceiling(num_d / 2), 2))
 
-ls_pca5_den <- density(ls_pnts$pca5)
+for (i in 1:num_d) {
 
-nonls_pca5_den <- density(nonls_pnts$pca5)
+  d <- durations[[i]]
+  this_col <- 3 + i
+  vals <- data.frame(ls_pnts[this_col])
+  ls_den <- density(vals[[1]])
+  vals <- data.frame(nonls_pnts[this_col])
+  nonls_den <- density(vals[[1]])
 
-ymax <- max(max(nonls_pca5_den$y), max(ls_pca5_den$y))
+  ymax = max(max(ls_den$y), max(nonls_den$y))
 
-plot(nonls_pca5_den,
-        col = "black",
-        ylim = c(0., ymax),
-        lwd = 2,
-        main = "5hr-duration",
-        xlab = "DEM cells")
-
-lines(ls_pca5_den,
-      lwd = 2,
-      col = "red")
-
-grid(nx = NULL,
-     ny = NULL,
-     col = "gray",
-     lty = "dotted",
-     lwd = 1)
-
-legend(x = "topleft",
-       cex = 0.7,
-       legend = c("Nonlandslide", "Landslide"),
-       lty = c(1,1),
-       col = c("black", "red"),
+  plot(ls_den,
+       ylim = c(0., ymax),
        lwd = 2,
-       bty = "n")
-
-ls_pca10_den <- density(ls_pnts$pca10)
-
-nonls_pca10_den <- density(nonls_pnts$pca10)
-
-ymax <- max(max(nonls_pca10_den$y), max(ls_pca10_den$y))
-
-plot(nonls_pca10_den,
-        col = "black",
+       col = "red",
+       main = paste0("Duration ",d,"hrs"))
+  
+  lines(nonls_den,
         lwd = 2,
-        ylim = c(0., ymax),
-        main = "10-hr duration",
-        xlab = "DEM cells")
+        col = "blue")
 
-lines(ls_pca10_den,
-      lwd = 2,
-      col = "red")
+  legend(x = "topleft",
+         cex = 0.7,
+         legend = c("Sample", "Landslide"),
+         lty = c(1,1),
+         col = c("blue", "red"),
+         lwd = 2,
+         bty = "n")
 
-grid(nx = NULL,
-     ny = NULL,
-     col = "gray",
-     lty = "dotted",
-     lwd = 1)
-
-ls_pca20_den <- density(ls_pnts$pca20)
-
-nonls_pca20_den <- density(nonls_pnts$pca20)
-
-ymax = max(max(nonls_pca20_den$y), max(ls_pca20_den$y))
-
-plot(nonls_pca20_den,
-        col = "black",
-        lwd = 2,
-        ylim = c(0., ymax),
-        main = "20-hr duration",
-        xlab = "DEM cells")
-
-lines(ls_pca20_den,
-      lwd = 2,
-      col = "red")
-
-grid(nx = NULL,
-     ny = NULL,
-     col = "gray",
-     lty = "dotted",
-     lwd = 1)
-
-ls_pca40_den <- density(ls_pnts$pca40)
-
-nonls_pca40_den <- density(nonls_pnts$pca40)
-
-ymax = max(max(ls_pca40_den$y), max(nonls_pca40_den$y))
-
-plot(nonls_pca40_den,
-        col = "black",
-        lwd = 2,
-        ylim = c(0., ymax),
-        main = "40-hr duration",
-        xlab = "DEM cells")
-
-lines(ls_pca40_den,
-      lwd = 2,
-      col = "red")
-
-grid(nx = NULL,
-     ny = NULL,
-     col = "gray",
-     lty = "dotted",
-     lwd = 1)
-
-par(mfrow = c(1, 1))
+}
 ```
 ```{r}
-ls_pnts <- ls_pnts[,-1] # remove the ID columne
-scatterplotMatrix(ls_pnts,
+vals <- ls_pnts[,-1] # remove the ID column
+vals <- vals[,-7] # remove class column
+scatterplotMatrix(vals,
                   main = "Landslide Points")
 
-nonls_pnts <- nonls_pnts[,-1]
+vals <- nonls_pnts[,-1]
+vals <- vals[,-7]
 scatterplotMatrix(nonls_pnts, 
                   main = "Nonlandslide Points")
 ```
-
-
