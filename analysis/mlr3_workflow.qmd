@@ -48,8 +48,10 @@ library(mlr3spatial)
 library(mlr3spatiotempcv)
 library(mlr3learners)
 library(mlr3tuning)
+library(mlr3viz)
 # Packages for models - change these based on what type of model you build
 library(glmnet)
+library(ranger)
 ```
 
 Major points for the `mlr3` package include the different nomenclature. The data used to train a model is referred to a `task` and the model being trained is referred to as a `learner`.
@@ -74,8 +76,7 @@ The learner is created based on what type of model we want to train. See above f
 `classif.glmnet` is a linear regression strategy for classification problems. Notably, `lambda` is a hyperparameter that cannot be automatically optimized. A bandaid solution was to specify a value in the creation of the learner, which silences a warning at prediction time. I am currently reading about `mlr3tuning` and how to create a wrapper tuner object that allows manual specifications for hyperparameter optimization (HPO).
 
 ```{r}
-learner <- lrn("classif.glmnet", 
-               lambda = 0.01,
+learner <- lrn("classif.log_reg", 
                predict_type = "prob")
 print(learner)
 ```
@@ -87,11 +88,17 @@ learner$train(task)
 print(learner$model)
 ```
 
-For the generalized linear model (`glmnet`), we need to manually set lambda. This parameter cannot be tuned, so
-
 ```{r}
 predicted <- learner$predict(task)
-print(predicted)
+
+```
+
+```{r}
+tsk_predict = as_task_unsupervised(dem)
+
+# plan("multisession") # optional parallelization
+pred = predict_spatial(tsk_predict, learner, format = "terra")
+class(pred)
 ```
 
 Next, we can take a general look at some performance measures.
@@ -114,6 +121,32 @@ conf_matrix <- predicted$confusion
 print(conf_matrix)
 ```
 
+Resampling:
+
+```{r}
+resampling <- rsmp("cv", folds = 5)
+
+learner_2 <- lrn("classif.ranger", 
+                 predict_type = "prob")
+learner_3 <- lrn("classif.featureless", 
+                 predict_type = "prob")
+
+bench <- benchmark_grid(task = task, 
+                        learner = c(learner, learner_2, learner_3),  
+                        resampling = resampling)
+
+mark <- benchmark(bench)
+
+```
+
+```{r}
+autoplot(mark, measure = msr("classif.acc"))
+```
+
+```{r}
+autoplot(mark, type = "roc")
+```
+
 ## Step 2. Tune and resample
 
 In order to train this model with some hyperparameter tuning, we need to go back and specify which hyperparameters need to be tuned in the learner.
@@ -121,7 +154,8 @@ In order to train this model with some hyperparameter tuning, we need to go back
 ```{r}
 learner <- lrn("classif.glmnet", 
                alpha = to_tune(1e-5, 1),
-               s = to_tune(1e-5, 1e5),
+               lambda = 0.1,
+               # s = to_tune(1e-5, 1e5),
                predict_type = "prob")
 
 tuner = tnr("grid_search", resolution = 5, batch_size = 5)
@@ -147,9 +181,16 @@ print(predicted$score(msrs(c("classif.auc", "classif.acc"))))
 print(predicted$confusion)
 ```
 
-## Step 3. Add a resampling method
+## Step 3. Comparing spatiotemporal cross-validation vs normal cross-validation. 
 
 For any machine learning workflow, you want to including a resampling method that will train models on a couple different subsets of data as training and testing sets to reduce the role of chance and produce a more robust basis for evaluating the model's performance.
+
+I need data with x and y coordinates attached to do this. This is currently my standstill.
+
+```{r}
+plot(dem)
+points(pnts)
+```
 
 ```{r}
 
