@@ -58,7 +58,7 @@ library(car)
 
 Julia has written a function "dem_to_model" that works with multiple DEMs, but I'd like to separate the steps explicitly so we can see what's being done and look at intermediate results. I've used the Fortran "watershed" program to clip out small basins containing landslide initiation points and runout tracks from the DOGAMI Special Paper 53 landslide inventory. These are output as binary floating point files (.flt) along with point shapefiles of the initiation points within each small basin. 
 
-The names for these raster and point shapefiles are listed in a text file specified in the parameter list for this notebook. The directory containing the raster and vector files must include projection (.prj) files. The input file has a header line "DEM, Initiation_points" followed by one row for each input DEM and its corresponding initiation-point shapefile, separated by a comma. Use full-path names; this allows files from different data directories to be used.
+The names for these raster and point shapefiles are listed in a text file specified in the parameter list for this notebook. The directory containing the raster and vector files must include projection (.prj) files. The input file has a header line "DEM, Initiation_points" followed by one row for each input DEM and its corresponding initiation-point shapefile, separated by a comma. Use full-path names; this allows files from different data directories to be used. The rasters created by the code chunks below are written to the output directory specified in the parameter list. They are not necessarily deleted after completing the code chunk that creates them because that same chunk first looks to see if they exist. When experimenting or debugging, it saves time to not build them each time. However, if you change the input DEMs, you need to delete any files in the output directory; otherwise, they'll get mistakenly read in.
 
 For now, I'll stick with the same set of explanatory variables explored with PFA_landslide_initiation.Rmd: gradient, mean curvature, and partial contributing area for a range of storm durations. A list of storm durations can be specified using the "duration_list" input parameter; the defaults are 6, 12, 24, and 48 hours.
 
@@ -369,12 +369,12 @@ for (i in 1:num_d) {
 ```
 ```{r}
 vals <- ls_pnts[,-1] # remove the ID column
-vals <- vals[,-7] # remove class column
+vals <- vals[,-6:8] # remove class column
 scatterplotMatrix(vals,
                   main = "Landslide Points")
 
 vals <- nonls_pnts[,-1]
-vals <- vals[,-7]
-scatterplotMatrix(nonls_pnts, 
+vals <- vals[,-6:8]
+scatterplotMatrix(vals, 
                   main = "Nonlandslide Points")
 ```
