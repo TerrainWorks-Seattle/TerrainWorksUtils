@@ -94,8 +94,8 @@ This list contains `r print(num_files)` files with `r print(num_points)` landsli
 ls_pnts <- data.frame()
 
 for (i in 1:num_files) {
-  DEM <- paste0(data_files$DEM[[i]], ".flt")
-  initiation_points <- terra::vect(paste0(str_squish(data_files$Initiation_points[[i]]), ".shp"))
+  DEM <- paste0(data_files[i,1], ".flt")
+  initiation_points <- terra::vect(paste0(str_trim(data_files[i,2]), ".shp"))
   
 # Binary floating point rasters are created in the output_dir by function TerrainWorksUtils::elev_deriv. 
 # It can take a long time to create them, so if they're already there, read them in.
@@ -174,8 +174,8 @@ if (file.exists(params$duration_list)) {
 }
 
 for (i in 1:num_files) {
-  DEM <- paste0(data_files$DEM[[i]], ".flt")
-  initiation_points <- terra::vect(paste0(str_squish(data_files$Initiation_points[[i]]), ".shp"))
+  DEM <- paste0(data_files[i,1], ".flt")
+  initiation_points <- terra::vect(paste0(str_trim(data_files[i,2]), ".shp"))
   
   grad_name = paste0("gradient_", as.character(i))
   mean_name = paste0("meancurv_", as.character(i))
