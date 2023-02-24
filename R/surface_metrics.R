@@ -365,3 +365,158 @@ contributing_area <- function(input_file = "nofile",
   return(out_grid)
 }
 
+#---------------------------------------------------------
+#' Distance to the nearest road in meters
+#'
+#' Provide a \code{SpatRaster} giving the distance to the nearest road for each
+#' cell of a DEM.
+#'
+#' distance_to_road() operates in one of three modes, depending on the
+#' input arguments:
+#' \enumerate{
+#'   \item As a wrapper for the Fortran "distanceToRoad" executable,
+#'   with an existing "distanceToRoad" input_file.
+#'   \item As a wrapper for program distanceToRoad, but with the input file
+#'   constructed by distance_to_road.
+#'   \item To read existing raster files from disk.
+#' }
+#' In modes 1 and 2, distance_to_road calls program distanceToRoad, which creates
+#' the requested rasters and writes them to disk as floating point binary files.
+#' These are then read and returned by distance_to_road as a \code{SpatRaster}
+#' object. In mode 3, existing raster files are read directly from disk and
+#' returned as a \code{SpatRaster} object.
+#'
+#' @param input_file Character string: a "partial" input file (optional).
+#'   If no input file is specified and no other arguments are present,
+#'   a Windows Explorer window opens for file selection.
+#' @param raster Character string: file name (full path) for an existing
+#'   contributing-area raster to read from disk (optional).
+#' @param dem Character string: The file name (full path) of the dem
+#'   (elevation raster) for construction of an input file.
+#' @param road_shapefile Character string: The file name (full path) to a
+#'   polyline shapefile for roads.
+#' @param radius double: Distance in meters to extend the search for a road.
+#' @param scratch_dir Character string: A scratch directory where temporary
+#'   files are written. If an input file for program partial is created,
+#'   it is written here.
+#'
+#' @return A \code{SpatRaster} of distance to the closest road for each DEM grid point.
+#'
+#' @export
+#'
+distance_to_road <- function(input_file = "nofile",
+                             raster = "nofile",
+                             dem = 'none',
+                             road_shapefile = "nofile",
+                             radius = 0.,
+                             scratch_dir = "none") {
+
+  if (str_detect(input_file, "nofile")) {
+    # there is a raster file specified
+
+    if (str_detect(dem, "none")) { # read an existing raster
+      if (str_detect(raster, "nofile") | !file.exists(raster)) {
+        stop("Must provide a DEM or an existing raster file to read")
+      }
+      run_distToRoad <- FALSE
+    } else {
+      # need to build input file and run partial
+      err <- 0
+      if (!str_detect(dem, ".flt")) {
+        dem <- paste0(dem, ".flt")
+      }
+      if (!file.exists(dem)) {
+        print("DEM does not exist")
+        err <- -1
+      }
+      if (str_detect(scratch_dir, "none") | !dir.exists(scratch_dir)) {
+        print("Scratch directory does not exist or is not specified")
+        err <- -1
+      }
+      if (str_detect(raster, "nofile")) {
+        print("No output raster file specified")
+        err <- -1
+      }
+      if (radius == 0.) {
+        print("Radius not specified")
+        err <- -1
+      }
+      if (err < 0) {
+        stop("Error with input arguments")
+      }
+
+      distanceToRoad_input(dem,
+                           radius,
+                           road_shapefile,
+                           raster,
+                           scratch_dir)
+
+      input_file <- paste0(scratch_dir, "\\input_distanceToRoad.txt")
+      if (!str_detect(raster, ".flt")) {
+        raster <- paste0(raster, ".flt")
+      }
+      run_distanceToRoad <- TRUE
+
+    }
+  } else {
+    # read existing input_file and run partial
+    if (str_detect(input_file, "nofile")) {
+      input_file <- file.choose()
+      infile <- tibble(readLines(input_file))
+    } else {
+      if (!file.exists(input_file)) {
+        stop("Input file not found")
+      } else {
+        infile <- tibble(readLines(input_file))
+      }
+    }
+    if (nrow(infile) == 0) {
+      stop("Input file is empty")
+    }
+    dem_found <- FALSE
+    dir_found <- FALSE
+    radius_found <- FALSE
+    shapefile_found <- FALSE
+    for (i in 1:nrow(infile)) {
+      keyword <- get_keyword(infile, i)
+      if (is.na(keyword)) {
+        next
+      }
+      if (str_detect(keyword, "DEM") == TRUE) {
+        dem_found <- TRUE
+      } else if (str_detect(keyword, "SCRATCH DIRECTORY") == TRUE) {
+        dir_found <- TRUE
+      } else if (str_detect(keyword, "RADIUS") == TRUE) {
+        radius_found <- TRUE
+      } else if (str_detect(keyword, "ROAD SHAPEFILE") == TRUE) {
+        shapefile_found <- TRUE
+      } else if (str_detect(keyword, "OUTPUT RASTER")) {
+        argument <- get_args(infile, i)
+        param_value <- parse_arg(argument)
+        raster <- param_value[[2]]
+        if (!str_detect(raster, ".flt")) {
+          raster <- paste0(raster, ".flt")
+        }
+      }
+    }
+    if (!dem_found | !dir_found | !radius_found | !shapefile_found) {
+      stop("Bad input file format")
+    }
+    run_distanceToRoad <- TRUE
+  }
+
+  if (run_distanceToRoad) {
+    # Get the location of the Fortran compiled code for makegrids.exe
+    executable_path <- get_executable_path()
+
+    distanceToRoad <- file.path(executable_path, "distanceToRoad.exe")
+    command <- paste0(distanceToRoad, " ", input_file)
+    output <- system(command, wait = TRUE)
+    if (output != 0) {
+      stop("Problem calculating distanceToRoad: error ", output)
+    }
+  }
+  # Create a spatraster with one layer for each output grid
+  out_grid <- rast(raster)
+  return(out_grid)
+}
