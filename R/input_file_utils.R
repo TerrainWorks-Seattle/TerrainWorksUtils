@@ -329,3 +329,68 @@ accum_input <- function(dem,
   write_input("CONDUCTIVITY: ", k)
   write_input("OUTPUT RASTER: ", out_raster)
 }
+
+#---------------------------------------------------------
+#' Create an input file for Fortran program distanceToRoad.
+#'
+#' Program distanceToRoad builds a raster giving the distance in meters
+#' to the nearest road for each DEM grid point.
+#' Inputs to distanceToRoad are read from an ASCII input file
+#' using "Keyword: arguments" format.
+#'
+#' @param dem Character string: The file name (full path) for the input DEM.
+#' @param radius Double: radius in meters to extend from a road.
+#' @param road_file Character string: input road polyline shapefile.
+#' @param out_raster Character string: File name (full path) for the output
+#'   binary floating point (.flt) raster.
+#' @param scratch_dir Character string: Directory for temporary files.
+#'   The input file is written to the scratch_dir.
+#'
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk of the input file.
+#' @export
+#'
+distanceToRoad_input <- function(dem,
+                                 radius = 1000.,
+                                 road_file,
+                                 out_raster,
+                                 scratch_dir) {
+
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+
+  # Normalize paths
+  dem <- normalizePath(dem)
+  scratch_dir <- normalizePath(scratch_dir)
+  suppressWarnings(out_raster <- normalizePath(out_raster))
+
+  out_file <- paste0(scratch_dir, "\\input_distanceToRoad.txt")
+
+  # Do not include ".flt" in dem file name
+  if (str_detect(dem, ".flt$") == TRUE) {
+    n <- str_length(dem)
+    dem <- str_sub(dem, 1, n[[1]]-4)
+  }
+
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+
+  write_input("# Input file for distanceToRoad\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+
+  write_input("DEM: ", dem)
+  write_input("ROAD SHAPEFILE: ", road_file)
+  write_input("OUTPUT RASTER: ", out_raster)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+  write_input("RADIUS: ", radius)
+}
