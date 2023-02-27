@@ -362,20 +362,23 @@ if (file.exists(params$duration_list)) {
   durations <- c(6, 12, 24, 48)
 }
 
-# Loop through the DEM files. This is long because there is a lot to do in each iteration of the loop
 all_roads <- terra::vect(paste0(params$data_dir, "/roads.shp"))
+```
+
+```{r}
+# Loop through the DEM files. This is long because there is a lot to do in each iteration of the loop
 for (i in 1:num_files) {
-  print(paste0("Working on DEM ", i))
   DEM <- paste0(data_files[i,1], ".flt")
   
   grad_name <- paste0("gradient_", as.character(i))
-  covariates <- terra::rast(paste0(output_dir, grad_name, ".flt"))
+  file_name <- paste0(output_dir, grad_name)
+  covariates <- terra::rast(paste0(file_name, ".flt"))
   names(covariates) <- "gradient"
   
 # Get the initiation points for this DEM for each time slot (1996, 2007, 2011)
   pnts_1996 <- terra::extract(covariates,
-                         init_1996,
-                         bind = TRUE) # with "bind", pnts is a SpatVector
+                              init_1996,
+                              bind = TRUE) # with "bind", pnts is a SpatVector
   notNA <- which(pnts_1996$gradient >= 0) # get rid of points outside of this DEM
   pnts_1996 <- pnts_1996[notNA,]
   if (nrow(pnts_1996) > 0) {
@@ -400,7 +403,6 @@ for (i in 1:num_files) {
   notNA <- which(pnts_2007$gradient >= 0) 
   pnts_2007 <- pnts_2007[notNA,]
   if (nrow(pnts_2007) > 0) {
-    print(paste0("Number of 2007 points =", nrow(pnts_2007)))
     age <- terra::project(pnts_2007,
                           standAge)
   
@@ -433,37 +435,48 @@ for (i in 1:num_files) {
     pnts_2011 <- pnts_2011[keep,] # ignore points where stand age in 1996 is unknown
     vals_2011 <- vals_2011[keep,]
     vals_2011 <- vals_2011[, "age"]
-  }  
-  
+  }
+
 # Now get mean curvature
   mean_name <- paste0("meancurv_", as.character(i))
-  covariates <- c(covariates, terra::rast(paste0(output_dir, mean_name, ".flt")))
+  file_name <- paste0(output_dir, mean_name)
+  covariates <- c(covariates, terra::rast(paste0(file_name, ".flt")))
   names(covariates[[2]]) <- "mean_curv"
   
 # Get distance-to-road values
   roads <- terra::crop(all_roads, covariates)
-  road_shapefile <- paste0(params$output_dir, "roads_", as.character(i), ".shp")
-  writeVector(roads, road_shapefile, overwrite = TRUE)
-   
-  raster_name <- paste0("distTo_", as.character(i))
-  covariates <- c(covariates,
-                  TerrainWorksUtils::distance_to_road(raster = paste0(output_dir, raster_name),
-                                                      dem = DEM,
-                                                      road_shapefile = road_shapefile,
-                                                      radius = 1000.,
-                                                      scratch_dir = output_dir))
+  
+  if (nrow(roads) == 0) {
+    distTo <- rast(covariates,
+                   nlyr = 1)
+    values(distTo) <- NA
+    covariates <- c(covariates, distTo)
+  
+  } else {
+    
+    road_shapefile <- paste0(params$output_dir, "roads_", as.character(i), ".shp")  
+    writeVector(roads, road_shapefile, overwrite = TRUE)
+    raster_name <- paste0("distTo_", as.character(i))
+    file_name <- paste0(output_dir, raster_name)
+    covariates <- c(covariates,
+                    TerrainWorksUtils::distance_to_road(raster = paste0(file_name, ".flt"),
+                                                        dem = DEM,
+                                                        road_shapefile = road_shapefile,
+                                                        radius = 1000.,
+                                                        scratch_dir = output_dir))
+  }
   names(covariates[[3]]) <- "dist_to_road"
   
   # Get the partial contributing areas here; we don't need to save the rasters.
   # This does take awhile.
-  
   k = 1.0 # saturated hydraulic conductivity in meters per hour
 
   for (j in 1:ncol(durations)) {
     d <- durations[[j]]
     raster_name <- paste0("pca_k1_", as.character(d))
+    file_name <- paste0(output_dir, raster_name)
     covariates <- c(covariates, 
-                    TerrainWorksUtils::contributing_area(raster = paste0(output_dir, raster_name),
+                    TerrainWorksUtils::contributing_area(raster = file_name,
                                                          dem = DEM, 
                                                          length_scale = length_scale, 
                                                          k = k, 
@@ -474,7 +487,6 @@ for (i in 1:num_files) {
   }
   
   if (nrow(pnts_1996) > 0) {
-    print(paste0("Number of points in 1996 is ", nrow(pnts_1996)))
     vals <- terra::extract(covariates,
                            pnts_1996,
                            method = "bilinear")
@@ -491,7 +503,6 @@ for (i in 1:num_files) {
     vals$y <- coords[,2]
     
     ls_1996 <- rbind(ls_1996, vals)
-    print("Got ls_1996")
     
   # Now sample the nonlandslide analysis zone
     neg_region <- TerrainWorksUtils::make_neg_region(positive_points = pnts_1996, 
@@ -499,18 +510,14 @@ for (i in 1:num_files) {
                                                      inner_buffer = params$inner_buffer, 
                                                      outer_buffer = params$outer_buffer,
                                                      return_raster = TRUE)
-    
-    print("Got neg_region")
 
   # Set values within the inner buffer and beyond the outer buffer to nodata
     analysis_mask <- TerrainWorksUtils::mask_by_range(covariates[[1:2]], range_mx)
     analysis_mask <- analysis_mask * neg_region
   
     masked <- covariates * analysis_mask
-    print("masked")
   
     num_points <- ceiling(length(pnts_1996)*params$over_sample)
-    print(paste0("Number of nonlandslide points = ",num_points))
 
     nonls_pnts <- TerrainWorksUtils::sample_points(count = num_points,
                                                    region = analysis_mask,
@@ -520,13 +527,11 @@ for (i in 1:num_files) {
     vals <- terra::extract(masked,
                            nonls_pnts,
                            method = "bilinear")
-    print("Got vals")
   
     # Get geology and landcover
     geo <- terra::extract(geoPoly,
                           nonls_pnts)
     vals$geo <- geo[ ,"GeoClass"]
-    print("got vals$geo")
     
     age <- project(nonls_pnts,
                    standAge)
@@ -537,7 +542,6 @@ for (i in 1:num_files) {
     
     age_1996$age_dom_2017 <- (age_1996$age_dom_2017/10) - (2017-1996)
     vals$age <- age_1996[, "age_dom_2017"]
-    print("Got vals$age")
     keep <- which(vals$age >= 0)
     vals <- vals[keep, ]
     nonls_pnts <- nonls_pnts[keep, ]
@@ -547,7 +551,6 @@ for (i in 1:num_files) {
     vals$y <- coords[,2]
   
     nonls_1996 <- rbind(nonls_1996, vals)
-    print("Got nonls_1996 for this iteration")
   }
   
   if (nrow(pnts_2007) > 0) {
@@ -572,18 +575,14 @@ for (i in 1:num_files) {
                                                      inner_buffer = params$inner_buffer, 
                                                      outer_buffer = params$outer_buffer,
                                                      return_raster = TRUE)
-    
-    print("Got neg_region")
 
   # Set values within the inner buffer and beyond the outer buffer to nodata
     analysis_mask <- TerrainWorksUtils::mask_by_range(covariates[[1:2]], range_mx)
     analysis_mask <- analysis_mask * neg_region
   
     masked <- covariates * analysis_mask
-    print("masked")
   
     num_points <- ceiling(length(pnts_2007)*params$over_sample)
-    print(paste0("Number of nonlandslide points = ",num_points))
 
     nonls_pnts <- TerrainWorksUtils::sample_points(count = num_points,
                                                    region = analysis_mask,
@@ -593,13 +592,11 @@ for (i in 1:num_files) {
     vals <- terra::extract(masked,
                            nonls_pnts,
                            method = "bilinear")
-    print("Got vals")
   
     # Get geology and landcover
     geo <- terra::extract(geoPoly,
                           nonls_pnts)
     vals$geo <- geo[ ,"GeoClass"]
-    print("got vals$geo")
     
     age <- project(nonls_pnts,
                    standAge)
@@ -610,7 +607,6 @@ for (i in 1:num_files) {
     
     age_2007$age_dom_2017 <- (age_2007$age_dom_2017/10) - (2017-2007)
     vals$age <- age_2007[, "age_dom_2017"]
-    print("Got vals$age")
     keep <- which(vals$age >= 0)
     vals <- vals[keep, ]
     nonls_pnts <- nonls_pnts[keep, ]
@@ -620,7 +616,6 @@ for (i in 1:num_files) {
     vals$y <- coords[,2]
   
     nonls_2007 <- rbind(nonls_2007, vals)
-    print("Got nonls_2007 for this iteration")    
   }
   
   if (nrow(pnts_2011) > 0) {
@@ -645,18 +640,14 @@ for (i in 1:num_files) {
                                                      inner_buffer = params$inner_buffer, 
                                                      outer_buffer = params$outer_buffer,
                                                      return_raster = TRUE)
-    
-    print("Got neg_region")
 
   # Set values within the inner buffer and beyond the outer buffer to nodata
     analysis_mask <- TerrainWorksUtils::mask_by_range(covariates[[1:2]], range_mx)
     analysis_mask <- analysis_mask * neg_region
   
     masked <- covariates * analysis_mask
-    print("masked")
   
     num_points <- ceiling(length(pnts_2011)*params$over_sample)
-    print(paste0("Number of nonlandslide points = ",num_points))
 
     nonls_pnts <- TerrainWorksUtils::sample_points(count = num_points,
                                                    region = analysis_mask,
@@ -666,13 +657,11 @@ for (i in 1:num_files) {
     vals <- terra::extract(masked,
                            nonls_pnts,
                            method = "bilinear")
-    print("Got vals")
   
     # Get geology and landcover
     geo <- terra::extract(geoPoly,
                           nonls_pnts)
     vals$geo <- geo[ ,"GeoClass"]
-    print("got vals$geo")
     
     age <- project(nonls_pnts,
                    standAge)
@@ -683,7 +672,6 @@ for (i in 1:num_files) {
     
     age_2011$age_dom_2017 <- (age_2011$age_dom_2017/10) - (2017-2011)
     vals$age <- age_2011[, "age_dom_2017"]
-    print("Got vals$age")
     keep <- which(vals$age >= 0)
     vals <- vals[keep, ]
     nonls_pnts <- nonls_pnts[keep, ]
@@ -693,16 +681,56 @@ for (i in 1:num_files) {
     vals$y <- coords[,2]
   
     nonls_2011 <- rbind(nonls_2011, vals)
-    print("Got nonls_2011 for this iteration")     
-  }  
-
+  }
+# Clean up
+  grad_name <- paste0("gradient_", as.character(i))
+  file_name <- paste0(output_dir, grad_name)
+  unlink(paste0(file_name, ".flt"))
+  unlink(paste0(file_name, ".hdr"))
+  unlink(paste0(file_name, ".prj"))
+  unlink(paste0(file_name, ".log"))
+  mean_name <- paste0("meancurv_", as.character(i))
+  file_name <- paste0(output_dir, mean_name)
+  unlink(paste0(file_name, ".flt")) 
+  unlink(paste0(file_name, ".hdr"))
+  unlink(paste0(file_name, ".prj"))
+  unlink(paste0(file_name, ".log"))
+  raster_name <- paste0("distTo_", as.character(i))
+  file_name <- paste0(output_dir, raster_name)
+  if (file.exists(paste0(file_name, ".flt"))) {
+    unlink(paste0(file_name, ".flt")) 
+    unlink(paste0(file_name, ".hdr"))
+    unlink(paste0(file_name, ".prj"))
+    unlink(paste0(file_name, ".log"))    
+  }
+  for (j in 1:ncol(durations)) {
+    d <- durations[[j]]
+    raster_name <- paste0("pca_k1_", as.character(d))
+    file_name <- paste0(output_dir, raster_name)
+    unlink(paste0(file_name, ".flt")) 
+    unlink(paste0(file_name, ".hdr"))
+    unlink(paste0(file_name, ".prj"))
+    unlink(paste0(file_name, ".log"))
+  }
 }
-
+```
+Save these.
+```{r}
 # save the sample points
-ls_pnts$class <- "pos"
-nonls_pnts$class <- "neg"
-save(ls_pnts, file = paste0(output_dir, "ls_pnts.Rdata"))
-save(nonls_pnts, file = paste0(output_dir, "nonls_pnts.Rdata"))
-
-
+ls_1996$class <- "pos"
+ls_2007$class <- "pos"
+ls_2011$class <- "pos"
+nonls_1996$class <- "neg"
+nonls_2007$class <- "neg"
+nonls_2011$class <- "neg"
+save(ls_1996, file = paste0(output_dir, "ls_1996.Rdata"))
+save(ls_2007, file = paste0(output_dir, "ls_2007.Rdata"))
+save(ls_2011, file = paste0(output_dir, "ls_2011.Rdata"))
+save(nonls_1996, file = paste0(output_dir, "nonls_1996.Rdata"))
+save(nonls_2007, file = paste0(output_dir, "nonls_2007.Rdata"))
+save(nonls_2011, file = paste0(output_dir, "nonls_2011.Rdata"))
+```
+Take a look.
+```{r}
+str(ls_1996)
 ```
