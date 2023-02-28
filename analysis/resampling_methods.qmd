@@ -57,14 +57,31 @@ library(ranger)
 
 Data is loaded. First we need to look at the points on a map.
 
+TODO: figure out how to add a map background to the
+
 ```{r}
-orig_p <- par(mar = c(5, 5, 0, 5))
+# orig_p <- par(mar = c(5, 5, 0, 5))
+points <- as.data.frame(cbind(sample_pnts[, "x"], y = sample_pnts[, "y"]))
+points <- vect(points, geom = c("V1", "y"))
+points$yr <- sample_pnts$year
+points$class <- sample_pnts$class
+crs(points) <- "epsg:26910"
+points <- project(points, "epsg:4326")
 
 # plot(dem)
-plot(x = sample_pnts[, "x"], y = sample_pnts[, "y"], pch = 20)
-sample_pnts[, "class"] <- as.factor(sample_pnts[, "class"])
+ggplot() + 
+  geom_polygon(data = oregon, mapping = aes(x = long, y = lat),
+               color = "white", fill = "white") +
+  geom_spatvector(data = points[points$class == "pos", ],
+                  mapping = aes(shape = as.factor(points[points$class == "pos", ]$yr)),
+                  show.legend = TRUE, size = 2, color = "red") +
+  geom_spatvector(data = points[points$class == "neg", ],
+                  mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
+                  show.legend = TRUE, size = 2, color = "black") +
+  scale_shape_manual(values = c(3, 1, 17)) + 
+  labs(x = "Longitude", y = "Latitude", shape = "Study points")
 
-par(orig_p)
+# par(orig_p)
 
 ```
 
@@ -174,6 +191,4 @@ I am going to ignore the leave-one-out methods for now since we don't have many 
 
 Other otions we have are ("method ="):
 
-1.  "custom_cv" - an mlr3-supported way to customize the resampling splits, using either a vector of a factor variable, or a feature of the input (e.g., altitude). I think that we may consider doing this but am not sure how we would divide (maybe we would want to consider combining a few methods?).
-2.  "spcv_block" - block spatial cross validation. The whole area is divided up geometrically into blocks and one or multiple of these blocks is included in each split.
-3.  "sptcv_cstf" - leave-location-out, leave-time-out, or leave-location-time-out methods. Control which method is being used by parameters "time =" and "space =". I believe this is the only way to do temporal cross-validation (aside from "custom_cv").
+1.  "sptcv_cstf" - leave-location-out, leave-time-out, or leave-location-time-out methods. Control which method is being used by parameters "time =" and "space =". I believe this is the only way to do temporal cross-validation (aside from "custom_cv").
