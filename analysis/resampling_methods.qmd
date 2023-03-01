@@ -74,10 +74,10 @@ ggplot() +
                color = "white", fill = "white") +
   geom_spatvector(data = points[points$class == "pos", ],
                   mapping = aes(shape = as.factor(points[points$class == "pos", ]$yr)),
-                  show.legend = TRUE, size = 2, color = "red") +
-  geom_spatvector(data = points[points$class == "neg", ],
-                  mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
-                  show.legend = TRUE, size = 2, color = "black") +
+                  show.legend = TRUE, size = 1, color = "red", alpha = 0.5) +
+  # geom_spatvector(data = points[points$class == "neg", ],
+  #                 mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
+  #                 show.legend = TRUE, size = 1 , color = "black", alpha = 0.5) +
   scale_shape_manual(values = c(3, 1, 17)) + 
   labs(x = "Longitude", y = "Latitude", shape = "Study points")
 
