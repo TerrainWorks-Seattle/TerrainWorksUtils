@@ -21,9 +21,9 @@ nonls_2007$year <- rep(2007, length(nonls_2007[, 1]))
 nonls_2011$year <- rep(2011, length(nonls_2011[, 1]))
 
 # combine into one data frame.
-subset96 <- 1:length(ls_1996[, 1])
-subset07 <- 1:length(ls_2007[, 1])
-subset11 <- 1:length(ls_2011[, 1])
+subset96 <- seq(1, length(nonls_1996[,1]), 10) # 1:length(ls_1996[, 1])
+subset07 <- seq(1, length(nonls_2007[,1]), 10) # 1:length(ls_2007[, 1])
+subset11 <- seq(1, length(nonls_2011[,1]), 10) # 1:length(ls_2011[, 1])
 training_data <- rbind(ls_1996,
                        ls_2007,
                        ls_2011,
