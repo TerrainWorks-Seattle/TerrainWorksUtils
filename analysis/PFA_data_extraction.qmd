@@ -467,6 +467,17 @@ for (i in 1:num_files) {
   }
   names(covariates[[3]]) <- "dist_to_road"
   
+# Get total accumulation
+  file_name <- paste0(output_dir, "accum")
+  covariates <- c(covariates,
+                  TerrainWorksUtils::bldgrds_nochannels(dem = DEM,
+                                                        raster = file_name,
+                                                        aspect_length = params$length_scale,
+                                                        plan_length = params$length_scale,
+                                                        grad_length = params$length_scale,
+                                                        scratch_dir = output_dir))
+  names(covariates[[4]]) <- "total_accum"
+  
   # Get the partial contributing areas here; we don't need to save the rasters.
   # This does take awhile.
   k = 1.0 # saturated hydraulic conductivity in meters per hour
@@ -482,7 +493,7 @@ for (i in 1:num_files) {
                                                          k = k, 
                                                          d = d, 
                                                          scratch_dir = output_dir))
-    names(covariates[[3+j]]) <- raster_name
+    names(covariates[[4+j]]) <- raster_name
     
   }
   
@@ -689,12 +700,14 @@ for (i in 1:num_files) {
   unlink(paste0(file_name, ".hdr"))
   unlink(paste0(file_name, ".prj"))
   unlink(paste0(file_name, ".log"))
+  
   mean_name <- paste0("meancurv_", as.character(i))
   file_name <- paste0(output_dir, mean_name)
   unlink(paste0(file_name, ".flt")) 
   unlink(paste0(file_name, ".hdr"))
   unlink(paste0(file_name, ".prj"))
   unlink(paste0(file_name, ".log"))
+  
   raster_name <- paste0("distTo_", as.character(i))
   file_name <- paste0(output_dir, raster_name)
   if (file.exists(paste0(file_name, ".flt"))) {
@@ -703,6 +716,13 @@ for (i in 1:num_files) {
     unlink(paste0(file_name, ".prj"))
     unlink(paste0(file_name, ".log"))    
   }
+ 
+  file_name <- paste0(output_dir, "accum")
+  unlink(paste0(file_name, ".flt")) 
+  unlink(paste0(file_name, ".hdr"))
+  unlink(paste0(file_name, ".prj"))
+  unlink(paste0(file_name, ".log"))
+  
   for (j in 1:ncol(durations)) {
     d <- durations[[j]]
     raster_name <- paste0("pca_k1_", as.character(d))
