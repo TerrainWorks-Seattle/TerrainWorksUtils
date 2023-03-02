@@ -364,6 +364,178 @@ contributing_area <- function(input_file = "nofile",
   out_grid <- rast(raster)
   return(out_grid)
 }
+#---------------------------------------------------------
+#' Total contributing area
+#'
+#' Provide a \code{SpatRaster} giving the total upslope contributing area to
+#' each cell of a DEM. D-infinity flow paths are traced upslope from each cell.
+#'
+#' Contributing_area operates in one of three modes, depending on the
+#' input arguments:
+#' \enumerate{
+#'   \item As a wrapper for the Fortran "bldgrds" executable,
+#'   with an existing "partial" input_file.
+#'   \item As a wrapper for program partial, but with the input file
+#'   constructed by contributing_area.
+#'   \item To read existing raster files from disk.
+#' }
+#' In modes 1 and 2, contributing_area calls program partial, which creates the
+#' requested rasters and writes them to disk as floating point binary files.
+#' These are then read and returned by contributing_area as a \code{SpatRaster}
+#' object. In mode 3, existing raster files are read directly from disk and
+#' returned as a \code{SpatRaster} object.
+#'
+#' @param input_file Character string: a "partial" input file (optional).
+#'   If no input file is specified and no other arguments are present,
+#'   a Windows Explorer window opens for file selection.
+#' @param raster Character string: file name (full path) for an existing
+#'   contributing-area raster to read from disk (optional).
+#' @param dem Character string: The file name (full path) of the dem
+#'   (elevation raster) for construction of an input file.
+#' @param aspect_length Numeric (dbl): Length in meters over which
+#'   aspect is measured.
+#' @param plan_length Numeric (dbl): Length in meters over which
+#'   plan curvature is measured.
+#' @param grad_length Numeric (dbl): Length in meters over which
+#'   gradient is measured.
+#' @param scratch_dir Character string: A scratch directory where temporary
+#'   files are written. If an input file for program partial is created,
+#'   it is written here.
+#'
+#' @return A \code{SpatRaster} of total contributing area.
+#'
+#' @export
+#'
+bldgrds_nochannels <- function(input_file = "nofile",
+                               raster = "nofile",
+                               dem = 'none',
+                               aspect_length = 0.,
+                               plan_length = 0.,
+                               grad_length = 0.,
+                               scratch_dir = "none") {
+
+  if (str_detect(input_file, "nofile")) {
+    # there is a raster file specified
+
+    if (str_detect(dem, "none")) { # read an existing raster
+      if (str_detect(raster, "nofile") | !file.exists(raster)) {
+        stop("Must provide a DEM or an existing raster file to read")
+      }
+      run_bldgrds <- FALSE
+    } else {
+      # need to build input file and run partial
+      err <- 0
+      if (!str_detect(dem, ".flt")) {
+        dem <- paste0(dem, ".flt")
+      }
+      if (!file.exists(dem)) {
+        stop("DEM does not exist")
+        # err <- -1
+      }
+      if (aspect_length <= 0.) {
+        stop("Aspect_length not specified or out-of-bounds")
+        # err <- -1
+      }
+      if (plan_length <= 0.) {
+        stop("Plan_length not specified or out-of-bounds")
+        # err <- -1
+      }
+      if (grad_length <= 0.) {
+        stop("Gradient length not specified or out-of-bounds")
+        # err <- -1
+      }
+      if (str_detect(scratch_dir, "none") | !dir.exists(scratch_dir)) {
+        stop("Scratch directory does not exist or is not specified")
+        # err <- -1
+      }
+      if (str_detect(raster, "nofile")) {
+        stop("No output raster file specified")
+        # err <- -1
+      }
+      # if (err == -1){
+      #   stop("Inconsistent arguments")
+      # }
+
+      bldgrds_nochannels_input(dem,
+                               aspect_length,
+                               plan_length,
+                               grad_length,
+                               raster,
+                               scratch_dir)
+
+      input_file <- paste0(scratch_dir, "/input_bldgrds_nochannels.txt")
+      if (!str_detect(raster, ".flt")) {
+        raster <- paste0(raster, ".flt")
+      }
+      run_bldgrds <- TRUE
+
+    }
+  } else {
+    # read existing input_file and run partial
+    if (str_detect(input_file, "nofile")) {
+      input_file <- file.choose()
+      infile <- tibble(readLines(input_file))
+    } else {
+      if (!file.exists(input_file)) {
+        stop("Input file not found")
+      } else {
+        infile <- tibble(readLines(input_file))
+      }
+    }
+    if (nrow(infile) == 0) {
+      stop("Input file is empty")
+    }
+    dem_found <- FALSE
+    dir_found <- FALSE
+    aspect_found <- FALSE
+    plan_found <- FALSE
+    grad_found <- FALSE
+    for (i in 1:nrow(infile)) {
+      keyword <- get_keyword(infile, i)
+      if (is.na(keyword)) {
+        next
+      }
+      if (str_detect(keyword, "DEM") == TRUE) {
+        dem_found <- TRUE
+      } else if (str_detect(keyword, "SCRATCH DIRECTORY") == TRUE) {
+        dir_found <- TRUE
+      } else if (str_detect(keyword, "USE SMOOTHED ASPECT: LENGTH SCALE") == TRUE) {
+        aspect_found <- TRUE
+      } else if (str_detect(keyword, "PLAN CURVATURE LENGTH SCALE") == TRUE) {
+        plan_found <- TRUE
+      } else if (str_detect(keyword, "GRADIENT LENGTH SCALE") == TRUE) {
+        grad_found <- TRUE
+      } else if (str_detect(keyword, "OUTPUT FLOW ACCUMULATION RASTER")) {
+        argument <- get_args(infile, i)
+        param_value <- parse_arg(argument)
+        raster <- param_value[[2]]
+        if (!str_detect(raster, ".flt")) {
+          raster <- paste0(raster, ".flt")
+        }
+      }
+    }
+    if (!dem_found | !dir_found | !aspect_found | !plan_found | !grad_found) {
+      stop("Bad input file format")
+    }
+    run_bldgrds <- TRUE
+  }
+
+  if (run_bldgrds) {
+    # Get the location of the Fortran compiled code for makegrids.exe
+    executable_path <- get_executable_path()
+
+    bldgrds <- file.path(executable_path, "bldgrds.exe")
+    #  command <- paste(partial, input_file, sep = "  ")
+    command <- paste0(bldgrds, " ", input_file)
+    output <- system(command, wait = TRUE)
+    if (output != 0) {
+      stop("Problem calculating contributing area: error ", output)
+    }
+  }
+  # Create a spatraster with one layer for each output grid
+  out_grid <- rast(raster)
+  return(out_grid)
+}
 
 #---------------------------------------------------------
 #' Distance to the nearest road in meters
@@ -520,3 +692,4 @@ distance_to_road <- function(input_file = "nofile",
   out_grid <- rast(raster)
   return(out_grid)
 }
+
