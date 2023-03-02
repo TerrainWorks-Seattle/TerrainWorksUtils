@@ -394,3 +394,72 @@ distanceToRoad_input <- function(dem,
   write_input("SCRATCH DIRECTORY: ", scratch_dir)
   write_input("RADIUS: ", radius)
 }
+
+#---------------------------------------------------------
+#' Create an input file for Fortran program bldrds.
+#'
+#' Program bldgrds does flow routing for a DEM. This function
+#' creates an input file specifying that the flow routing will
+#' not involve delineation of channels. Therefore, flow directions
+#' are entirely based on D-infinity.
+#'
+#' @param dem Character string: The file name (full path) for the input DEM.
+#' @param aspect_length: double, length in meters over which aspect is measured.
+#' @param plan_length: double, length in meters over which plan curvature is measured.
+#' @param grad_length: double, length in meters over which gradient is measured.
+#' @param out_raster Character string: File name (full path) for the output
+#'   binary floating point (.flt) raster.
+#' @param scratch_dir Character string: Directory for temporary files.
+#'   The input file is written to the scratch_dir.
+#'
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk of the input file.
+#' @export
+#'
+bldgrds_nochannels_input <- function(dem,
+                                     aspect_length,
+                                     plan_length,
+                                     grad_length,
+                                     out_raster,
+                                     scratch_dir) {
+
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+
+  # Normalize paths
+  dem <- normalizePath(dem)
+  scratch_dir <- normalizePath(scratch_dir)
+  suppressWarnings(out_raster <- normalizePath(out_raster))
+
+  out_file <- paste0(scratch_dir, "\\input_bldgrds_nochannels.txt")
+
+  # Do not include ".flt" in dem file name
+  if (str_detect(dem, ".flt$") == TRUE) {
+    n <- str_length(dem)
+    dem <- str_sub(dem, 1, n[[1]]-4)
+  }
+
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+
+  write_input("# Input file for distanceToRoad\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+
+  write_input("DEM: ", dem)
+  write_input("USE SMOOTHED ASPECT: LENGTH SCALE = ", aspect_length)
+  write_input("PLAN CURVATURE LENGTH SCALE: ", plan_length)
+  write_input("GRADIENT LENGTH SCALE: ", grad_length)
+  write_input("NO CHANNELS:")
+  write_input("OUTPUT FLOW ACCUMULATION RASTER: ", out_raster)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+}
