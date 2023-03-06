@@ -1,0 +1,54 @@
+---
+title: "Landslide initiation feature selection"
+author: Julia Lober
+format: html
+editor: visual
+---
+
+```{r load, include = FALSE}
+library(mlr3)
+library(mlr3spatial)
+library(mlr3spatiotempcv)
+library(mlr3learners)
+library(mlr3tuning)
+library(mlr3viz)
+library(mlr3fselect)
+library(mlr3filters)
+library(mlr3verse)
+```
+
+## Feature selection for landslide points
+
+This document explores the impact of each predictor on a logistic regression model. We will look at a couple of different ways to do feature selection, and see if they offer consistent results or different options each time.
+
+```{r}
+source("../R/create_model_dataframe.R")
+sample_pnts <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
+```
+
+```{r}
+names(sample_pnts)
+```
+
+```{r}
+task = as_task_classif(x = sample_pnts, 
+                          id = "landslide_initiation", 
+                          target = "class", 
+                          positive = "pos", 
+                          coordinate_names = c("x", "y"), 
+                          crs = "epsg:26910")
+```
+
+## Filtering 
+
+Lets look at a few filtering methods. These calculate some measure of correlation between the target variable and the predictors, then assigns a threshold which must be met in order to be included in the final model.
+
+The benefit of these methods are a simpler method that does not involve building a bunch of models to test the impact of different features. The downside is that it is possible that the filter does not truly reflect the impact on the final model.
+
+```{r}
+library(FSelectorRcpp)
+info_filter = flt("information_gain")
+info_filter$calculate(task)
+
+as.data.table(info_filter)
+```
