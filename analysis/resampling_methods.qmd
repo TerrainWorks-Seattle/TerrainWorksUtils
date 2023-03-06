@@ -37,7 +37,6 @@ knitr::opts_chunk$set(
 # pnts <- terra::vect(paste0(params$data_dir, params$points))
 # dem <- terra::rast(paste0(params$data_dir, params$dem))
 source("../R/create_model_dataframe.R")
-
 sample_pnts <- training_data
 ```
 
@@ -62,22 +61,20 @@ TODO: figure out how to add a map background to the
 ```{r}
 # orig_p <- par(mar = c(5, 5, 0, 5))
 points <- as.data.frame(cbind(sample_pnts[, "x"], y = sample_pnts[, "y"]))
-points <- vect(points, geom = c("V1", "y"))
 points$yr <- sample_pnts$year
 points$class <- sample_pnts$class
-crs(points) <- "epsg:26910"
+terra::crs(points) <- "epsg:26910"
 points <- project(points, "epsg:4326")
 
-# plot(dem)
 ggplot() + 
   geom_polygon(data = oregon, mapping = aes(x = long, y = lat),
                color = "white", fill = "white") +
   geom_spatvector(data = points[points$class == "pos", ],
                   mapping = aes(shape = as.factor(points[points$class == "pos", ]$yr)),
                   show.legend = TRUE, size = 1, color = "red", alpha = 0.5) +
-  # geom_spatvector(data = points[points$class == "neg", ],
-  #                 mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
-  #                 show.legend = TRUE, size = 1 , color = "black", alpha = 0.5) +
+  geom_spatvector(data = points[points$class == "neg", ],
+                  mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
+                  show.legend = TRUE, size = 1 , color = "black", alpha = 0.5) +
   scale_shape_manual(values = c(3, 1, 17)) + 
   labs(x = "Longitude", y = "Latitude", shape = "Study points")
 
@@ -88,7 +85,7 @@ ggplot() +
 We want to train a logistic regression learner based on the landslide data points loaded into the data frame sample_pnts.
 
 ```{r}
-task <- as_task_classif_st(x = sample_pnts[, 2:14], 
+task <- as_task_classif_st(x = sample_pnts[!(is.na(sample_pnts$dist_to_road)), 2:14], 
                           id = "landslide_init", 
                           target = "class", 
                           positive = "pos", 
@@ -156,11 +153,11 @@ autoplot(rsmp_block, task, fold_id = c(1:5), size = 1, show_blocks = TRUE)
 
 Another concept for resampling is to design a strategy that is tailored to our specific dataset. We could do this to varying level of degrees, based on the predictors that are included in our data.
 
-One option is to simply divide the dataset into the three natural temporal divisions that we observe: (roughly) 1996, 2007, and 2011. First, we define the year column as a factor variable, then pass it to custom_cv as the split determination variable. However, this method produces drastically uneven folds - we have 213 observations from 1996, 137 form 2007, and only 47 from 2011.
+One option is to simply divide the dataset into the three natural temporal divisions that we observe: (roughly) 1996, 2007, and 2011. First, we define the year column as a factor variable, then pass it to custom_cv as the split determination variable. However, this method produces drastically uneven folds - we have 213 observations from 1996, 137 from 2007, and only 47 from 2011.
 
 ```{r}
 set.seed(12345)
-yr_splits <- as.factor(sample_pnts$year)
+yr_splits <- as.factor(sample_pnts[!(is.na(sample_pnts$dist_to_road)),]$year)
 
 rsmp_temp <- rsmp("custom_cv")
 rsmp_temp$instantiate(task, f = yr_splits)
@@ -178,7 +175,7 @@ This method is based in our physical understanding of how landslides occur, and 
 
 ```{r}
 set.seed(12345)
-yr_lith <- (sample_pnts$year * sample_pnts$geo)
+yr_lith <- ((sample_pnts[!(is.na(sample_pnts$dist_to_road)),]$year) * sample_pnts[!(is.na(sample_pnts$dist_to_road)),]$geo)
 yr_lith_splits <- as.factor(yr_lith)
 
 rsmp_templith <- rsmp("custom_cv")
@@ -192,3 +189,42 @@ I am going to ignore the leave-one-out methods for now since we don't have many 
 Other otions we have are ("method ="):
 
 1.  "sptcv_cstf" - leave-location-out, leave-time-out, or leave-location-time-out methods. Control which method is being used by parameters "time =" and "space =". I believe this is the only way to do temporal cross-validation (aside from "custom_cv").
+
+## Evaluating the performance of each method. 
+
+Now we need to get the performance metric calculated using each resampling method, so that we can compare them. This step is likely to take a bit of time.
+
+```{r}
+methods = c(rsmp_block, rsmp_clus, rsmp_nonsp, rsmp_temp, rsmp_templith)
+times = list()
+model_perf = list()
+
+for (method in methods) {
+  build_time <- system.time(model <- resample(task= task, 
+                                              learner = learner, 
+                                              resampling = method))
+  times <- append(times, build_time["elapsed"])
+  model_perf <- append(model_perf, model$aggregate(measures = msr("classif.auc")))
+}
+  
+```
+
+```{r}
+method_names = c("rsmp_block", "rsmp_clus", "rsmp_nonsp", "rsmp_temp", "rsmp_templith")
+
+to_plot <- c(model_perf[1]$classif.auc, 
+             model_perf[2]$classif.auc, 
+             model_perf[3]$classif.auc, 
+             model_perf[4]$classif.auc,
+             model_perf[5]$classif.auc)
+to_plot <- as.data.frame(to_plot)
+to_plot$names <- method_names[1:5]
+
+ggplot(to_plot, aes(x = names, y = to_plot)) + 
+  geom_bar(stat = "identity") + 
+  coord_cartesian(ylim=c(0.8,1)) + 
+  labs(y = "Area under the ROC curve", x = "Resampling method")
+  # scale_y_continuous(limits = c(0.5, 1))
+```
+
+Based on literature, lets go with the clustering resampling method.
