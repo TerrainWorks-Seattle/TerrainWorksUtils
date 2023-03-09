@@ -1,0 +1,166 @@
+---
+title: "PFA_runout"
+author: "Dan Miller"
+format: html
+editor: visual
+bibliography: references.bib
+params:
+  output_dir:
+    label: Output Directory
+    value: c:/tempDir/out/
+    input: text
+  data_dir:
+    label: Data Directory
+    value: c:/tempDir/in
+    input: text
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  error = FALSE
+)
+```
+
+```{r load, include = FALSE}
+library(TerrainWorksUtils)
+library(terra)
+library(stringr)
+library(shiny)
+library(dplyr)
+```
+
+# Strategy
+
+To assess landslide susceptibility, we need to look at both the potential for initiation and the potential that an initiated landslide will travel to locations downslope. This document examines the data and methods for evaluating runout potential.
+
+The methods described here build on those Kelly Burnett and I developed [@miller2008] for the Coastal Landscape Analysis and Modeling Project [CLAMS](https://lemma.forestry.oregonstate.edu/projects/clams). To assess runout potential, we need mapped runout tracks. The basic strategy is to overlay the mapped tracks on other spatially registered data and seek associations between runout extent and the envonmental attributes recorded in the other data. Slope gradient and channel confinement are recognized as primary controls on runout extent, so DEMs are a primary source for predictors used in building models for predicting runout. Other data may include substrate (typically mapped rock type) and land cover.
+
+# Data
+
+We have two datasets to work with, the field-based landslide inventory from the Oregon Department of Forestry (ODF) [1996 Storm Study](https://www.oregon.gov/odf/Documents/workingforests/monitoring-technical-report-04.pdf) that Kelly and I used for out 2008 analysis and an aerial-photo-based inventory from the Oregon Department of Geology and Mineral Industries (DOGAMI) [Special Paper 53](https://www.oregongeology.org/pubs/sp/SP-53/p-SP-53.htm). The DOGAMI inventory focuses specifically on debris-flow runout and contains a collection of events chosen from regional studies, including the ODF 1996 storm study.
+
+The 1996 Storm study included 6 study areas following the February 1996 storm and two following the November 1996 storm. Three of the sites following the February storm, Mapleton, Tillamook, and Vida, were chosen because of the high density of landslides at these locations.
+
+![Figure 1. ODF 1996 Mapleton, Tillamook, and Vida study areas and DOGAMI inventory landslide sites](images/1996_Storm_Study_Sites.png)
+
+Surveys at these three areas including detailed mapping of channel impacts associated with the storm. Being field based, these surveys were able to distinguish four types of debris-flow-runout behavior: 1) a scoured debris path, along unchannelized topography or within channels greater than 40% gradient, 2) channelized flow with scour, 3) channelized flow with deposition, and 4) transitional channelized flow with no net scour or deposition. At these sites, all channels with gradients up to 40% were surveyed and storm impacts were categorized as high, medium, or low and recorded at \~150-foot increments. High impacts were associated with "debris torrents" and impacts in these channels were further categorized as scour, deposit, transitional, or debris jam. Although "debris torrent" and "debris flow" are not synonomous, we used this mapping to estimate the probability of debris-flow scour or deposition as a function of topographic gradient and confinement and of adjacent forest-stand age class.
+
+A limitation of the 1996 Storm study was the poor accuracy and precision of the digitized landslide initiation sites and debris-flow tracks; a consequence of the accuracy and precision available from the 1:24,000-scale, 40-foot-contour USGS topographic maps available at that time. These base maps did not resolve many of the hollows associated with landslide initiation and they did not accurately reflect the flow paths for landslides initiated upslope. Even though the field mapping may have accurately recorded channel impacts, this mapping could not be accurately digitized because the base maps did not adequately represent the actual topography. The analysis that Kelly and I did used line-trace DEMs interpolated to a 10-m grid from those same 1:24,000-scale topographic base maps, so our analysis suffered from the same limitations. We now have 1-m lidar-derived DEMs that provide a much more accurate and precise representation of the topography. We will not simply overlay the digitized initiation points and debris-flow tracks onto these DEMs, but rather match them with DEM-derived flow paths. We can then use elevation derivatives along these flow paths to quantify topographic controls on the probability for scour or deposition. These probabilities are then central to the subsequent analysis of runout extent.
+
+Another limitation of the 1996 Storm study is that all the mapped channel impacts are associated with just one storm, that in February 1996. The DOGAMI inventory includes events from later years and therefore samples a wider range of storm characteristics. The DOGAMI inventory also samples a wider geographic range (Figure 1).
+
+The DOGAMI inventory includes both the landslide initiation site and the debris-flow track. The debris-flow track is divided into a "Transport" zone and a "Deposit" zone. The Transport zone is equivalent to the combined scour and transitional flow zones in the ODF mapping. The DOGAMI inventory is photo based, but they used a lidar-DEM-derived based map, so the locations should be fairly precise. The extent of mapped runout, however, may tend to under-estimate actual runnout in some cases because it can be difficult to see on an air photo just where a debris flow stopped.
+
+The strategy now is to use the ODF 1996-Storm data to calibrate a model to calculate the probability of scour and deposition. This model will be tested against the DOGAMI runout extents, with the DOGAMI transport segments corresponding to the ODF-calibrated-model scour and transitional segments. Numerous studies have documented a relationship between runout extent of channelized debris flows with channel gradient and confinement [e.g., @guthrie2010; @fannin1993; @benda1990; @miller2008], so we use gradient and curvature as candidate predictors. Characteristics of the forest stand traversed by a debris flow are also observed to affect runout extent [@booth2020; @guthrie2010], so we include estimated stand age (from [LEMMA](https://lemmadownload.forestry.oregonstate.edu/)). The three ODF 1996 study sites also span a range of [underlying lithology](https://www.oregongeology.org/geologicmap/index.htm): sandstones at Mapleton, volcanics at Tillamook, and volcaniclastic rocks at Vida. These do not represent all broad rock types across western Oregon, but can be included in a modeling framework.
+
+From the ODF 1996-Storm-Study GIS data, we use the landslide point feature class, the debris_path line feature class, and the channel_points feature class. The landslide points are filtered to exclude "In Channel" and "Channel Adjacent" entries in the ORIGIN field. A "closest-point" raster is generated from the debris-path and channel-points feature classes, where a "point" here refers to either a debris-path line or a channel point. The DEM provides the template for this raster and pixels are assigned to the closest debris-path or channel point lying within a 120-m radius. The NetMap channel nodes are then overlain on this raster. First, for each landslide initiation site, the channel node closest to the initiation point and overlying an assigned closest-node pixel is located. The flow path is then traced downslope for a long as the channel flow path remains in assigned closest-node pixel zones. Each of these flagged channel nodes is assigned the flow type (scour, transition, deposit) of the closest debris-path or channel point.
+
+![Figure 2a. Tillamook ODF 1996-storm survey data](images/Tillamook_ODF.png)
+
+![Figure 2b. Tillamook channel-node flow type.](images/Tillamook_NetMap.png)
+
+![Figure 3a. Mapleton ODF 1996-storm survey data.](images/Mapleton_ODF.png)
+
+![Figure 3b. Mapleton channel-node flow type.](images/Mapleton_NetMap.png)
+
+![Figure 4a. Vida ODF 1996-storm survey data.](images/Vida_ODF.png)
+
+![Figure 4b. Vida channel-node flow type.](images/Vida_NetMap.png)
+
+```{r}
+Tillamook <- terra::vect(paste0(params$data_dir, "/ODF_1996_Storm_Study/Tillamook/ODF_track_points.shp"))
+Tillamook$site <- "Tillamook"
+scour <- which(Tillamook$Track_Type == "Scour")
+den_T_S_G <- density(Tillamook[scour, ]$Gradient)
+dep <- which(Tillamook$Track_Type == "Deposit")
+den_T_D_G <- density(Tillamook[dep, ]$Gradient)
+tran <- which(Tillamook$Track_Type == "Transition")
+den_T_T_G <- density(Tillamook[tran, ]$Gradient)
+Vida <- terra::vect(paste0(params$data_dir, "/ODF_1996_Storm_Study/Vida/ODF_track_points.shp"))
+Vida$site <- "Vida"
+scour <- which(Vida$Track_Type == "Scour")
+den_V_S_G <- density(Vida[scour, ]$Gradient)
+dep <- which(Vida$Track_Type == "Deposit")
+den_V_D_G <- density(Vida[dep, ]$Gradient)
+tran <- which(Vida$Track_Type == "Transition")
+den_V_T_G <- density(Vida[tran,]$Gradient)
+Mapleton <- terra::vect(paste0(params$data_dir, "/ODF_1996_Storm_Study/Mapleton/ODF_track_points.shp"))
+Mapleton$site <- "Mapleton"
+scour <- which(Mapleton$Track_Type == "Scour")
+den_M_S_G <- density(Mapleton[scour,]$Gradient)
+dep <- which(Mapleton$Track_Type == "Deposit")
+den_M_D_G <- density(Mapleton[dep,]$Gradient)
+tran <- which(Mapleton$Track_Type == "Transition")
+den_M_T_G <- density(Mapleton[tran,]$Gradient)
+```
+Let's look at the attribute distributions.
+Tillamook:
+```{r}
+# Compare Track Type gradients at each site
+# Tillamook
+xmax <- max(den_T_S_G$x, den_T_D_G$x, den_T_T_G$x, den_M_S_G$x, den_M_D_G$x, den_M_T_G$x, den_V_S_G$x, den_V_D_G$x, den_V_T_G$x)
+ymax <- max(den_T_S_G$y, den_T_D_G$y, den_T_T_G$y, den_M_S_G$y, den_M_D_G$y, den_M_T_G$y, den_V_S_G$y, den_V_D_G$y, den_V_T_G$y)
+plot(den_T_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Tillamook")
+lines(den_T_S_G, col="red", lwd=3)
+lines(den_T_T_G, col="green", lwd=3)
+```
+Mapleton:
+```{r}
+# Compare Track Type gradients at each site
+# Tillamook
+plot(den_M_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Mapleton")
+lines(den_M_S_G, col="red", lwd=3)
+lines(den_M_T_G, col="green", lwd=3)
+```
+Vida:
+```{r}
+# Compare Track Type gradients at each site
+# Tillamook
+plot(den_V_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Vida")
+lines(den_V_S_G, col="red", lwd=3)
+lines(den_V_T_G, col="green", lwd=3)
+```
+Now compare across sites.
+Scour.
+```{r}
+xmax <- max(den_T_S_G$x, den_M_S_G$x, den_V_S_G$x)
+ymax <- max(den_T_S_G$y, den_M_S_G$y, den_V_S_G$y)
+plot(den_T_S_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Tillamook")
+lines(den_M_S_G, col="green", lwd=3)
+lines(den_V_S_G, col="red", lwd=3)
+```
+Deposition.
+```{r}
+xmax <- max(den_T_D_G$x, den_M_D_G$x, den_V_D_G$x)
+ymax <- max(den_T_D_G$y, den_M_D_G$y, den_V_D_G$y)
+plot(den_T_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Tillamook")
+lines(den_M_D_G, col="green", lwd=3)
+lines(den_V_D_G, col="red", lwd=3)
+```
+Let's include stand age.
+```{r}
+# Combine all datasets
+runout <- rbind(Tillamook, Mapleton, Vida)
+
+standAge <- terra::rast(paste0(params$data_dir, "/age_dom_2017.tif"))
+age <- terra::project(runout,
+                      standAge)
+  
+vals <- terra::extract(standAge,
+                       age,
+                       method = "simple")
+    
+vals$age <- (vals$age_dom_2017/10) - (2017-1996) # get stand age at time of 1996 landslides
+keep <- which(vals$age >= 0)
+runout <- runout[keep,] # ignore points where stand age in 1996 is unknown
+vals <- vals[keep,]
+vals <- vals[, "age"]
+runout$age <- vals
+den_age <- density(vals)
+plot(den_age, xlab="Stand Age (yrs)")
+
+```

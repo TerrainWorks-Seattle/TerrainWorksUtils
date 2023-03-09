@@ -734,7 +734,9 @@ for (i in 1:num_files) {
   }
 }
 ```
+
 Save these.
+
 ```{r}
 # save the sample points
 ls_1996$class <- "pos"
@@ -750,7 +752,9 @@ save(nonls_1996, file = paste0(output_dir, "nonls_1996.Rdata"))
 save(nonls_2007, file = paste0(output_dir, "nonls_2007.Rdata"))
 save(nonls_2011, file = paste0(output_dir, "nonls_2011.Rdata"))
 ```
+
 Take a look.
+
 ```{r}
 str(ls_1996)
 ```
