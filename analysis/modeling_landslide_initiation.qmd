@@ -37,7 +37,7 @@ source("../R/create_model_dataframe.R")
 sample_pnts <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
 ```
 
-## A look at the data. 
+## A look at the data.
 
 The first step is to look at the data we are using to built the model. We are working with data files that have been assembled by the PFA_Sampling_Multiple_DEMs documents included in this package. This package produces .Rdata files that contain data frames of landslide points divided by the approximate year in which they occurred and non-landslide points sampled from the surrounding area divided in the same way.
 
@@ -75,7 +75,7 @@ Note that the landslide initiation points tend to come in clusters and the years
 
 ## Defining the modeling task and learner
 
-For `mlr3`, we need to define the task, the type of model (called a learner), and the resampling method that we want to use. The task is our landslide initiation data set and the learner (for now) is a logistic regression model.
+For `mlr3`, we need to define the task, the type of model (called a learner), and the resampling method that we want to use. The task is our landslide initiation data set and the learner (for now) is a logistic regression model. If we want to add a different type of model, this will be done in a different document.
 
 There are several steps we need to work through:
 
@@ -99,6 +99,8 @@ logreg_learner <- lrn("classif.log_reg",
 rf_learner <- lrn("classif.ranger", 
                   predict_type = "prob")
 
+
+
 landslide_resamp <- rsmp("repeated_spcv_coords", 
                          folds = 5, 
                          repeats = 3)
@@ -113,11 +115,15 @@ autoplot(landslide_resamp,
          fold_id = c(1:4))
 ```
 
-## Feature selection 
+### 1. Feature selection
 
-We'll work this in in a bit.
+The rule in machine learning is to create the best model possible with the fewest features needed. This not only makes the model quicker to train, but also makes it easier to predict (smaller data inputs) and also reduces the risk of over-fitting.
 
-## Training the logistic regression model 
+```{r}
+
+```
+
+## Training the logistic regression model
 
 To train the logistic regression model, which has no hyperparameters that need to be tuned, we call the method resample.
 
