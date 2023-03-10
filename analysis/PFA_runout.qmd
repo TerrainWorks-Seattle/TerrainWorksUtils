@@ -31,6 +31,11 @@ library(terra)
 library(stringr)
 library(shiny)
 library(dplyr)
+library(nnet)
+library(car)
+library(mlr3verse)
+library(iml)
+remotes::install_github("mlr-org/mlr3extralearners@*release")
 ```
 
 # Strategy
@@ -97,8 +102,9 @@ den_M_D_G <- density(Mapleton[dep,]$Gradient)
 tran <- which(Mapleton$Track_Type == "Transition")
 den_M_T_G <- density(Mapleton[tran,]$Gradient)
 ```
-Let's look at the attribute distributions.
-Tillamook:
+
+Let's look at the attribute distributions. Tillamook:
+
 ```{r}
 # Compare Track Type gradients at each site
 # Tillamook
@@ -108,7 +114,9 @@ plot(den_T_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradien
 lines(den_T_S_G, col="red", lwd=3)
 lines(den_T_T_G, col="green", lwd=3)
 ```
+
 Mapleton:
+
 ```{r}
 # Compare Track Type gradients at each site
 # Tillamook
@@ -116,7 +124,9 @@ plot(den_M_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradien
 lines(den_M_S_G, col="red", lwd=3)
 lines(den_M_T_G, col="green", lwd=3)
 ```
+
 Vida:
+
 ```{r}
 # Compare Track Type gradients at each site
 # Tillamook
@@ -124,28 +134,38 @@ plot(den_V_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradien
 lines(den_V_S_G, col="red", lwd=3)
 lines(den_V_T_G, col="green", lwd=3)
 ```
-Now compare across sites.
-Scour.
+
+Now compare across sites. Scour.
+
 ```{r}
 xmax <- max(den_T_S_G$x, den_M_S_G$x, den_V_S_G$x)
 ymax <- max(den_T_S_G$y, den_M_S_G$y, den_V_S_G$y)
-plot(den_T_S_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Tillamook")
+plot(den_T_S_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Scour")
 lines(den_M_S_G, col="green", lwd=3)
 lines(den_V_S_G, col="red", lwd=3)
 ```
+
 Deposition.
+
 ```{r}
 xmax <- max(den_T_D_G$x, den_M_D_G$x, den_V_D_G$x)
 ymax <- max(den_T_D_G$y, den_M_D_G$y, den_V_D_G$y)
-plot(den_T_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Tillamook")
+plot(den_T_D_G, xlim=c(0,xmax), ylim=c(0,ymax), col="blue", lwd=3, xlab="Gradient", main="Deposition")
 lines(den_M_D_G, col="green", lwd=3)
 lines(den_V_D_G, col="red", lwd=3)
 ```
-Let's include stand age.
-```{r}
-# Combine all datasets
-runout <- rbind(Tillamook, Mapleton, Vida)
 
+Combine all three datasets
+
+```{r}
+runout <- rbind(Tillamook, Mapleton, Vida)
+runout$Track_Type <- as.factor(runout$Track_Type)
+runout$site <- as.factor(runout$site)
+```
+
+Get stand age from the LEMMA data.
+
+```{r}
 standAge <- terra::rast(paste0(params$data_dir, "/age_dom_2017.tif"))
 age <- terra::project(runout,
                       standAge)
@@ -160,7 +180,64 @@ runout <- runout[keep,] # ignore points where stand age in 1996 is unknown
 vals <- vals[keep,]
 vals <- vals[, "age"]
 runout$age <- vals
-den_age <- density(vals)
-plot(den_age, xlab="Stand Age (yrs)")
+densityPlot(vals, xlab="Stand Age (yrs)", main="All Sites")
+```
 
+Geology.
+
+```{r}
+geoPoly <- terra::vect(paste0(params$data_dir, "/geoPoly.shp"))
+vals <- terra::extract(geoPoly,
+                       runout)
+runout$geo <- as.factor(vals$GeoClass)
+table(vals$GeoClass)
+```
+
+We now have five candidate predictors: gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. I'll use mlr3 to build and evaluate potential classification models. Define a classification task.
+
+```{r}
+runData <- as.data.frame(runout)
+summary(runData)
+# exclude site
+runData <- subset(runData, select = -site)
+run <- as_task_classif(runData,
+                       target = "Track_Type",
+                       id = "tracks")
+```
+
+Feature selection using FSelectInstance in mlr3.
+
+```{r}
+#| include: false
+
+instance = fsi(task = run,
+               learner = lrn("classif.rpart"),
+               resampling = rsmp("holdout"),
+               measure = msr("classif.acc"),
+               terminator = trm("stagnation"))
+
+fselector = fs("exhaustive_search")
+
+fselector$optimize(instance)
+```
+
+```{r}
+as.data.table(instance$result)[, .(features, classif.acc)] 
+```
+
+This result suggests that all variables are potentially informative. The classification accuracy is low (\~65%), but that's not too surprising because transitional flow almost completely overlaps Scour and Deposition. To estimate the probability of scour, transitional flow, or deposition, I'll use multinomial logistic regression. This is available in the mlr3extralearners on github as [mlr_learners_classif.multinom](https://cran.r-project.org/web/packages/mlr3learners/mlr3learners.pdf).
+
+Define the learner
+
+```{r}
+multiLog <- lrn("classif.multinom")
+multiLog$predict_type = "prob"
+multiLog$train(run)
+multiLog$model
+# Use iml to examine variable importance
+x = runData[which(names(runData) != "Track_Type")]
+model = Predictor$new(multiLog, data = x, y = runData$TrackType)
+num_features = c("Gradient", "Norm_Curv", "Tan_Curv", "age", "geo")
+effect = FeatureEffects$new(model)
+plot(effect, features = num_features)
 ```
