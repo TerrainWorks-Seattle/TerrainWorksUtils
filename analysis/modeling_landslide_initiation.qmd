@@ -21,6 +21,8 @@ library(mlr3spatiotempcv)
 library(mlr3learners)
 library(mlr3tuning)
 library(mlr3viz)
+library(mlr3fselect)
+library(mlr3filters)
 
 # Packages for model-building
 library(glmnet)
@@ -99,14 +101,12 @@ logreg_learner <- lrn("classif.log_reg",
 rf_learner <- lrn("classif.ranger", 
                   predict_type = "prob")
 
-
-
-landslide_resamp <- rsmp("repeated_spcv_coords", 
-                         folds = 5, 
-                         repeats = 3)
+spat_resamp <- rsmp("repeated_spcv_coords", 
+                    folds = 5, 
+                    repeats = 3)
 ```
 
-These are the first four folds of the clustering spatial resampling.
+We will design a pipeline to compare the different models.
 
 ```{r}
 #| echo: false
@@ -120,37 +120,59 @@ autoplot(landslide_resamp,
 The rule in machine learning is to create the best model possible with the fewest features needed. This not only makes the model quicker to train, but also makes it easier to predict (smaller data inputs) and also reduces the risk of over-fitting.
 
 ```{r}
-
+logreg_fselect <- auto_fselector(
+  fs("sequential"),
+  learner = logreg_learner,
+  resampling = spat_resamp,
+  measure = msr("classif.auc"))
+  
+rf_fselect <- auto_fselector(
+  fs("sequential"),
+  learner = rf_learner,
+  resampling = spat_resamp,
+  measure = msr("classif.auc"))
 ```
 
-## Training the logistic regression model
-
-To train the logistic regression model, which has no hyperparameters that need to be tuned, we call the method resample.
+## Make a pipeline
 
 ```{r}
-build_time <- system.time(logreg_model <- resample(task= landslide_task, 
-                                            learner = logreg_learner, 
-                                            resampling = landslide_resamp))
 
-build_time
+pipe <- 
+  ppl("branch", list(
+                  "anova" = po("filter", filter = flt("anova")), 
+                  "nothing" = po("nop")), prefix_branchops = "filt") %>>%
+  ppl("branch", list(
+                  "lr" = logreg_learner, 
+                  "rf" = rf_learner, 
+                  "lr_fs" = logreg_fselect, 
+                  "rf_fs" = rf_fselect))
+
+pipe$plot(html = FALSE)
 ```
 
-And now we look at the results.
-
 ```{r}
-logreg_model
-```
+param_set <- ParamSet$new(list(
+  ParamDbl$new("anova.filter.frac", lower = 0.3, upper = 1),
+  ParamFct$new("filtbranch.selection", levels = c("anova", "nothing")),
+  ParamInt$new("classif.ranger.mtry", lower = 1L, upper = 20L),
+  ParamFct$new("branch.selection", levels = c("lr", "rf", "lr_fs", "rf_fs"))
+))
 
-## Training the random forest model
+target <- ti(
+  task = landslide_task, 
+  learner = as_learner(pipe), 
+  resampling = rsmp("spcv_coords", folds = 3), 
+  measures = msr("classif.auc"), 
+  terminator = trm("evals", n_evals = 10), 
+  search_space = param_set
+  
+)
 
-```{r}
-build_time <- system.time(rf_model <- resample(task= landslide_task, 
-                                            learner = rf_learner, 
-                                            resampling = landslide_resamp))
-```
+tuner <- tnr("random_search")
 
-## Compare the two models
+tuner$optimize(target)
 
-```{r}
-autoplot(c(logreg_model, rf_model), measure = msr("classif.auc"))
+# out <- mlr3::resample(task = landslide_task,
+#                       learner = as_learner(pipe), 
+#                       resampling = spat_resamp)
 ```
