@@ -227,17 +227,47 @@ as.data.table(instance$result)[, .(features, classif.acc)]
 
 This result suggests that all variables are potentially informative. The classification accuracy is low (\~65%), but that's not too surprising because transitional flow almost completely overlaps Scour and Deposition. To estimate the probability of scour, transitional flow, or deposition, I'll use multinomial logistic regression. This is available in the mlr3extralearners on github as [mlr_learners_classif.multinom](https://cran.r-project.org/web/packages/mlr3learners/mlr3learners.pdf).
 
-Define the learner
+Define the learner and build a model using the entire dataset to further explore variable importance.
 
 ```{r}
 multiLog <- lrn("classif.multinom")
 multiLog$predict_type = "prob"
 multiLog$train(run)
 multiLog$model
-# Use iml to examine variable importance
+```
+Use [package iml](https://cran.r-project.org/web/packages/iml/vignettes/intro.html) to explore model behavior.
+First look at feature importance.
+```{r}
 x = runData[which(names(runData) != "Track_Type")]
-model = Predictor$new(multiLog, data = x, y = runData$TrackType)
+model = Predictor$new(multiLog, data = x, y = runData$Track_Type)
+num_features = c("Gradient", "Norm_Curv", "Tan_Curv", "age", "geo")
+importance = FeatureImp$new(model, loss = "ce")
+importance$plot(features = num_features)
+```
+Gradient shows us a highly important, followed by tangent curvature. No surprise; that's consistent with field observations: scour in steep confined channels, deposition in lower-gradient, less-confined zones. 
+
+Package iml also provides [Shapely](https://christophm.github.io/interpretable-ml-book/shapley.html) values. These show how each variable influences the calculated result for the particular set of variable values found for a specific record value. Here are two examples, one for Deposit track type and another for scour.
+```{r}
+x = runData[which(names(runData) != "Track_Type")]
+model = Predictor$new(multiLog, data = runData, y = runData$Track_Type)
+x.interest = data.frame(runData[60, ])
+shapley1 = Shapley$new(model, x.interest = x.interest)
+runData[60,]
+plot(shapley1)
+x.interest = data.frame(runData[10, ])
+shapley2 = Shapley$new(model, x.interest = x.interest)
+runData[10,]
+plot(shapley2)
+```
+The influence of each feature depends on the set of feature values at that location, with gradient and tangential curvature having the largest influence, at least for these two examples.
+
+Feature effects: this takes awhile to run, but the resulting plots are quite informative.
+```{r}
+x = runData[which(names(runData) != "Track_Type")]
+model = Predictor$new(multiLog, data = x, y = runData$Track_Type)
 num_features = c("Gradient", "Norm_Curv", "Tan_Curv", "age", "geo")
 effect = FeatureEffects$new(model)
 plot(effect, features = num_features)
 ```
+This model behaves as we might expect; how much confidence can we place in predictions? 
+Use mlr3 resampling strategies here - I'll get to this.
