@@ -449,7 +449,7 @@ bldgrds_nochannels_input <- function(dem,
     )
   }
 
-  write_input("# Input file for distanceToRoad\n",
+  write_input("# Input file for bldgrds_nochannels\n",
               "# Creating by input_file_utils.R\n",
               "# On ", as.character(Sys.time()),
               append = FALSE
@@ -462,4 +462,121 @@ bldgrds_nochannels_input <- function(dem,
   write_input("NO CHANNELS:")
   write_input("OUTPUT FLOW ACCUMULATION RASTER: ", out_raster)
   write_input("SCRATCH DIRECTORY: ", scratch_dir)
+}
+
+#---------------------------------------------------------
+#' Create an input file for Fortran program PFA_debris_flow.
+#'
+#' PFA_debris_flow is one of a sequence of programs used to assemble data files
+#' for the PFA recalibration of the landslide initiation and debris-flow-runout models.
+#' The Quatro file PFA_runout describes calibration of a multinomial model for
+#' estimating the probability of debris-flow scour or deposition using the ODF
+#' 1996 Storm Study surveys. The coefficients for that model are inputs to PFA_debris_flow.
+#' Here, the debris-flow runout tracks from the DOGAMI Special Paper 53 study are
+#' associated with lidar-DEM flow paths and terrain attributes associated with runout
+#' extent are assembled and output in a format for a Cox survival model with
+#' time-dependent covariates.
+#'
+#' @param dem Character string: The file name (full path) for the input DEM.
+#' @param init_points: string: File name for initiation-point shapefile.
+#' @param geo_poly: string: File name for rock-type polygon shapefile.
+#' @param stand_age: string: File name for LEMMA stand-age flt raster.
+#' @param tracks: string: File name for DOGAMI debris-flow-track polyline shapefile.
+#' @param radius: dbl: Search radius in meters for matching DEM flow path to DOGAMI track.
+#' @param length_scale: dbl: Length in meters to measure elevation derivatives.
+#' @param bulk: dbl: Bulking volume (m3/m) along scour portions of flow paths.
+#' @param init_vol: dbl: Initial landslide volume (m3).
+#' @param alpha: dbl: Proportion of debris-flow cross-sectional volume deposited per unit length.
+#' @param scratch_dir Character string: Directory for temporary files.
+#'   The input file is written to the scratch_dir.
+#' @param out_track: string: Output track point shapefile.
+#' @param out_surv: string: Output input file for Cox survival.
+#' @param coef: list of dbl values specifying multinomial logistic regression coefficients
+#'   for probability of scour, deposition, and transitional flow.
+#'
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk of the input file.
+#' @export
+#'
+PFA_debris_flow_input <- function(dem,
+                                  init_points,
+                                  geo_poly,
+                                  stand_age,
+                                  tracks,
+                                  radius,
+                                  initRadius,
+                                  length_scale,
+                                  bulk,
+                                  init_vol,
+                                  alpha,
+                                  scratch_dir,
+                                  out_surv,
+                                  out_kaplanMeier,
+                                  coef) {
+
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+
+  # Normalize paths
+  dem <- normalizePath(dem)
+  scratch_dir <- normalizePath(scratch_dir)
+
+  out_file <- paste0(scratch_dir, "\\input_PFA_debris_flow.txt")
+
+  # Do not include ".flt" in dem file name
+  if (str_detect(dem, ".flt$") == TRUE) {
+    n <- str_length(dem)
+    dem <- str_sub(dem, 1, n[[1]]-4)
+  }
+
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+
+  write_input("# Input file for PFA_debris_flow\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+
+  write_input("DEM: ", dem)
+  write_input("INITIATION POINT SHAPEFILE: ", init_points)
+  write_input("TRACK LINE SHAPEFILE:", tracks)
+  write_input("ROCK TYPE POLYGON SHAPEFILE: ", geo_poly)
+  write_input("STAND AGE RASTER:", stand_age)
+  write_input("RADIUS: ", radius)
+  write_input("INITIATION POINT RADIUS: ", initRadius)
+  write_input("LENGTH SCALE: ", length_scale)
+  write_input("BULKING FACTOR:", bulk)
+  write_input("INITIATION VOLUME: ", init_vol)
+  write_input("ALPHA:", alpha)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+  write_input("OUTPUT SURVIVAL FILE: ", out_surv)
+  write_input("OUTPUT KAPLAN-MEIER FILE: ", out_kaplanMeier)
+  write_input("")
+  write_input("MULTINOMIAL LOGISTIC REGRESSION COEFFICIENTS LIST:")
+  write_input("  SCOUR INTERCEPT: ", coef[[1]])
+  write_input("  SCOUR GRADIENT: ", coef[[2]])
+  write_input("  SCOUR NORMAL CURVATURE:", coef[[3]])
+  write_input("  SCOUR TANGENT CURVATURE:", coef[[4]])
+  write_input("  SCOUR STAND AGE: ", coef[[5]])
+  write_input("  SCOUR ROCK TYPE: SEDIMENTARY = ", coef[[6]],", VOLCANIC = ", coef[[7]],
+              ", IGNEOUS-METAMORPHIC = ", coef[[8]], ", VOLCANICLASTIC = ", coef[[9]],
+              ", UNCONSOLIDATED = ", coef[[10]])
+  write_input("  TRANSITION INTERCEPT: ", coef[[11]])
+  write_input("  TRANSITION GRADIENT: ", coef[[12]])
+  write_input("  TRANSITION NORMAL CURVATURE:", coef[[13]])
+  write_input("  TRANSITION TANGENT CURVATURE:", coef[[14]])
+  write_input("  TRANSITION STAND AGE: ", coef[[15]])
+  write_input("  TRANSITION ROCK TYPE: SEDIMENTARY = ", coef[[16]],", VOLCANIC = ", coef[[17]],
+              ", IGNEOUS-METAMORPHIC = ", coef[[18]], ", VOLCANICLASTIC = ", coef[[19]],
+              ", UNCONSOLIDATED = ", coef[[20]])
+  write_input("END LIST:")
+
 }
