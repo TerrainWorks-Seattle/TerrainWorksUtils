@@ -592,7 +592,7 @@ distance_to_road <- function(input_file = "nofile",
       }
       run_distToRoad <- FALSE
     } else {
-      # need to build input file and run partial
+      # need to build input file and run distanceToRoad
       err <- 0
       if (!str_detect(dem, ".flt")) {
         dem <- paste0(dem, ".flt")
@@ -693,3 +693,156 @@ distance_to_road <- function(input_file = "nofile",
   return(out_grid)
 }
 
+#---------------------------------------------------------
+#' Terrain attributes along debris-flow runout path.
+#' Wrapper for Fortran program PFA_debris_flow.
+#'
+#' Provides a csv file that can be read to a dataframe for a Cox survival model.
+#'
+#' A list of multinomial-logistic-regression-model coefficients for probability
+#' of scour and deposition are required; these are hard wired into this code.
+#'
+#' @param input_file Character string: a "partial" input file (optional).
+#'   If no input file is specified and no other arguments are present,
+#'   a Windows Explorer window opens for file selection.
+#' @param dem Character string: The file name (full path) of the dem
+#'   (elevation raster) for construction of an input file.
+#' @param init_points: string: File name for initiation-point shapefile.
+#' @param geo_poly: string: File name for rock-type polygon shapefile.
+#' @param stand_age: string: File name for LEMMA stand-age flt raster.
+#' @param tracks: string: File name for DOGAMI debris-flow-track polyline shapefile.
+#' @param radius: dbl: Search radius in meters for matching DEM flow path to DOGAMI track.
+#' @param length_scale: dbl: Length in meters to measure elevation derivatives.
+#' @param bulk: dbl: Bulking volume (m3/m) along scour portions of flow paths.
+#' @param init_vol: dbl: Initial landslide volume (m3).
+#' @param alpha: dbl: Proportion of debris-flow cross-sectional volume deposited per unit length.
+#' @param radius double: Distance in meters to extend the search for a road.
+#' @param scratch_dir Character string: A scratch directory where temporary
+#'   files are written. If an input file for program partial is created,
+#'   it is written here.
+#'
+#' @return A csv data file.
+#'
+#' @export
+#'
+PFA_debris_flow <- function(dem = 'none',
+                            init_points = "nofile",
+                            geo_poly = "nofile",
+                            stand_age = "nofile",
+                            tracks = "nofile",
+                            radius = 0.,
+                            initRadius = 0.,
+                            length_scale = 0.,
+                            bulk = 0.,
+                            init_vol = 0.,
+                            alpha = 0.,
+                            scratch_dir = "none") {
+
+  err <- 0
+  if (!str_detect(dem, ".flt")) {
+    dem <- paste0(dem, ".flt")
+  }
+  if (!file.exists(dem)) {
+    print("DEM does not exist")
+    err <- -1
+  }
+  if (str_detect(scratch_dir, "none") | !dir.exists(scratch_dir)) {
+    print("Scratch directory does not exist or is not specified")
+    err <- -1
+  }
+  if (str_detect(init_points, "nofile")) {
+    print("No output raster file specified")
+    err <- -1
+  }
+  if (str_detect(geo_poly, "nofile")) {
+    print("No geo_poly polygon shapefile specified")
+    err <- -1
+  }
+  if (str_detect(stand_age, "nofile")) {
+    print("No stand-age raster specified")
+    err <- -1
+  }
+  if (str_detect(tracks, "nofile")) {
+   print("No debris-flow track shapefile specified")
+   err <- -1
+  }
+  if (radius == 0.) {
+   print("Radius not specified")
+   err <- -1
+  }
+  if (length_scale == 0.) {
+    print("Length scale not specified")
+    err <- -1
+  }
+  if (initRadius == 0.) {
+    print("Initiation point radius not specified")
+    err <- -1
+  }
+  if (bulk == 0.) {
+    print("Bulking value not specified")
+    err <- -1
+  }
+  if (init_vol == 0.) {
+    print("Initial volume not specified")
+    err <- -1
+  }
+  if (alpha == 0.) {
+    print("Alpha not specified")
+    err <- -1
+  }
+  if (err < 0) {
+    stop("Error with input arguments")
+  }
+  coef <- c(-5.590219, # scour intercept
+          12.124613, # scour gradient
+          -25.90498, # scour normal curvature
+          62.17922, # scour tangent curvature
+          -0.0018062539, # scour stand age
+          0., # scour sedimentary
+          0.8585555, # scour volcanic
+          0.5779966, # scour igneous-metamorphic
+          1.89509936, # scour volcaniclastic
+          1.160043335, # scour unconsolidated
+          -1.632, # transitional intercept
+          2.313637, # transitional gradient
+          10.49279, # transitional normal curvature
+          35.33434, # transitional tangent curvature
+          -0.0006935715, # transitional stand age
+          0., # transitional sedimentary
+          -0.1992108, # transitional volcanic
+          -1.0804838, # transitional igneous-metamorphic
+          0.05590894, # transitional volcaniclastic
+          -0.006225561) # transitional unconsolidated
+
+  out_surv <- paste0(scratch_dir, "\\out_surv.csv")
+  out_kaplanMeier <- paste0(scratch_dir, "\\out_KaplanMeier.csv")
+
+  PFA_debris_flow_input(dem,
+                        init_points,
+                        geo_poly,
+                        stand_age,
+                        tracks,
+                        radius,
+                        initRadius,
+                        length_scale,
+                        bulk,
+                        init_vol,
+                        alpha,
+                        scratch_dir,
+                        out_surv,
+                        out_kaplanMeier,
+                        coef)
+  input_file <- paste0(scratch_dir, "\\input_PFA_debris_flow.txt")
+
+  # Get the location of the Fortran compiled code for makegrids.exe
+  executable_path <- get_executable_path()
+
+  PFA_debris_flow <- file.path(executable_path, "PFA_debris_flow.exe")
+  command <- paste0(PFA_debris_flow, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    stop("Problem calculating PFA_debris_flow: error ", output)
+  }
+
+  data_file <- read.csv(out_surv)
+}
