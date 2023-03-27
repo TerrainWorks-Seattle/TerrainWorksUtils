@@ -1,0 +1,119 @@
+---
+title: "PFA_runout_DOGAMI"
+author: "Dan Miller"
+format: html
+editor: visual
+params:
+  output_dir:
+    label: Output Directory
+    value: c:/tempDir/out/
+    input: text
+  out_Rdata:
+    label: Output Rdata file
+    value: c:/tempDir/in/DOGAMI_tracks.Rdata
+    input: text
+  input_list:
+    label: Text file containing a list of directories where the data files are found.
+    value: c:/tempDir/in/DEMs/track_list.txt
+    input: text
+  scratch_dir:
+    label: Scratch directory
+    value: c:/work/scratch
+    input: text 
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r load, include = FALSE}
+library(TerrainWorksUtils)
+library(terra)
+library(stringr)
+```
+
+## Survival
+
+Recall the strategy:
+
+1.  Probability of scour and deposition as a function of local terrain attributes.
+2.  Classification of runout track as scour, transitional (no net scour or deposition), or depositional.
+3.  Assume volume scoured is proportional to scour length; volume deposited is proportional to deposit length and total volume scoured (ala LAHARZ).
+4.  Use survival analysis to find the probability that a debris flow will continue through any increment of travel as a function of the ratio of volume deposited to volume scoured, gradient, tangent curvature, change in flow direction, stand age, and rock type.
+
+In PFA_runout I described methods for steps 1 and 2 using the Oregon Department of Forestry 1996 Storm Study channel-survey data for the three "red-zone" study areas: Mapleton, Tillamook, and Vida. These surveys included debris tracks from landslide initiation sites to stream channels and "debris-torrent" channel impacts classified as scour, transitional, deposit, and debris jam. These were matched with lidar-DEM-derived flow paths and multinomial logistic regression used to associate local terrain attributes with mapped impact type (combining debris jam with deposit). Classification of any location along a debris track is then classified as the impact type (scour, transitional, deposit) having the largest modeled probability.
+
+Here I use the DOGAMI inventory provided with Special Paper 53 to calibrate a model for probability of runout extent. This involves associating the DOGAMI-mapped runout tracks with DEM-derived flow paths, classifying each DEM cell, or channel node once the flow path enters a traced channel, as scour, transition, or deposition, and getting cumulative scour, cumulative deposition (as a function of cumulative scour), gradient, tangent curvature, change in flow direction, rock type, and stand age. DOGAMI mapping classifies tracks as "Transport" or "Deposit". I assume that any track with mapped "Deposit" at the downstream end indicates the entire runout path and that any track without Deposit at the downstream end is truncated. These then provide the input data for a Cox survival model with "time" dependent covariates and track length serving as time. The resulting hazard function provides the probability that a debris flow will continue through the next interval (m) of travel.
+
+The Fortran program PFA_debris_flow provides the input data files. PFA_debris_flow reads the DOGAMI survey data (polyline and point shapefiles), a raster of flow directions for each DEM cell, a channel node list, and a clipped rock-type polygon and stand-age raster. Each DOGAMI initiation point is snapped to a DEM grid point and a flow path from that point is traced downslope. DEM cells, or channel nodes, are associated with the closest point along the DOGAMI debris-flow tracks and assigned the classification of that point (Transport or Deposit). PFA_debris_flow determines the classification of each cell or channel node as scour, transport, or deposit based on the results from the ODF 1996 inventory and records the cumulative scour and deposit volume, along with gradient, tangent curvature, change in flow direction, rock type, and stand age. These are recorded in a time-step format for the R coxph function.
+
+The DOGAMI inventory sites are spread across a broad range of western Oregon and the datafiles are divided by HUC8s. The following code chunk will run PFA_debris_flow for a list of input datasets and create a dataframe for survival analysis. If an Rdata file for the dataframe exists in the data directory, this step will be skipped, since it takes a long time.
+
+The required data files are:
+
+1.  DEM (.flt),
+
+2.  DOGAMI initiation points (shapefile),
+
+3.  DOGAMI debris-flow tracks (shapefile),
+
+4.  Stand age raster (.flt),
+
+5.  Geology polygon (shapefile).
+
+Files 2 through 5 must be clipped to the DEM boundary. The stand-age raster is in a geographic coordinate system. Rather than projecting it to UTM, clip it to the DEM and resample to the resolution of the DEM. Then project the resampled raster. This maintains the original cell boundaries (mostly). This clipping, resampling, and projecting is done now manually in ArcGIS.
+
+```{r}
+
+if (!file.exists(params$out_Rdata)) {
+  
+  output_dir <- params$output_dir
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir)
+  }
+
+  data_dir <- read.table(params$input_list, 
+                         header = TRUE,
+                         sep = ",")
+  
+  num_data_sets <- nrow(data_dir)
+  num_tracks <- 0
+  for (i in 1:num_data_sets) {
+    tracks <- terra::vect(paste0(str_trim(data_dir[i,1]), "/DOGAMI_init.shp"))
+    num_tracks <- num_tracks + nrow(tracks)
+  }
+  print(paste0("Number of data sets = ", num_data_sets))
+  print(paste0("Total number of debris-flow tracks = ", num_tracks))
+  
+  radius <- 20.
+  initRadius <- 50.
+  length_scale <- 15.
+  bulk <- 6.
+  init_vol <- 200.
+  alpha <- 1.
+  data_file <- data.frame()
+
+  for (i in 1:num_data_sets) {
+    data_set_name <- str_trim(data_dir[i,2])
+    DEM_file <- paste0(data_dir[i,1], "/elev_", data_set_name, ".flt")
+    init_points <- paste0(data_dir[i,1], "/DOGAMI_init.shp")
+    geo_poly <- paste0(data_dir[i,1], "/geoPoly_", data_set_name, ".shp")
+    stand_age <- paste0(data_dir[i,1], "/standAge_", data_set_name, ".flt")
+    tracks <- paste0(data_dir[i,1], "/DOGAMI_track.shp")
+    
+    these_data <- PFA_debris_flow(dem = DEM_file,
+                                 init_points = init_points,
+                                 geo_poly = geo_poly,
+                                 stand_age = stand_age,
+                                 tracks = tracks,
+                                 radius = radius,
+                                 initRadius = initRadius,
+                                 length_scale = length_scale,
+                                 bulk = bulk,
+                                 init_vol = init_vol,
+                                 alpha = alpha,
+                                 scratch_dir = params$scratch_dir)    
+    
+    summary(these_data)
+    data_file <- rbind(data_file,these_data)
+  }
+}
+```
