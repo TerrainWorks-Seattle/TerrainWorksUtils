@@ -59,7 +59,7 @@ The required data files are:
 
 5.  Geology polygon (shapefile).
 
-Files 2 through 5 must be clipped to the DEM boundary. The stand-age raster is in a geographic coordinate system. Rather than projecting it to UTM, clip it to the DEM and resample to the resolution of the DEM. Then project the resampled raster. This maintains the original cell boundaries (mostly). This clipping, resampling, and projecting is done now manually in ArcGIS.
+Files 2 through 5 must be clipped to the DEM boundary. The stand-age raster is in a geographic coordinate system. Rather than projecting it to UTM, clip it to the DEM and resample to the resolution of the DEM. Then project the resampled raster. This maintains the original cell boundaries (mostly). This clipping, resampling, and projecting is done now manually in ArcGIS.loa
 
 ```{r}
 
@@ -86,7 +86,8 @@ if (!file.exists(params$out_Rdata)) {
   radius <- 20.
   initRadius <- 50.
   length_scale <- 15.
-  bulk <- 6.
+  plan_scale <- 30.
+  bulk <- 12.
   init_vol <- 200.
   alpha <- 1.
   data_file <- data.frame()
@@ -107,6 +108,7 @@ if (!file.exists(params$out_Rdata)) {
                                  radius = radius,
                                  initRadius = initRadius,
                                  length_scale = length_scale,
+                                 plan_scale = plan_scale,
                                  bulk = bulk,
                                  init_vol = init_vol,
                                  alpha = alpha,
@@ -114,6 +116,14 @@ if (!file.exists(params$out_Rdata)) {
     
     summary(these_data)
     data_file <- rbind(data_file,these_data)
+    if (i == 1) {
+      out_points <- vect(paste0(params$scratch_dir, "/out_point.shp"))
+    } else {
+      new_points <- vect(paste0(params$scratch_dir, "/out_point.shp"))
+      out_points <- rbind(out_points, new_points)
+    }    
   }
+  save(data_file, file = "c:/work/data/pfa/runout_April1.Rdata")
+  writeVector(init_points,file = "c:/work/data/pfa/init_points.shp", overwrite = TRUE)
 }
 ```
