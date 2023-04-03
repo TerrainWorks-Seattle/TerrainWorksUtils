@@ -694,8 +694,9 @@ distance_to_road <- function(input_file = "nofile",
 }
 
 #---------------------------------------------------------
-#' Terrain attributes along debris-flow runout path.
-#' Wrapper for Fortran program PFA_debris_flow.
+#' Function PFA_debris_flow;
+#' terrain attributes along debris-flow runout path.
+#' A wrapper for Fortran program PFA_debris_flow.
 #'
 #' Provides a csv file that can be read to a dataframe for a Cox survival model.
 #'
@@ -733,6 +734,7 @@ PFA_debris_flow <- function(dem = 'none',
                             radius = 0.,
                             initRadius = 0.,
                             length_scale = 0.,
+                            plan_scale = 0.,
                             bulk = 0.,
                             init_vol = 0.,
                             alpha = 0.,
@@ -774,6 +776,10 @@ PFA_debris_flow <- function(dem = 'none',
     print("Length scale not specified")
     err <- -1
   }
+  if (plan_scale == 0.) {
+    print("Plan curvature length scale not specified")
+    err <- -1
+  }
   if (initRadius == 0.) {
     print("Initiation point radius not specified")
     err <- -1
@@ -793,6 +799,8 @@ PFA_debris_flow <- function(dem = 'none',
   if (err < 0) {
     stop("Error with input arguments")
   }
+
+# Coefficient values are hardwired here, but could be read from an input file.
   coef <- c(-5.590219, # scour intercept
           12.124613, # scour gradient
           -25.90498, # scour normal curvature
@@ -815,6 +823,7 @@ PFA_debris_flow <- function(dem = 'none',
           -0.006225561) # transitional unconsolidated
 
   out_surv <- paste0(scratch_dir, "\\out_surv.csv")
+  out_point <- paste0(scratch_dir, "\\out_point")
   out_kaplanMeier <- paste0(scratch_dir, "\\out_KaplanMeier.csv")
 
   PFA_debris_flow_input(dem,
@@ -825,11 +834,13 @@ PFA_debris_flow <- function(dem = 'none',
                         radius,
                         initRadius,
                         length_scale,
+                        plan_scale,
                         bulk,
                         init_vol,
                         alpha,
                         scratch_dir,
                         out_surv,
+                        out_point,
                         out_kaplanMeier,
                         coef)
   input_file <- paste0(scratch_dir, "\\input_PFA_debris_flow.txt")
