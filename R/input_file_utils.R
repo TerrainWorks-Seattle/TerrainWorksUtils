@@ -465,7 +465,8 @@ bldgrds_nochannels_input <- function(dem,
 }
 
 #---------------------------------------------------------
-#' Create an input file for Fortran program PFA_debris_flow.
+#' Function PFA_debris_flow_input;
+#' create an input file for Fortran program PFA_debris_flow.
 #'
 #' PFA_debris_flow is one of a sequence of programs used to assemble data files
 #' for the PFA recalibration of the landslide initiation and debris-flow-runout models.
@@ -484,6 +485,7 @@ bldgrds_nochannels_input <- function(dem,
 #' @param tracks: string: File name for DOGAMI debris-flow-track polyline shapefile.
 #' @param radius: dbl: Search radius in meters for matching DEM flow path to DOGAMI track.
 #' @param length_scale: dbl: Length in meters to measure elevation derivatives.
+#' @param plan_scale: dbl: Length in meters to measure plan curvature; used to estimate track width.
 #' @param bulk: dbl: Bulking volume (m3/m) along scour portions of flow paths.
 #' @param init_vol: dbl: Initial landslide volume (m3).
 #' @param alpha: dbl: Proportion of debris-flow cross-sectional volume deposited per unit length.
@@ -491,6 +493,7 @@ bldgrds_nochannels_input <- function(dem,
 #'   The input file is written to the scratch_dir.
 #' @param out_track: string: Output track point shapefile.
 #' @param out_surv: string: Output input file for Cox survival.
+#' @param out_point: string: Output initiation point shapefile; includes fields for scour and deposit volume.
 #' @param coef: list of dbl values specifying multinomial logistic regression coefficients
 #'   for probability of scour, deposition, and transitional flow.
 #'
@@ -506,11 +509,13 @@ PFA_debris_flow_input <- function(dem,
                                   radius,
                                   initRadius,
                                   length_scale,
+                                  plan_scale,
                                   bulk,
                                   init_vol,
                                   alpha,
                                   scratch_dir,
                                   out_surv,
+                                  out_point,
                                   out_kaplanMeier,
                                   coef) {
 
@@ -547,32 +552,33 @@ PFA_debris_flow_input <- function(dem,
 
   write_input("DEM: ", dem)
   write_input("INITIATION POINT SHAPEFILE: ", init_points)
-  write_input("TRACK LINE SHAPEFILE:", tracks)
+  write_input("TRACK LINE SHAPEFILE: ", tracks)
   write_input("ROCK TYPE POLYGON SHAPEFILE: ", geo_poly)
-  write_input("STAND AGE RASTER:", stand_age)
+  write_input("STAND AGE RASTER: ", stand_age)
   write_input("RADIUS: ", radius)
   write_input("INITIATION POINT RADIUS: ", initRadius)
   write_input("LENGTH SCALE: ", length_scale)
-  write_input("BULKING FACTOR:", bulk)
+  write_input("PLAN CURVATURE LENGTH SCALE: ", plan_scale)
+  write_input("BULKING FACTOR: ", bulk)
   write_input("INITIATION VOLUME: ", init_vol)
-  write_input("ALPHA:", alpha)
+  write_input("ALPHA: ", alpha)
   write_input("SCRATCH DIRECTORY: ", scratch_dir)
   write_input("OUTPUT SURVIVAL FILE: ", out_surv)
-  write_input("OUTPUT KAPLAN-MEIER FILE: ", out_kaplanMeier)
+  write_input("OUTPUT INITIATION POINT SHAPEFILE: ", out_point)
   write_input("")
   write_input("MULTINOMIAL LOGISTIC REGRESSION COEFFICIENTS LIST:")
   write_input("  SCOUR INTERCEPT: ", coef[[1]])
   write_input("  SCOUR GRADIENT: ", coef[[2]])
-  write_input("  SCOUR NORMAL CURVATURE:", coef[[3]])
-  write_input("  SCOUR TANGENT CURVATURE:", coef[[4]])
+  write_input("  SCOUR NORMAL CURVATURE: ", coef[[3]])
+  write_input("  SCOUR TANGENT CURVATURE: ", coef[[4]])
   write_input("  SCOUR STAND AGE: ", coef[[5]])
   write_input("  SCOUR ROCK TYPE: SEDIMENTARY = ", coef[[6]],", VOLCANIC = ", coef[[7]],
               ", IGNEOUS-METAMORPHIC = ", coef[[8]], ", VOLCANICLASTIC = ", coef[[9]],
               ", UNCONSOLIDATED = ", coef[[10]])
   write_input("  TRANSITION INTERCEPT: ", coef[[11]])
   write_input("  TRANSITION GRADIENT: ", coef[[12]])
-  write_input("  TRANSITION NORMAL CURVATURE:", coef[[13]])
-  write_input("  TRANSITION TANGENT CURVATURE:", coef[[14]])
+  write_input("  TRANSITION NORMAL CURVATURE: ", coef[[13]])
+  write_input("  TRANSITION TANGENT CURVATURE: ", coef[[14]])
   write_input("  TRANSITION STAND AGE: ", coef[[15]])
   write_input("  TRANSITION ROCK TYPE: SEDIMENTARY = ", coef[[16]],", VOLCANIC = ", coef[[17]],
               ", IGNEOUS-METAMORPHIC = ", coef[[18]], ", VOLCANICLASTIC = ", coef[[19]],
