@@ -163,13 +163,9 @@ ggarrange(p1, p2, p7, p3)
 ggarrange(p4, p5, p6, p8)
 ```
 
-```{r}
-p1 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = gradient), fill = "black", alpha = 0.7) + 
-  geom_histogram(data = pos_pts, aes(x = gradient), fill = "red", alpha = 0.7) 
+These plots show us the indicate the features where the biggest differences are noticed between landslide points and non-landslide points. Notably, the difference in the distributions of gradient between landslide points and non-landslide points are quite similar. This is surprising, given our physical understanding of slope angle as a major factor in landslide initiation. It is important to note that the sampled non-landslide points are limited to the range of gradient values observed in the landslide inventory. That is, any point with too low or too high of a slope angle is assumed to have zero probability of landslide initiation and is left out of this study.
 
-ggarrange(p1)
-```
+Features with noticeably different distributions between landslide and non-landslide points include mean curvature and partial contributing area.
 
 ### Feature Selection
 
