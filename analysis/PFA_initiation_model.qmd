@@ -98,49 +98,77 @@ neg_pts <- sample_pnts[(sample_pnts$class == "neg"), ]
 pos_pts <- sample_pnts[(sample_pnts$class == "pos"), ]
 
 p1 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = gradient, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = gradient, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = gradient), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = gradient), color = "black") + 
   geom_density(data = pos_pts, aes(x = gradient), color = "red") 
 
 p2 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = mean_curv, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = mean_curv, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = mean_curv), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = mean_curv), color = "black") + 
   geom_density(data = pos_pts, aes(x = mean_curv), color = "red")
 
 p3 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = pca_k1_48, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = pca_k1_48, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = pca_k1_48), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = pca_k1_48), color = "black") + 
-  geom_density(data = pos_pts, aes(x = pca_k1_48), color = "red")
+  geom_density(data = pos_pts, aes(x = pca_k1_48), color = "red") 
 
 p4 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = age, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = age, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = age), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = age), color = "black") + 
   geom_density(data = pos_pts, aes(x = age), color = "red") + 
   xlim(0, 300)
 
 p5 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = dist_to_road, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = dist_to_road, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = dist_to_road), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = dist_to_road), color = "black") + 
   geom_density(data = pos_pts, aes(x = dist_to_road), color = "red") + 
   xlim(0, 600)
 
 p6 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = grad_by_pca, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = grad_by_pca, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = grad_by_pca), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = grad_by_pca), color = "black") + 
   geom_density(data = pos_pts, aes(x = grad_by_pca), color = "red")
 
 p7 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = pca_k1_6, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = pca_k1_6, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = pca_k1_6), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = pca_k1_6), color = "black") + 
   geom_density(data = pos_pts, aes(x = pca_k1_6), color = "red")
 
 p8 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = total_accum, y = ..density..), fill = "black", alpha = 0.4) + 
+  geom_histogram(data = pos_pts, aes(x = total_accum, y = ..density..), fill = "red", alpha = 0.3) + 
   geom_density(data = all_neg, aes(x = total_accum), color = "darkgray") +
   geom_density(data = neg_pts, aes(x = total_accum), color = "black") + 
   geom_density(data = pos_pts, aes(x = total_accum), color = "red") + 
   xlim(0, 150) 
 
-ggarrange(p1, p2, p7, p3, p4, p5, p6, p8)
+ggarrange(p1, p2, p7, p3)
+```
+
+```{r}
+ggarrange(p4, p5, p6, p8)
+```
+
+```{r}
+p1 <- ggplot(data = training_data) + 
+  geom_histogram(data = neg_pts, aes(x = gradient), fill = "black", alpha = 0.7) + 
+  geom_histogram(data = pos_pts, aes(x = gradient), fill = "red", alpha = 0.7) 
+
+ggarrange(p1)
 ```
 
 ### Feature Selection
