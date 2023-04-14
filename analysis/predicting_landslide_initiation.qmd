@@ -168,13 +168,18 @@ predictions <- predict_spatial(rasters, logreg_learner)
 For now, I'll try predicting on a data frame. The downside of this strategy is the extra time needed to convert the DEM to a data frame, and the lack of space optimization that the spatial_predict function allows.
 
 ```{r}
-predicting_data$pca_k1_48 <- log(predicting_data$pca_k1_48, base = 2)
+pd <- predicting_data
+pd$pca_k1_48 <- log(predicting_data$pca_k1_48, base = 2)
 
-#pre process the data: take the log of the pca and center+scale the data
-# predict_task <- as_task_classif_st(predicting_data)
-predicting_data_eng <- pl_feature_eng$predict_newdata(predicting_data)
+# manually pre process the data: take the log of the pca and center+scale the data
+center_vals <- pl_feature_eng$pipeops$scale$state$center
+scale_vals <- pl_feature_eng$pipeops$scale$state$scale
 
-predictions_df <- logreg_learner$predict_newdata(predicting_data_eng)
+pd$gradient <- (pd$gradient - center_vals[1]) / scale_vals[1]
+pd$mean_curv <- (pd$mean_curv - center_vals[2]) / scale_vals[2]
+pd$pca_k1_48 <- (pd$pca_k1_48 - center_vals[3]) / scale_vals[3]
+
+predictions_df <- logreg_learner$predict_newdata(pd)
 ```
 
 ```{r}
@@ -185,5 +190,6 @@ plot(predictions)
 ```{r}
 predictions_dt <- as.data.table(predictions_df)
 predictions_dt <- cbind(predictions_dt, predicting_data)
+
 
 ```
