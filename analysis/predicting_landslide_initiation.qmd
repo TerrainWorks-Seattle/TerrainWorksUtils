@@ -6,13 +6,23 @@ editor: visual
 ---
 
 ```{r load, include = FALSE}
+# for spatial data
 library(terra)
 
+# for modeling
 library(mlr3)
 library(mlr3spatial)
 library(mlr3spatiotempcv)
 library(mlr3pipelines)
 library(mlr3learners)
+
+# for visualizations
+library(ggplot2)
+library(tidyterra)
+library(viridis)
+
+# basics
+library(data.table)
 ```
 
 ## Predicting landslide initiation
@@ -21,6 +31,7 @@ We start by predicting on 1 small basin as part of 1 of the watershed designatio
 
 ```{r}
 dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
 dem <- terra::rast(paste0(dir, "Umpqua/basin_1.flt"))
 pts <- terra::vect(paste0(dir, "all_initiation_points.shp"))
 
@@ -125,13 +136,15 @@ training_data <- rbind(ls_1996,
                        nonls_2007,
                        nonls_2011)
 
-training_data <- subset(training_data, select = c("gradient", "mean_curv", "pca_k1_48", "class", "x", "y"))
-training_data$pca_k1_48 <- log(training_data$pca_k1_48, base = 2)
-training_data$class <- as.factor(training_data$class)
+train_subset <- subset(training_data, select = c("gradient", "mean_curv", "pca_k1_48", "class", "x", "y"))
+train_subset$pca_k1_48 <- log(train_subset$pca_k1_48, base = 2)
+train_subset$class <- as.factor(train_subset$class)
 ```
 
 ```{r}
-landslide_task <- as_task_classif_st(x = training_data, 
+set.seed(12345)
+# train_subset <- subset(train_subset, select = c("mean_curv", "pca_k1_48", "class", "x", "y"))
+landslide_task <- as_task_classif_st(x = train_subset, 
                                     id = "landslide_initiation", 
                                     target = "class", 
                                     positive = "pos", 
@@ -152,6 +165,29 @@ logreg_learner$train(landslide_task_eng)
 logreg_learner$model
 ```
 
+As a brief sanity check, we will compare a version of the model that sub-samples the negative points to create an even balance between the two classes as input. I am curious to see how these compare in a final output model.
+
+```{r}
+source("../R/create_model_dataframe.R")
+training_data <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
+
+landslide_task_subsamp <- as_task_classif_st(x = subset(training_data, select = c("gradient", "mean_curv", "pca_k1_48", "class", "x", "y")), 
+                                    id = "landslide_initiation", 
+                                    target = "class", 
+                                    positive = "pos", 
+                                    coordinate_names = c("x", "y"), 
+                                    crs = "epsg:26910")
+
+pl_feature_eng$train(landslide_task_subsamp)
+task_subsamp <- pl_feature_eng$predict(landslide_task_subsamp)$encode.output
+
+logreg_learner2 <- lrn("classif.log_reg", 
+                      predict_type = "prob")
+
+logreg_learner2$train(task_subsamp)
+logreg_learner2$model
+```
+
 Now, we are ready to predict the basin area. We need to extract the all the data points from the DEM and make sure the names match what is expected by the model (gradient, mean_curv, and pca_k1_48).
 
 ```{r}
@@ -164,6 +200,12 @@ The mlr3 package support spatial prediction with the predict_spatial function. T
 ```{r}
 predictions <- predict_spatial(rasters, logreg_learner)
 ```
+
+```{r}
+plot(predictions)
+```
+
+Note that this classifies most of the area as positive while only the river areas and hilltops are marked as negative. This indicates that a low threshold was chosen for class assignment when we compare to the probability map produced below.
 
 For now, I'll try predicting on a data frame. The downside of this strategy is the extra time needed to convert the DEM to a data frame, and the lack of space optimization that the spatial_predict function allows.
 
@@ -179,17 +221,80 @@ pd$gradient <- (pd$gradient - center_vals[1]) / scale_vals[1]
 pd$mean_curv <- (pd$mean_curv - center_vals[2]) / scale_vals[2]
 pd$pca_k1_48 <- (pd$pca_k1_48 - center_vals[3]) / scale_vals[3]
 
+# predict the basin using scaled and centered data.
 predictions_df <- logreg_learner$predict_newdata(pd)
 ```
 
-```{r}
-plot(predictions)
-
-```
+Convert the predictions outputted to a data table, then add the columns with useful information like the predictors and (x,y) coordinates.
 
 ```{r}
 predictions_dt <- as.data.table(predictions_df)
 predictions_dt <- cbind(predictions_dt, predicting_data)
+names(predictions_dt)
+```
 
+We also convert it to a raster format for future use.
 
+```{r}
+prob_rast <- (rast(subset(predictions_dt, select = c("x", "y", "prob.pos")))) 
+```
+
+```{r}
+ggplot(predictions_dt) + 
+  geom_tile(aes(x = x, y = y, fill = prob.pos)) + 
+  scale_fill_viridis(option = "A", direction = -1) + 
+  geom_spatvector(data = pts_local)
+```
+
+### Success rate curve
+
+Our goal when looking at model performance will be to consider an analysis using proportions.
+
+To calculate the success rate curve, we first calculate the proportion of the area that falls up to a given probability value and the proportion of the total probability that falls up to a given probability value for each DEM cell. The steps for this calculation will be spelled out in the code below.
+
+```{r}
+proportions <- subset(predictions_dt, select = c("x", "y", "prob.pos"))
+setorder(proportions, cols = "prob.pos") 
+
+# calculate the proportion of total landslide probability for each DEM cell
+proportions$prob.cumsum <- cumsum(proportions$prob.pos)
+prob_sum <- max(proportions$prob.cumsum)
+proportions$prob.prop <- proportions$prob.cumsum / prob_sum
+
+# calculate the proportion of total area for each DEM cell
+proportions$area.cumsum <- seq(1, length(proportions$x))
+area_sum <- max(proportions$area.cumsum)
+proportions$area.prop <- proportions$area.cumsum / area_sum
+
+setattr(proportions, "sorted", "prob.pos")
+```
+
+First, I calculated cumulative sums for each row. Now, we define some much larger interval for binning this data, which will allow much easier plotting. Between 0 and the maximum value for probability, we look at 100 values of the predicted probability. We extract the nearest row for each of these values from the proportions data table, and now have all of the information we need for plotting.
+
+```{r}
+bins <- as.data.table(seq(0, max(proportions$prob.pos), length.out = 100))
+names(bins) <- c("probability") 
+
+# match these probability bins with nearest rows in the proportions data table
+binned_prop <- proportions[J(bins$probability), roll = "nearest"]
+```
+
+That one line of code should have created a new data frame with 100 rows and the nearest row from each of the cumulative sums above. Now, we can create the plots.
+
+The first plot that we look at shows the cumulative proportions of area, modeled landslides, and observed landslides at each probability mark. Ideally, we would want the modeled landslide curve to match up with the observed landslide curve. Since we are looking at a single basin right now, there is probably not enough information to really evaluate this correlation.
+
+```{r}
+ggplot(cbind(bins, binned_prop)) + 
+  geom_line(aes(x = probability, prob.prop)) + 
+  geom_point(aes(x = probability, prob.prop)) + 
+  geom_line(aes(x = probability, area.prop)) +
+  geom_point(aes(x = probability, area.prop))
+```
+
+The main curve that we want to use to compare models is the success rate curve, or the proportion of the modeled landslides plotted against the proportion of area. Each point along the curve comes from one of the probability bins. One thing that this curve tells us is how specific the model is with the areas that it feels are landslide-prone.
+
+```{r}
+ggplot(cbind(bins, binned_prop)) + 
+  geom_line(aes(x = area.prop, y = prob.prop)) + 
+  geom_point(aes(x = area.prop, y = prob.prop))
 ```
