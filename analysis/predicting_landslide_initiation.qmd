@@ -282,14 +282,22 @@ binned_prop <- proportions[J(bins$probability), roll = "nearest"]
 That one line of code should have created a new data frame with 100 rows and the nearest row from each of the cumulative sums above. Now we need the observed landslide data.
 
 ```{r}
+# extract the probability values for the test points
 pts_prob <- extract(prob_rast, pts_local, xy = TRUE)
 pts_prob <- pts_prob[!is.na(pts_prob$prob.pos), ]
 setorder(pts_prob, cols = "prob.pos") 
 
 total_pts <- length(pts_prob$ID)
 
+# get the cumulative area (already calculated) and calculate the cumulative landslides
 pts_cumul <- proportions[J(pts_prob$prob.pos), roll = "nearest"]
 pts_cumul$ls.prop = seq(1, 9) / total_pts
+
+# add the origin and a point at (1, 1) to make the graphs prettier
+pts_cumul <- rbind(0, pts_cumul, fill = TRUE)
+pts_cumul[1] <- 0
+pts_cumul <- rbind(pts_cumul, 0, fill = TRUE)
+pts_cumul[length(pts_cumul$x)] <- 1
 ```
 
 The first plot that we look at shows the cumulative proportions of area, modeled landslides, and observed landslides at each probability mark. Ideally, we would want the modeled landslide curve to match up with the observed landslide curve. Since we are looking at a single basin right now, there is probably not enough information to really evaluate this correlation.
@@ -308,8 +316,8 @@ The main curve that we want to use to compare models is the success rate curve, 
 
 ```{r}
 ggplot(cbind(bins, binned_prop)) + 
-  geom_line(aes(x = area.prop, y = prob.prop)) + 
-  geom_point(aes(x = area.prop, y = prob.prop)) + 
-  geom_line(data = pts_cumul, aes(x = area.prop, y = ls.prop)) + 
-  geom_point(data = pts_cumul, aes(x = area.prop, y = ls.prop))
+  geom_line(aes(x = area.prop, y = prob.prop), color = "red") + 
+  geom_point(aes(x = area.prop, y = prob.prop), color = "red") + 
+  geom_line(data = pts_cumul, aes(x = area.prop, y = ls.prop), color = "black") + 
+  geom_point(data = pts_cumul, aes(x = area.prop, y = ls.prop), color = "black")
 ```
