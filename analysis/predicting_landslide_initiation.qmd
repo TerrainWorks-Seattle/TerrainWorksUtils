@@ -23,6 +23,7 @@ library(viridis)
 
 # basics
 library(data.table)
+library(tictoc)
 ```
 
 ## Predicting landslide initiation
@@ -272,7 +273,7 @@ setattr(proportions, "sorted", "prob.pos")
 First, I calculated cumulative sums for each row. Now, we define some much larger interval for binning this data, which will allow much easier plotting. Between 0 and the maximum value for probability, we look at 100 values of the predicted probability. We extract the nearest row for each of these values from the proportions data table, and now have all of the information we need for plotting.
 
 ```{r}
-bins <- as.data.table(seq(0, max(proportions$prob.pos), length.out = 100))
+bins <- as.data.table(seq(0, max(proportions$prob.pos), length.out = 500))
 names(bins) <- c("probability") 
 
 # match these probability bins with nearest rows in the proportions data table
@@ -320,4 +321,105 @@ ggplot(cbind(bins, binned_prop)) +
   geom_point(aes(x = area.prop, y = prob.prop), color = "red") + 
   geom_line(data = pts_cumul, aes(x = area.prop, y = ls.prop), color = "black") + 
   geom_point(data = pts_cumul, aes(x = area.prop, y = ls.prop), color = "black")
+```
+
+## Combining multiple basins
+
+Really, we want to be able to generate this curve over many different basins. We start this process by assuming that you have already generated all of the elevation derivative and partial contributing area files that are needed for the model to predict on the basin (and that you know where the files are). This part of the program will use that information to predict the probability of initiation for each basin, then combines these into one success rate curve.
+
+Since each basin will have millions of DEM cells, we have to sub-sample the cumulative values down to a number of data points that is reasonable to manage. We already do this for plotting; for combining multiple DEMs, we will just need to make sure to use consistent probability values for sub-sampling, and then the cumulative values will be averaged based on how many DEM cells the cumulative proportion was calculated from. TODO: figure out the exact formulas for calculating these weighted averages.
+
+Updated average = ( (Past average \* past \# cells) + new value ) / new cell total
+
+OR -- we just sum the cumulative sums and the total number of cells/cumulative probability and then take the averages at the end, once the totals can actually be calculated. This is probably the simpler option and I will go this route unless for some reason this ends up not working.
+
+Finding the observed landslide information will probably be easier - we will want to keep track of which points are located within each DEM, mark those points, and then the final step will be the same calculations as above. Since there is a maximum of about 400 points, we don't need to worry about data size as much.
+
+I think this will be one large for loop that iterates once per basin. I may break it out into a function, or maybe break out the inside of the for loop into a function? I'll start without the function and change it later if needed, though.
+
+```{r}
+# replace these with the respective file paths to your DEMs
+dir = "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+basin_list = c(paste0(dir, "Umpqua/basin_1/"),
+               paste0(dir, "Umpqua/basin_2/"))
+               # paste0(dir, "Umpqua/basin_3/"),
+               # paste0(dir, "Umpqua/basin_4/"))
+```
+
+A note: this code assumes we already have a trained model to use for predictions. The learner we are using here comes from the code above.
+
+```{r}
+model <- logreg_learner
+bins <- as.data.table(seq(0, max(proportions$prob.pos), length.out = 500))
+names(bins) <- c("probability") 
+
+cumul_prop <- data.frame("area" = rep(0, 500), 
+                         "prob" = rep(0, 500))
+
+for (basin in basin_list) { 
+  
+  tic(msg = paste0("loop for ", basin))
+
+  # find and load the data files
+  topo_files <- c(paste0("GRADIENT,", basin, "gradient.flt"),
+                paste0("MEAN CURVATURE,", basin, "mean_curv.flt"))
+  topo_rast <- elev_deriv(rasters = topo_files)
+  pca_rast <-  contributing_area(raster = paste0(basin, "pca_k1_d48.flt"))
+  rasters <- c(topo_rast, pca_rast)
+  
+  names(rasters) <- c("gradient", "mean_curv", "pca_k1_48")
+  predicting_data <- as.data.frame(rasters, xy = TRUE)
+  
+  pd <- predicting_data
+  pd$pca_k1_48 <- log(predicting_data$pca_k1_48, base = 2)
+  
+  # manually pre process the data: take the log of the pca and center+scale the data
+  center_vals <- pl_feature_eng$pipeops$scale$state$center
+  scale_vals <- pl_feature_eng$pipeops$scale$state$scale
+  
+  pd$gradient <- (pd$gradient - center_vals[1]) / scale_vals[1]
+  pd$mean_curv <- (pd$mean_curv - center_vals[2]) / scale_vals[2]
+  pd$pca_k1_48 <- (pd$pca_k1_48 - center_vals[3]) / scale_vals[3]
+  
+  # predict the basin using scaled and centered data.
+  predictions_df <- as.data.table(logreg_learner$predict_newdata(pd))
+  predictions_df <- cbind(predictions_df, predicting_data)
+  
+  # head(predictions_df)
+  
+  proportions <- as.data.table(subset(predictions_df, select = c("x", "y", "prob.pos")))
+  setorder(proportions, cols = "prob.pos") 
+  
+  # calculate the cumulative sums of area and probabilities
+  proportions$prob.cumsum <- cumsum(proportions$prob.pos)
+  prob_sum <- max(proportions$prob.cumsum)
+  proportions$area.cumsum <- seq(1, length(proportions$x))
+  area_sum <- max(proportions$area.cumsum)
+
+  setattr(proportions, "sorted", "prob.pos")
+  
+  binned_prop <- proportions[J(bins$probability), roll = "nearest"]
+  cumul_prop$area <- cumul_prop$area + binned_prop$area.cumsum
+  cumul_prop$prob <- cumul_prop$prob + binned_prop$prob.cumsum
+  
+  toc()
+}
+
+
+total_area <- max(cumul_prop$area)
+total_prob <- max(cumul_prop$prob)
+
+cumul_prop$area_prop <- cumul_prop$area / total_area
+cumul_prop$prob_prop <- cumul_prop$prob / total_prob
+
+```
+
+```{r}
+ggplot(cbind(bins, cumul_prop)) + 
+  geom_line(aes(x = probability, y = prob_prop), color = "red") + 
+  geom_point(aes(x = probability, y = prob_prop), color = "red") + 
+  geom_line(aes(x = probability, y = area_prop), color = "lightblue") +
+  geom_point(aes(x = probability, y = area_prop), color = "lightblue") + 
+  geom_line(data = pts_cumul, aes(x = prob.pos, y = ls.prop)) + 
+  geom_point(data = pts_cumul, aes(x = prob.pos, y = ls.prop))
 ```
