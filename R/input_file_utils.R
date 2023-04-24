@@ -316,7 +316,7 @@ accum_input <- function(dem,
     )
   }
 
-  write_input("# Input file for makeGrids\n",
+  write_input("# Input file for partial\n",
               "# Creating by input_file_utils.R\n",
               "# On ", as.character(Sys.time()),
               append = FALSE
@@ -485,10 +485,9 @@ bldgrds_nochannels_input <- function(dem,
 #' @param tracks: string: File name for DOGAMI debris-flow-track polyline shapefile.
 #' @param radius: dbl: Search radius in meters for matching DEM flow path to DOGAMI track.
 #' @param length_scale: dbl: Length in meters to measure elevation derivatives.
-#' @param plan_scale: dbl: Length in meters to measure plan curvature; used to estimate track width.
-#' @param bulk: dbl: Bulking volume (m3/m) along scour portions of flow paths.
-#' @param init_vol: dbl: Initial landslide volume (m3).
+#' @param bulk_coef: dbl: Bulking coefficient
 #' @param alpha: dbl: Proportion of debris-flow cross-sectional volume deposited per unit length.
+#' @param uncensored: string: If TRUE, interpret all endpoint tracks as uncensored.
 #' @param scratch_dir Character string: Directory for temporary files.
 #'   The input file is written to the scratch_dir.
 #' @param out_track: string: Output track point shapefile.
@@ -509,10 +508,14 @@ PFA_debris_flow_input <- function(dem,
                                   radius,
                                   initRadius,
                                   length_scale,
-                                  plan_scale,
-                                  bulk,
-                                  init_vol,
+                                  slope_intercept,
+                                  slope_coef,
+                                  bulk_coef,
+                                  init_width,
+                                  init_length,
+                                  DF_width,
                                   alpha,
+                                  uncensored,
                                   scratch_dir,
                                   out_surv,
                                   out_point,
@@ -532,7 +535,7 @@ PFA_debris_flow_input <- function(dem,
   # Do not include ".flt" in dem file name
   if (str_detect(dem, ".flt$") == TRUE) {
     n <- str_length(dem)
-    dem <- str_sub(dem, 1, n[[1]]-4)
+    dem <- str_sub(dem, 1, n[[1]] - 4)
   }
 
   write_input <- function(...,
@@ -558,10 +561,14 @@ PFA_debris_flow_input <- function(dem,
   write_input("RADIUS: ", radius)
   write_input("INITIATION POINT RADIUS: ", initRadius)
   write_input("LENGTH SCALE: ", length_scale)
-  write_input("PLAN CURVATURE LENGTH SCALE: ", plan_scale)
-  write_input("BULKING FACTOR: ", bulk)
-  write_input("INITIATION VOLUME: ", init_vol)
+  write_input("SLOPE: INTERCEPT = ", slope_intercept, ", COEFFICIENT = ", slope_coef)
+  write_input("BULKING FACTOR: COEFFICIENT = ", bulk_coef)
+  write_input("INITIATION DIMENSION: WIDTH = ", init_width, ", LENGTH = ", init_length)
+  write_input("TRACK WIDTH: ",DF_width)
   write_input("ALPHA: ", alpha)
+  if (str_detect(uncensored,"TRUE")) {
+    write_input("UNCENSORED:")
+  }
   write_input("SCRATCH DIRECTORY: ", scratch_dir)
   write_input("OUTPUT SURVIVAL FILE: ", out_surv)
   write_input("OUTPUT INITIATION POINT SHAPEFILE: ", out_point)
@@ -586,3 +593,68 @@ PFA_debris_flow_input <- function(dem,
   write_input("END LIST:")
 
 }
+
+#---------------------------------------------------------
+#' Create an input file for Fortran program LocalRelief.
+#'
+#' Program LocalRelief builds a deviation-from-local-elevation (DEV) raster
+#' (and other things as well, DEV is all we need here).
+#'
+#' @param dem Character string: The file name (full path) for the input DEM.
+#' @param radius dbl: Radius in meters for calculating DEV.
+#' @param out_raster Character string: File name (full path) for the output
+#'   binary floating point (.flt) raster.
+#' @param scratch_dir Character string: Directory for temporary files.
+#'   The input file is written to the scratch_dir.
+#'
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk of the input file.
+#' @export
+#'
+DEV_input <- function(dem,
+                      radius,
+                      out_raster,
+                      scratch_dir) {
+
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+
+  # Normalize paths
+  dem <- normalizePath(dem)
+  scratch_dir <- normalizePath(scratch_dir)
+  suppressWarnings(out_raster <- normalizePath(out_raster))
+
+  out_file <- paste0(scratch_dir, "\\input_DEV.txt")
+
+  # Do not include ".flt" in dem file name
+  if (str_detect(dem, ".flt$") == TRUE) {
+    n <- str_length(dem)
+    dem <- str_sub(dem, 1, n[[1]]-4)
+  }
+
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+
+  write_input("# Input file for LocalRelief\n",
+              "#   getting DEV only.\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+
+  write_input("DEM: ", dem)
+  write_input("RADIUS: ", radius)
+  write_input("DOWN SAMPLE: 1")
+  write_input("SAMPLE INTERVAL: 1")
+  write_input("OUTPUT DEV RASTER: ", out_raster)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+}
+
+#---------------------------------------------------------
