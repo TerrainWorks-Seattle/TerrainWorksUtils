@@ -1,7 +1,12 @@
 ---
-title: "PFA_runout_DOGAMI"
+title: "PFA Debris-Flow Runout Analysis"
 author: "Dan Miller"
-format: html
+format: 
+  html:
+    toc: true
+    number-section: true
+    highlight-style: github
+date: April 22, 2023
 editor: visual
 params:
   output_dir:
@@ -10,7 +15,7 @@ params:
     input: text
   out_Rdata:
     label: Output Rdata file
-    value: c:/tempDir/in/DOGAMI_tracks.Rdata
+    value: c:/work/data/pfa/runout_alpha25_L15_allTracks.Rdata
     input: text
   input_list:
     label: Text file containing a list of directories where the data files are found.
@@ -19,47 +24,271 @@ params:
   scratch_dir:
     label: Scratch directory
     value: c:/work/scratch
-    input: text 
+    input: text
+  all_tracks:
+    label: Label all endpoint tracks as uncensored.
+    value: TRUE
+    input: text
 editor_options: 
   chunk_output_type: console
+bibliography: references.bib
 ---
 
 ```{r load, include = FALSE}
+library(flexsurv)
+library(survival)
 library(TerrainWorksUtils)
 library(terra)
 library(stringr)
+library(car)
+library(ggplot2)
 ```
 
-## Survival
+## Introduction: debris-flow runout
 
-Recall the strategy:
+This document reports on an update and recalibration of the linked landslide initiation and debris-flow runout models used for the Private Forest Accord ([PFA](https://www.oregon.gov/odf/pages/private-forest-accord.aspx), [@odf2022]) steep-slopes modeling. These models were developed by Dan Miller and Kelly Burnett as described in Miller and Burnett [-@miller2007; -@miller2008] with application of the models described in Burnett and Miller [-@burnett2007]. The original models were calibrated using landslide-initiation locations, debris tracks, and "debris-torrent"-impacted channels that were field surveyed for the 1996 Storm Study by the Oregon Department of Forestry [@robison1999] and digitized to 10-meter line-trace DEM base maps. Several factors motivate a re-calibration and re-examination of these models. Recent work by the Oregon Department of Geology and Mineral Resources [@burns2022] now provides an inventory of landslide initiation points and debris-flow-runout tracks with a greater geographic and temporal range than available from the 1996 Storm Study; high-resolution DEMs derived from lidar are now available for much of Oregon (<https://www.oregongeology.org/lidar/>), and statistical methods and analysis tools have progressed considerably in the last 15 years.
 
-1.  Probability of scour and deposition as a function of local terrain attributes.
-2.  Classification of runout track as scour, transitional (no net scour or deposition), or depositional.
-3.  Assume volume scoured is proportional to scour length; volume deposited is proportional to deposit length and total volume scoured (ala LAHARZ).
-4.  Use survival analysis to find the probability that a debris flow will continue through any increment of travel as a function of the ratio of volume deposited to volume scoured, gradient, tangent curvature, change in flow direction, stand age, and rock type.
+The Miller-Burnett models identify the channels susceptible to direct impacts from debris flows originating upslope and delineate the source areas for those debris flows. Although the initiation and evolution of a landslide into a debris flow is a continuous process, the models examine landslide initiation and runout separately. This is because initiation and runout involve different sets of physical processes influenced by different sets of environmental factors. An empirical approach is used for both cases, in which statistical models are calibrated using observed landslide initiation sites and debris-flow tracks, but with the choice of predictor variables (also called the independent variables) based on current understanding of the physical processes involved. The models are linked in that the modeled potential for downslope impacts is a function of both initiation probability and runout probability. This document focuses on runout; a separate document describes the modeling done for landslide initiation.
 
-In PFA_runout I described methods for steps 1 and 2 using the Oregon Department of Forestry 1996 Storm Study channel-survey data for the three "red-zone" study areas: Mapleton, Tillamook, and Vida. These surveys included debris tracks from landslide initiation sites to stream channels and "debris-torrent" channel impacts classified as scour, transitional, deposit, and debris jam. These were matched with lidar-DEM-derived flow paths and multinomial logistic regression used to associate local terrain attributes with mapped impact type (combining debris jam with deposit). Classification of any location along a debris track is then classified as the impact type (scour, transitional, deposit) having the largest modeled probability.
+Numerous studies have examined controls on debris-flow runout. Some specific to the Pacific Northwest include [@benda1990; @hofmeister2002; @fannin1993; @robison1999; @may2002; @lancaster2003; @miller2008; @guthrie2010; @coe2011, and @reid2016]. These and other studies consistently point to several factors that influence runout lengths:
 
-Here I use the DOGAMI inventory provided with Special Paper 53 to calibrate a model for probability of runout extent. This involves associating the DOGAMI-mapped runout tracks with DEM-derived flow paths, classifying each DEM cell, or channel node once the flow path enters a traced channel, as scour, transition, or deposition, and getting cumulative scour, cumulative deposition (as a function of cumulative scour), gradient, tangent curvature, change in flow direction, rock type, and stand age. DOGAMI mapping classifies tracks as "Transport" or "Deposit". I assume that any track with mapped "Deposit" at the downstream end indicates the entire runout path and that any track without Deposit at the downstream end is truncated. These then provide the input data for a Cox survival model with "time" dependent covariates and track length serving as time. The resulting hazard function provides the probability that a debris flow will continue through the next interval (m) of travel.
+-   channel gradient and confinement,
 
-The Fortran program PFA_debris_flow provides the input data files. PFA_debris_flow reads the DOGAMI survey data (polyline and point shapefiles), a raster of flow directions for each DEM cell, a channel node list, and a clipped rock-type polygon and stand-age raster. Each DOGAMI initiation point is snapped to a DEM grid point and a flow path from that point is traced downslope. DEM cells, or channel nodes, are associated with the closest point along the DOGAMI debris-flow tracks and assigned the classification of that point (Transport or Deposit). PFA_debris_flow determines the classification of each cell or channel node as scour, transport, or deposit based on the results from the ODF 1996 inventory and records the cumulative scour and deposit volume, along with gradient, tangent curvature, change in flow direction, rock type, and stand age. These are recorded in a time-step format for the R coxph function.
+-   abrupt changes in flow direction at channel junctions,
 
-The DOGAMI inventory sites are spread across a broad range of western Oregon and the datafiles are divided by HUC8s. The following code chunk will run PFA_debris_flow for a list of input datasets and create a dataframe for survival analysis. If an Rdata file for the dataframe exists in the data directory, this step will be skipped, since it takes a long time.
+-   the volume of mobilized material, and
 
-The required data files are:
+-   the amount of large wood incorporated into the mobilized material.
 
-1.  DEM (.flt),
+Empirical models to predict runout length seek to calibrate observed runout lengths to measurements or estimates of these factors. Benda and Cundy [-@benda1990] used channel slope and tributary junction angles. Fannin and Wise [-@fannin2001] use channel gradient and confinement, estimated volume, and changes in flow direction. Miller and Burnett [-@miller2008] used channel gradient and confinement, estimated volume, tributary junction angles, and stand-age brackets (as indicators of large wood availability). Gurthie et al. [-@guthrie2010] used gradient, changes in flow direction, and presence/absence of mature timber. Reid et al. [-@reid2016] used estimated mobilized volume.
 
-2.  DOGAMI initiation points (shapefile),
+The Miller-Burnett models were developed for the Coastal Analysis and Modeling Study [CLAMS](https://www.fsl.orst.edu/clams/) specifically for characterizing potential debris-flow impacts to channels over the entire Oregon Coast Range. They were unique across modeling approaches in that they:
 
-3.  DOGAMI debris-flow tracks (shapefile),
+-   linked both probability of initiation and probability of runout to calculate probability of downslope impacts,
 
-4.  Stand age raster (.flt),
+-   utilized digital elevation data to characterize topographic attributes point by point over potential runout paths,
 
-5.  Geology polygon (shapefile).
+-   characterized susceptibility in terms of the proportion of landslide initiation sites and debris-flow track length [see @burnett2007],
 
-Files 2 through 5 must be clipped to the DEM boundary. The stand-age raster is in a geographic coordinate system. Rather than projecting it to UTM, clip it to the DEM and resample to the resolution of the DEM. Then project the resampled raster. This maintains the original cell boundaries (mostly). This clipping, resampling, and projecting is done now manually in ArcGIS.loa
+-   and could be run over large regional extents at the resolution of available DEMs.
+
+Although modeling approaches have evolved since 2008 (see the discussion), the Miller-Burnett models continue to offer unique capabilities. In particular, they provide calculations of runout probability from every DEM cell with a nonzero probability of landslide initiation. This capability provided the means for two primary analyses used for the PFA steep-slope prescriptions:
+
+1.  Delineation of nonfish-bearing channels that may be traversed by a debris-flow originating upslope and ranking these channels by the probability that a traversing debris flow will continue downstream and deliver material to a fish-bearing channel.
+
+2.  Delineation of upslope source areas for debris flows that can travel to fish-bearing streams and ranking of those source areas in terms of the likely volume of material delivered.
+
+Tracking all potential debris-flow tracks from every potential source is a huge computational task that this model handles through use of survival analysis [@kalbfleisch2002]. Survival analsyis is a statistical technique used extensively in medical and engineering analyses to quantify effects of environmental factors on expected lifespans and time to failure (e.g., of people or machine parts), but which had not been used previously for analysis of debris-flow runout. Miller and Burnett [-@miller2008] developed a survival-analysis approach in which the "lifespan" of a debris flow is measured in terms of runout distance, rather than time. This is a computationally efficient algorithm with which the runout probability for the many millions of potential initiation sites across a region can be calculated while accounting for environmental conditions point-by-point along each potential runout track.
+
+Modeling tools for survival analysis have progressed since 2008. For this recalibration, we used the statistical language R (<https://www.r-project.org/>). Analyses with R are typically done using [R Packages](https://r-pkgs.org/), which provide a set of well-vetted programming tools for specific applications. We used the [survival](https://cran.r-project.org/web/packages/survival/survival.pdf) and [flexsurv](https://cran.r-project.org/web/packages/flexsurv/flexsurv.pdf) packages to calibrate a survival model for debris-flow runout. Details of this analysis, including the code, follow in subsequent sections.
+
+## Survival Analysis
+
+Empirical estimates of probable lifespan for individuals in a population are based on the distribution of lifespans measured for some sample from that population. Effects of factors that might influence lifespan are then evaluated by their effects on the shape of that distribution. Here, "lifespan" refers to the increment of time until some event of interest. In medical applications, this might involve the time that patients remain cancer free following different types of treatment. In engineering applications, this might involve how long until a machine part fails. In social applications, it might involve the length of time that a couple remains married as a function of income. See the introductory article by Emmert-Streib and Dehmer [-@emmert-streib2019] for other examples. A key aspect of survival analysis is the ability to incorporate "censured" data; that is, to use measured time spans for individuals in a sample for which the expected event does not occur prior to the end of the observation period.
+
+Here we look at the "lifespan" of a debris flow, not in terms of time, but in terms of distance. We want to know the expected runout length as a function of environmental factors encountered along the runout path. We are interested in the factors listed in the introduction above: channel gradient and confinement, changes in flow direction, the volume of material mobilized, and the quantity of large woody debris incorporated.
+
+### Survival Curves
+
+A survival curve gives the proportion of individuals in a population that survive beyond a given time. It varies from zero to one on the y axis and 0 to the length of the period of observation on the x axis. A survival curve for debris flows indicates the proportion of events in a population of debris flows that runout beyond a given distance. An empirical estimate of the survival curve is obtained from the cumulative distribution of measured debris-flow-track lengths. For a given sample of debris-flow runout lengths, the survival curve is estimated as the proportion of tracks in the sample longer than a given length:
+
+$$
+S(x) \approx \frac{\# \: tracks \: longer \: than \: x}{N}
+$$ {#eq-EmpSurv}
+
+where $N$ is the total number of tracks [see @emmert-streib2019 for a concise description]. The shape of this distribution is determined by the probability that any individual debris flow will stop in the next interval of travel along its travel path. This probability is called the hazard rate and is estimated empirically as
+
+$$
+h(x) = \lim\limits_{\Delta x \to 0} \frac{P(x \leq X \lt x + \Delta x | X \geq x)}{\Delta x} \approx \frac{n}{x + \Delta x}
+$$ {#eq-HazRate}
+
+where $x$ is distance from the initiating landslide and $n$ is the number of tracks with lengths between $x+\Delta x$. The cumulative hazard function $H$ "describes the accumulated risk up to time $t$" [@emmert-streib2019], or to distance $x$, and is defined as the integral of the hazard rate:
+
+$$
+H(x) = \int_0^x h(\tau)d\tau.
+$$ {#eq-CumHaz}
+
+The survival curve is then determined from the hazard rate as
+
+$$
+S(x) = \exp(-H(x)).
+$$ {#eq-SurvCumH}
+
+If the hazard rate is constant with distance, then the frequency distribution of track lengths will follow an exponential distribution. Remarkably, observed distributions of debris-flow travel lengths are fairly well approximated with an exponential distribution [@miller2008]. Other parametric distributions can also be used fit empirical survival curves [@emmert-streib2019]. For example, if the hazard rate increases or decreases with time (distance), the survival curve is described with a Weibull distribution. If the hazard rate follows a U-shaped curve, decreasing at first and then increasing, the survival curve can be described with a log-normal distribution. We expect that the hazard rate will vary with conditions along the travel path; that is, that the probability that a debris flow will continue through any increment of length along a potential travel path will vary with channel gradient and confinement, changes in flow direction, the volume of material mobilized, the amount of large woody debris, and other factors we have not yet considered. Thus, we expect the hazard rate to vary uniquely for every potential debris-flow track. We can use the shape of the empirical survival curve to infer how the hazard rate changes in response to these conditions. Measures of these conditions, e.g., of the gradient, are referred to as covariates (the independent variables) and the value of these covariates varies along the debris-flow travel path. To estimate the effect of these distance-varying covariates on the hazard rate, we use a relative risk model, typically referred to as a Cox model [@kalbfleisch2002, @emmert-streib2019], with time-varying (distance-varying in this case) covariates. The hazard rate is then defined as
+
+$$
+h(x,Z(x)) = h_0(x)\exp(\sum_{i=1}^p\beta_i Z(x)_i)
+$$ {#eq-TimeVarh}
+
+where $Z(x)$ is a vector of distance-varying covariates (e.g., gradient), $\beta$ is a vector of coefficients, one for each covariate, $p$ is the number of covariates, and $h_0(x)$ is a baseline hazard rate (i.e., the hazard rate when all the covariates $Z$ are zero). We fit the empirical survival curve, Equation @eq-EmpSurv, with a parametric distribution to define $h_0(x)$. Once values for the coefficients $\beta$ are estimated, the change in cumulative hazard function at any point $x$ along a potential debris-flow track is estimated as
+
+$$
+\Delta H(x|Z(x)) = 1 - (1-\Delta H_0(x))^ {\exp(x\beta(x))}
+$$ {#eq-H_timeVar}
+
+where $\Delta H_0$ is the baseline cumulative hazard function defined in Equation @eq-CumHaz using a parametric-distribution fit to the empirical survival curve [@kalbfleisch2002; @ruhe2018]. The survival curve is then determined as
+
+$$
+S(x|Z(x)) = \exp(-\sum_{i=1}^n \Delta H(x_i|Z(x_i)) ,
+$$ {#eq-S_timeVar} where the $x_i$ are the locations where the covariates $Z(x_i)$ have been measured.
+
+To obtain a baseline cumulative hazard function, we used the "flexSurv" R package to fit a parametric distribution to the debris-flow-track lengths measured from the DOGAMI Special Paper 53 inventory. We then used a variety of digital data products to obtain covariate values at intervals along each inventoried track. Descriptions of these covariates and how they were measured are provided in a following section. Tabulated values for all inventoried tracks were then used with the "survival" R package to obtain coefficient estimates for each covariate.
+
+### Censored Data
+
+An important capability of survival-analysis methods is the ability to use information from samples for which the event of interest is not observed. In this case, the event of interest is the terminal end point of a debris-flow deposit. This might occur when the distal end of a deposit has been removed by stream erosion or where the end of the deposit is not visible when mapped from aerial photographs. These cases still provide useful information because we know the debris flow traveled at least as far as the furthest point observable. Samples for which the event of interest - the terminal end of the debris-flow deposit - are not observed are referred to has being "censored". These censored samples are included with the uncensored samples, those for which the complete debris-flow track lengths are known, in estimating the survival curve. An empirical estimate of the survival curve based solely on the observed censored and uncensored flow-path lengths is obtained with the Kaplan-Meier estimate [@kalbfleisch2002, pg 16]:
+
+$$
+\hat{S}(x) = \prod_{j|x_j \leq x} \frac{n_j-d_j}{n_j}.
+$$ {#eq-KaplanMeier}
+
+Here, $n_j$ indicates the number of tracks in the sample with censored or uncensored lengths greater than $x_j$ and $d_j$ is the number of track terminal endpoints observed at $x_j$. Because changes in the $\hat{S}$ curve value occur only at lengths ($x$ values) corresponding to observed complete (uncensored) debris-flow tracks, the curve consists of a series of steps. The corresponding cumulative hazard function is obtained with the Nelson-Aalen estimate:
+
+$$
+\hat{H}_0(x) = \sum_{x_i \leq x} \frac{d_i}{n_i},
+$$ {#eq-NelsonAalen}
+
+The zero subscript indicates that this estimate can be used as the baseline cumulative hazard function for the relative-risk model (Equation @eq-TimeVarh), as it does not include the influence of any covariates.
+
+### Determination of Flow Paths: Synthetic Channel Networks
+
+Calibration and application of a survival model for debris-flow-track length requires ability to accurately trace debris-flow travel paths across surface topography, both for those debris flows that have been observed and for those that could occur at some time in the future. A DEM provides the elevation data with which to infer topographic controls on flow paths. For this, we apply the same algorithms used to trace surface flow paths for water by which a channel network is delineated. We refer to a channel network derived from DEM-traced flow paths as a "synthetic" network to distinguish it from a cartographic network traced from aerial photo interpretation. One component of the PFA analysis is to construct lidar-derived synthetic channel networks for Oregon and to classify these networks in terms of channel types (e.g., [fish or nonfish bearing](https://oregon.public.law/rules/oar_629-635-0200)) and riparian buffer requirements [@odf2022]. There are a variety of methods with an accompanying large literature for extracting channel networks from high-resolution DEMs. Review of that literature is beyond the scope of this document, but here I want to provide some details of the methods we use that will be helpful for understanding the landslide- and debris-flow-susceptibility analyses required for the PFA. A description of the methods initially developed for channel-network extraction with the CLAMS project is provided in Clarke et al. [-@clarke2008]. Additional details are provided in Miller et al. [@miller2015].
+
+Three important factors in tracing a channel network from a DEM are:
+
+1.  the choice of flow-direction algorithm,
+
+2.  how closed depressions in the DEM are drained, and
+
+3.  the criteria for determining the upslope extent of channels in the network.
+
+#### Flow Direction
+
+A DEM consists of a regular grid of elevation values. We interpret these as point measures of elevation at each grid point so that elevations between grid points can be estimated by interpolating from the neighboring grid-point values. Flow paths inferred from this grid of elevations are used to determine channel courses and traced upslope to estimate the contributing area to each point in a traced channel network. Flow paths traced from grid point to grid point offer eight options for flow direction; hence, an algorithm for determining which adjacent grid point to direct flow to is referred to as using a D-8 flow direction [@ocallaghan1984]. D-8 flow directions commonly follow the direction of steepest downslope gradient, although other topographic indicators can be used. For example, plan curvature is an indicator of contour-line crenulation, which is an indicator of presence of a channel, so directing flow to the adjacent downslope cell with the largest plan curvature can sometimes follow channel courses more accurately than using gradient alone [@clarke2008]. The directional bias imposed by D-8 flow directions likewise biases estimates of flow accumulation. Several algorithms have been developed that can parse flow out of a DEM cell, defined as the square area associated with each DEM point, into multiple downslope cells [@wilson]. These algorithms accommodate flow dispersion and therefore provide more accurate estimates of contributing area than obtained with D-8 flow directions. Of these multiple-flow-direction algorithms, the D-infinity algorithm introduced by Tarboton [@tarboton1997] generally provides the most accurate estimates of contributing area [@shelef2013]. Contributing area in unchannelized terrain is a key predictor for landslide initiation locations (discussed in a separate document) and for identifying the upslope channel extent. Hence, we use D-infinity flow directions for calculating contributing area. However, once a flow path traced downslope has entered a channel (as determined by the channel-initiation criteria), we want to preclude dispersion of flow downslope and use D-8 for tracing channelized flow paths. To calculate a survival curve along a debris-flow track, it must also follow a single track without dispersion; hence, debris-flow tracks across unchannelized terrain are also traced using D-8 flow directions. Once the traced path enters a delineated channel, it follows the channel course.
+
+#### Closed Depressions
+
+A DEM for any large area will invariably contain closed depressions. Some may be actual closed depressions in the terrain that have no surface outlet; others occur because of errors in the DEM or inability to resolve the outlet. For known closed depressions, we can allow surface drainage into the depression to essentially drain out at the low point in the depression, but more generally we want to identify the most likely outlet flow path. This may be a flow path for surface water or for shallow groundwater; either way, we want to account for water accumulated in the closed depression when calculating downslope contributing areas.
+
+Closed depressions in DEMs were originally removed by filling the depression to the level of the lowest pour point [@jensonDomique1988]. However, this results in loss of topographic information for the area filled. Alternatives have been proposed [@wang2019] that seek to cut a flow path through the pour point, an approach referred to as "carving" [@soille2004]. With carving, flow paths within the depression are maintained, but a single flow path from the lowest point in the depression to the lowest pour point is identified for flow routing out of the depression. We use carving to drain closed depressions, with an algorithm following that of Barnes et al. [@barnes2014]. However, DEM elevations are used for a variety of subsequent calculations, such as estimates of gradient and curvature, so we do not actually alter any DEM values, but rather just record the flow paths identified for draining each closed depression.
+
+#### Channel Initiation
+
+With high-resolution DEMs, channels can potentially be resolved directly and the upslope extent determined using topographic indicators of channel presence, such as tangential curvature, topographic openness, and measures of local relief [e.g., @shavers2020]. We incorporate these measures for delineating channel extent; however, channels may not be resolved under forest canopy where lidar ground returns are sparse. Additionally, we want to extend delineated "channels" upslope into terrain prone to landslide initiation that may not be currently channelized. We therefore also use measures indicative of channel-forming-process rates to estimate the *potential* upslope extent for the mapped channel network. Contributing area provides an indicator of surface and shallow subsurface water flux during storms, so functions of contributing area and gradient are used as relative measures of erosion potential [e.g., @montgomery1993]. Clarke et al. [-@clarke2008] plotted modeled channel density as a function of a slope-area threshold for channel initiation to identify an inflection associated with the slope-area value at which modeled channels started to extend onto planar hillslopes (referred to as "feathering"). This inflection point shows the channel density resolvable with a DEM and varies with DEM resolution and with regional topography. We determine this inflection point separately for high- and low-gradient terrain (e.g., greater or less than 40% (\~22 degrees)) to account for the different processes of channel formation, e.g., debris-flow scour versus overland flow or seepage erosion. In steep terrain, the delineated synthetic channel network is extended upslope into unchannelized landforms, such as bedrock hollows, to include flow paths that can potentially serve as debris-flow corridors.
+
+#### Data Structure
+
+Geographic Information Systems (GIS) typically represent channel networks as a set of connected vector line segments. For our analyses, the channel network is represented as a [linked list](https://en.wikipedia.org/wiki/Linked_list) of channel nodes.\
+
+## Probability of Debris-Flow Delivery and Traversal
+
+Once coefficients $\beta(x)$ have been calibrated, a survival curve can be calculated along any potential flow path to provide the probability that a debris flow will travel to any downslope point along that path. For any debris-flow initiation site, the probability of runout to any location along the downslope flow path traced on the DEM is determined using Equations @eq-H_timeVar and @eq-S_timeVar. Any potential flow path may have multiple initiation sites that feed into it. Following Miller and Burnett [-@miller2008], the probability $P_{DF}$ that a debris-flow from any upslope initiation site will reach a point $x$ along that path is
+
+$$
+P_{DF}(x) = 1 - \prod_{i=1}^n(1-S_iP_i)
+$$ {#eq-MultiS}
+
+where $S_i$ is the survival-curve value at point $x$ (from Equation @eq-S_timeVar) and $P_i$ the probability of initiation for the $i^{th}$ initiation site, with the product over all $n$ upslope initiation sites (the derivation of initiation probability $P_i$ is described in a separate document). To implement this, surface flow paths are traced from every DEM cell with a nonzero initiation probability and @eq-MultiS calculated for every cell along the flow path until the survival-curve value goes to zero.
+
+The probability that a point in a nonfish channel is traversed by a debris flow that originates upslope and continues flowing downslope to deposit material into a fish-bearing channel is determined in a similar fashion [see @burnett2007]. The travel path from each DEM cell with a nonzero probability of initiation is traced downslope until it intersects a fish-bearing channel. Label that intersection location as $x_F$. The probability calculated for that debris flow at that point of intersection is $S_i(x_F)P_i$, where $S_i(x_F)$ is the survival-curve value at $x_F$ and $P_i$ is the initiation probability for the $i^{th}$ DEM cell with nonzero initiation probability. $S_i(x_F)$ gives the probability that a debris flow from the $i^{th}$ DEM celll will travel to a fish-bearing channel. This value can be mapped back to the initiating DEM cell to create a map of delivery probabilities. $S_i(x_F)P_i$ gives the probability that a debris flow from that cell delivers material to a fish-bearing channel. That probability is recorded for all the DEM cells along the flow path from the initiating cell to the intersection with the fish-bearing channel. This procedure is repeated for every DEM cell with nonzero initiation probability. For any cell along a flow path, the probability $P_T$ that it may be traversed by a debris flow originating from upslope that continued to a fish-bearing channel is then:
+
+$$
+P_T = 1 - \prod_{i=1}^n(1-S_i(x_F)P_i)
+$$ {#eq-TravProb}
+
+with the product performed for all $n$ upslope DEM cells with nonzero initiation probability. This value is calculated for all cells along all potential debris flow paths that intersect a fish-bearing channel. It can be translated back to each corresponding traversed DEM cell or channel node to generate a map of traversal probabilities.
+
+### Proportion of Debris-Flow Track Length
+
+Equations @eq-MultiS and @eq-TravProb provide estimates for the probability of debris-flow impacts that can be calculated for all potential debris-flow travel paths. The models that provide these probabilities were calibrated against an observed set of landslide initiation sites and debris-flow tracks and thus reflect the spatial density of those features. A different inventory with a different number of events would have a different spatial density and produce different probabilities. Our interest, therefore, is not in the magnitude of these probabilities, but in the relative variation in that magnitude from point to point. We also want a measure of that variation that can be used to test the model on other landslide inventories.
+
+Burnett and Miller [-@burnett2007] provide a strategy for accomplishing that. These probabilities both depend on the modeled probability of landslide initiation. In devising these models, we assumed that initiation events could be represented as a Poisson process, meaning that the location of any initiation site is independent of any other initiation site. The logistic regression model used to estimate probability of initiation therefore maintains the marginal probability of initiation locations, meaning that the integral of the modeled initiation probability over all potential initiation sites within the study area used to calibrate the model will equal the total number of observed initiation sites. In other words, that probability is proportional to the spatial landslide density (number of initiation sites per unit area). This probability is calculated for each DEM cell. By ranking the cells from low probability to high, summing the values to obtain a cumulative frequency distribution, and then dividing by the total number of landslides, we obtain a cumulative distribution for the proportion of observed landslides as a function of the modeled probability. The cumulative distribution varies in value from zero to one. These values can be translated back to each corresponding DEM cell to create a map delineating the study area into zones encompassing a specified proportion of the observed landslides, ranked from lowest to highest landslide density (or visa versa).
+
+Each DEM cell with nonzero initiation probability has an associated downslope debris-flow travel path. Each DEM grid point or channel node along that path represents a short segment of that travel path. Each short segment has an associated probability that a debris flow will reach it based on @eq-MultiS and a probability that it will be traversed by a debris flow that continues to a fish-bearing channel based on @eq-TravProb. In calibrating the survival-curve function, it was assumed that each debris-flow track was unaffected by the presence of any other debris-flow track so that the calculated values reflect the marginal probability of debris flow runout from each initiation site. Over the entire study area, the integral of all runout-probability values (the survival-curve values) over the entire potential flow-path length will give the total track length observed. The $P_{DF}$ and $P_T$ values are proportional to the spatial density of debris-flow tracks, measured as track length per unit channel length. As with the initiation sites, we can translate these probability values to the proportion of the total track length. The probability values are ranked from smallest to largest and summed to generate a cumulative frequency distribution of flow-path-segment lengths ordered by probability. The sum over all segments gives the total observed length of all debris-flow tracks or of those that intersected fish-bearing channels. The cumulative frequency distribution is then divided by the total track length to give a cumulative distribution. This distribution varies from zero to one and shows the proportion of observed track length as a function of modeled probability of debris-flow runout (Equation @eq-MultiS) or traversal (Equation @eq-TravProb). These values can be mapped back to the traced flow paths. The flow paths can then be parsed into segments containing a specified proportion of the total track length, ordered from lowest probability to highest (or visa versa). This is the methodology used to identify the "Debris-flow traversal area" and "Designated debris-flow traversal areas" defined for the PFA [@odf2022, pages 30-31].
+
+Figures here.
+
+![Figure 1. Modeled initiation probability for a small drainage in the Siuslaw basin. Black circles show landslide initiation sites from the DOGAMI inventory.](images/InitProb.jpg){fig-align="center" width="6in"}{#fig-InitProb}
+
+![Figure 2. Probability of debris-flow delivery to a fish-bearing channel. The red lines show mapped debris-flow tracks from the DOGAMI inventory.](images/Delivery.jpg){fig-align="center" width="6in"}{#fig-DelivProb}
+
+![Figure 3. Probability of initiation and delivery to a fish-bearing channel.](images/init_and_deliv.jpg){fig-align="center" width="6in"}{#fig-Init_Deliv}
+
+![Figure 4. Probability that a non-fish-bearing channel will be traversed by a debris flow that travels to a fish-bearing channel.](images/TravProb.jpg){fig-align="center" width="6in"}{#fig-DeliveryWeightedInit}
+
+![Figure 5. Proportion of channel length as a function of modeled traversal probability.](images/PropCurves.png){fig-align="center" width="6in"}{#fig-TravPropGraph}
+
+![Figure 5. Nonfish channels colored in terms of the proportion of total traversed channel length.](images/TravProp.jpg){fig-align="center" width="6in"}{#fig-TravPropMap}
+
+## Covariates
+
+-   channel gradient and confinement,
+
+-   abrupt changes in flow direction at channel junctions,
+
+-   the volume of mobilized material, and
+
+-   the amount of large wood incorporated into the mobilized material.
+
+### Elevation Derivatives: Gradient and Curvature
+
+### Volume Mass Balance
+
+#### Probability of Scour and Deposition
+
+#### Scoured Volume: Bulking Rate, Soil Depth
+
+#### Deposited Volume
+
+#### Volume Ratio
+
+### Stand Age
+
+### Substrate
+
+## Delivered Volume
+
+## Model Calibration
+
+### Data
+
+DOGAMI Special Paper 53 Inventory
+
+Focuses on debris-flow
+
+Photo and lidar-shaded relief
+
+### Probability of Scour and Deposition
+
+ODF 1996 Storm Study survey data
+
+Overlay with digital data
+
+Predictors: Gradient, Tangential Curvature, Normal Profile Curvature, Stand Age, Geology
+
+Multinomial logistic regression
+
+### Baseline Survival Curve
+
+Compare empirical distributions
+
+Exponential, Weibull, and Log-Normal parametric distributions
+
+### Survival Covariates
+
+Volume Ratio - integrates conditions of upslope travel path.
+
+Gradient, Tangential Curvature
+
+Stand Age
+
+### Delivered Volume
+
+Distribution of volume-ratio volume values; setting alpha
+
+## Results
+
+This code chunk will assemble the data file if it doesn't already exist. This takes awhile.
 
 ```{r}
 
@@ -86,10 +315,14 @@ if (!file.exists(params$out_Rdata)) {
   radius <- 20.
   initRadius <- 50.
   length_scale <- 15.
-  plan_scale <- 30.
-  bulk <- 12.
-  init_vol <- 200.
-  alpha <- 1.
+  slope_intercept <- 1.0
+  slope_coef <- -0.84
+  bulk_coef <- 15.0
+  init_width <- 15.0
+  init_length <- 30.0
+  DF_width <- 7.0
+  alpha <- 0.25
+  uncensored <- params$all_tracks
   data_file <- data.frame()
 
   for (i in 1:num_data_sets) {
@@ -108,12 +341,18 @@ if (!file.exists(params$out_Rdata)) {
                                  radius = radius,
                                  initRadius = initRadius,
                                  length_scale = length_scale,
-                                 plan_scale = plan_scale,
-                                 bulk = bulk,
-                                 init_vol = init_vol,
+                                 slope_intercept = slope_intercept,
+                                 slope_coef = slope_coef,
+                                 bulk_coef = bulk_coef,
+                                 init_width = init_width,
+                                 init_length = init_length,
+                                 DF_width = DF_width,
                                  alpha = alpha,
+                                 uncensored,
                                  scratch_dir = params$scratch_dir)    
     
+    n = ncol(these_data)
+    these_data[ ,n+1] <- data_set_name
     summary(these_data)
     data_file <- rbind(data_file,these_data)
     if (i == 1) {
@@ -123,7 +362,94 @@ if (!file.exists(params$out_Rdata)) {
       out_points <- rbind(out_points, new_points)
     }    
   }
-  save(data_file, file = "c:/work/data/pfa/runout_April1.Rdata")
-  writeVector(init_points,file = "c:/work/data/pfa/init_points.shp", overwrite = TRUE)
+  save(data_file, file = "c:/work/data/pfa/runout_alpha25_L15_allTracks.Rdata")
+  writeVector(out_points,file = "c:/work/data/pfa/init_alpha25_L15_allTracks.shp", overwrite = TRUE)
 }
 ```
+
+Load the saved data file. We use the logarithm of the VolRatio values, so remove all zero records. And, GeoClass needs to be recognized as a factor.
+
+```{r}
+load(params$out_Rdata)
+keep <- which(data_file$VolRatio > 0.)
+data_file <- data_file[keep,]
+data_file$GeoClass <- as.factor(data_file$GeoClass)
+summary(data_file)
+```
+
+The VolRatio field is the ratio of the modeled deposited volume (DepVol) to scoured volume (ScourVol): VolRatio = DepVol/ScourVol. the scoured volume is initially assigned an initiating landslide volume and then grows through zones where the modeled probability of scour is greater than zero as the debris flow progresses downslope. The deposited volume increases through zones where the modeled probability of deposition is greater than zero. (See PFA_runout.qmd for a description of how probability of scour and deposition were determined). The deposited volume is proportional to the scoured volume taken to the two thirds power. This is based on the LAHARZ model [@griswald2008], for which the cross-sectional area of a debris-flow deposit is found to be proportional to the total deposit volume taken to the two thirds power. Here we assume that the cross-sectional area of deposited material is proportional to the total scoured volume to that point. Thus the volume ratio indicates conditions along the upslope debris-flow track. We assume that the probability for a debris flow to continue through any increment of travel (one minus the hazard rate) varies with the volume ratio. We also assume that the probability might vary with conditions at each point along the travel path; particularly gradient, tangent curvature, stand age, and rock type. Changes in flow direction may also pose a good candidate, but I did not include it here for technical issues I haven't yet solved.
+
+Each mapped debris-flow track is parsed into segments corresponding to channel-node segments, or DEM cell segments upslope of the channel initiation points. Each segment is associated with a VolRatio, gradient, tangential curvature, stand age, and rock-type value. The last segment along a track that does not intersect any other track is recognized as an end point.
+
+Here is the cumulative distribution of complete (nontruncated) runout lengths, along with two other sets of runout lengths collected over more localized regions. The Knowles Creek values come from Lee Benda's Masters Thesis and the Hoffman Creek values from Landcaster et al. [@lancaster2003].
+
+```{r}
+benda <- c(220,240,240,240,240,280,312,380,400,416,418,432,450,480,480,480,510,554,600,600,600,600,600,602,625,648,720,780,810,840,875,880,880,960,1000,1085,1120,1200,1200,1300,1300,1400,1485,1500)
+benda_thesis <- as.data.frame(benda)
+benda_thesis[ ,2] = 1
+benda_thesis[ ,3] = "Knowles"
+colnames(benda_thesis)[1] = "Tend" # for consistency
+colnames(benda_thesis)[2] = "Death"
+colnames(benda_thesis)[3] = "Origin"
+
+HoffmanCr <- c(30,30,50,60,60,80,100,100,100,110,120,120,130,150,150,150,170,180,200,209,210,300,310,350,420,430,480,560,680)
+HoffmanCr <- as.data.frame(HoffmanCr)
+HoffmanCr[ ,2] = 1
+HoffmanCr[ ,3] = "Hoffman"
+colnames(HoffmanCr)[1] = "Tend"
+colnames(HoffmanCr)[2] = "Death"
+colnames(HoffmanCr)[3] = "Origin"
+
+keep <- which(data_file$Death == 1)
+dogami <- data_file[keep,]
+dogami <- dogami[,-1:-2]
+dogami <- dogami[,-2:-9]
+dogami[ ,3] = "DOGAMI"
+colnames(dogami)[3] = "Origin"
+
+alltracks <- rbind(dogami,HoffmanCr,benda_thesis)
+
+ggplot(data = alltracks, aes(x = Tend, y = 1 - ..y.., fill = Origin)) + 
+  coord_cartesian(xlim = c(0,2000)) +
+  stat_ecdf(geom = "point", shape = 21, size = 3, alpha = 0.5, pad = FALSE) +
+  xlab("Debris-Flow Track Length (m)") +
+  ylab("Proportion Less Than")
+
+```
+
+Why such different results? The Knowles Creek and Hoffman Creek data represent debris flows from within single basins, whereas the DOGAMI data are for debris flows across western Oregon. The distributions of hillslope length and gradient likely influence the distribution of debris-flow-track lengths, so topographic variability across basins may result in different distributions of debris-flow length. We are using the DOGAMI data to provide a regional average distribution of debris-flow lengths. We will
+
+The DOGAMI track-length distribution is very right skewed, shown in this histogram.
+
+```{r}
+keep <- which(data_file$Death == 1)
+tracks <- data_file[keep,]
+ggplot(data=tracks, aes(x = Tend)) + labs(x = "Track Length (m)") + 
+  geom_histogram(binwidth = 50, color = "black", fill = "gray", )
+```
+
+Most tracks are relatively short and only a handful are greater than 2000 meters.
+
+```{r}
+densityPlot(log(tracks$Tend))
+```
+
+The log of track lengths is nearly normally distributed, suggesting a log-normal distribution. We can use flexsurvreg to fit a parametric baseline survival function to the distribution of track lengths. I'll only plot up to 2000m..
+
+```{r}
+fit_lognorm <- flexsurvreg(Surv(Tend,Death)~1, data = tracks, dist = "lognormal")
+fit_lognorm
+plot(fit_lognorm, xlab = "Track Length (m)", ylab = "Probability of Survival", xlim = c(0, 2000))
+plot(fit_lognorm, type = "hazard", xlab = "Track Length (m)", xlim = c(0, 2000), ylim = c(0, 0.0025))
+```
+
+The empirical hazard rate increases rapidly up to about 200m and then decreases. I cannot come up with a physical explanation. Here's how an exponential distribution fits:
+
+```{r}
+fit_exp <- flexsurvreg(Surv(Tend,Death)~1, data = tracks, dist = "exponential")
+fit_exp
+plot(fit_exp, xlab = "Track Length (m)", ylab = "Probability of Survival", xlim = c(0, 2000))
+plot(fit_exp, xlab = "Track Length (m)", type = "hazard", xlim = c(0, 2000))
+```
+
+Log normal is clearly a better fit. We'll use that for the baseline survival function.

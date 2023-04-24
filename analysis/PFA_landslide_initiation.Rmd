@@ -2,10 +2,10 @@
 title: "PFA Landslide Susceptibility"
 author: Dan Miller
 output:
-  html_notebook:
-    df_print: paged
   html_document: 
     toc: true
+  html_notebook:
+    df_print: paged
 bibliography: PFA_citations.bib
 params:
   output_dir:
