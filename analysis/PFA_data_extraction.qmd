@@ -467,7 +467,7 @@ for (i in 1:num_files) {
     vals_2011 <- vals_2011[, "age"]
   }
 
-# Now get curvatures and dev
+# Now get curvatures
   tan_name <- paste0("tancurv_", as.character(i))
   file_name <- paste0(output_dir, tan_name)
   covariates <- c(covariates, terra::rast(paste0(file_name, ".flt")))
@@ -543,6 +543,7 @@ for (i in 1:num_files) {
                                                          k = k, 
                                                          d = d, 
                                                          scratch_dir = output_dir))
+    raster_name <- paste0("pca_", as.character(d))
     names(covariates[[6 + j]]) <- raster_name
     
   }
