@@ -49,6 +49,7 @@ library(ggplot2)
 library(patchwork)
 library(dplyr)
 library(mlr3verse)
+library(iml)
 ```
 
 ## Introduction: debris-flow runout
@@ -65,9 +66,9 @@ Numerous studies have examined controls on debris-flow runout. Some specific to 
 
 -   the volume of mobilized material, and
 
--   the amount of large wood incorporated into the mobilized material.
+-   the size and number of trees encountered and the amount of large wood incorporated into the mobilized material.
 
-Empirical models to predict runout length seek to calibrate observed runout lengths to measurements or estimates of these factors. Benda and Cundy [-@benda1990] used channel slope and tributary junction angles. Fannin and Wise [-@fannin2001] use channel gradient and confinement, estimated volume, and changes in flow direction. Miller and Burnett [-@miller2008] used channel gradient and confinement, estimated volume, tributary junction angles, and stand-age brackets (as indicators of large wood availability). Gurthie et al. [-@guthrie2010] used gradient, changes in flow direction, and presence/absence of mature timber. Reid et al. [-@reid2016] used estimated mobilized volume.
+Empirical models to predict runout length seek to calibrate observed runout lengths to measurements or estimates of these factors. Benda and Cundy [-@benda1990] used channel slope and tributary junction angles. Fannin and Wise [-@fannin2001] use channel gradient and confinement, estimated volume, and changes in flow direction. Miller and Burnett [-@miller2008] used channel gradient and confinement, estimated volume, tributary junction angles, and stand-age brackets (as indicators of tree size and wood availability). Gurthie et al. [-@guthrie2010] used gradient, changes in flow direction, and presence/absence of mature timber. Reid et al. [-@reid2016] used estimated mobilized volume.
 
 The Miller-Burnett models were developed for the Coastal Analysis and Modeling Study ([CLAMS](https://www.fsl.orst.edu/clams/)) specifically for characterizing potential debris-flow impacts to channels over the entire Oregon Coast Range. They were unique across modeling approaches in that they:
 
@@ -251,9 +252,11 @@ In the introduction, I listed some of the attributes associated with debris-flow
 
 -   the volume of mobilized material, and
 
--   the amount of large wood incorporated into the mobilized material.
+-   the number and size of trees encountered and the amount of large wood incorporated into the mobilized material.
 
-In this section, I will describe which of these we examined and how they were determined. Miller and Burnett [-@miller2008] overlaid debris tracks mapped and digitized by ODF for the 1996 Storm Study on DEMs and other GIS data to obtain measures of covariate values at points along the tracks. We do the same here, using tracks included in both the 1996-Storm-Study inventory and the DOGAMI inventory, but with lidar-derived DEMs. The digitized track paths do not follow the DEM-traced flow paths exactly. We used the following procedure to determine the DEM-traced flow path that corresponded most closely with the digitized path. A buffer was placed around each mapped track; 120 meters for the 1996 storm tracks and 20 meters for the DOGAMI tracks. These buffers were constrained so that they did not extend below the lowest elevation along the track. The 1996-Storm inventory included both vector lines (for debris paths) and points (for channel impacts). The points had variable spacing, with an average around 100 meters. The DOGAMI inventory had all tracks digitized as vector lines. The tracks do not all line up precisely with a mapped initiation point. To associate each point with a debris track, a DEM flow path was traced from each landslide initiation point included in the inventories. If this flow path intersected the track buffer within a specified flow length, 120 meters for the 1996 inventory; 50 meters for the DOGAMI inventory, it was assumed associated with that debris-flow track. The flow path was then traced from DEM point to point, or from channel node to channel node once the path intersected a channel delineated in the synthetic network, until is came to the bottom of the track buffer. All points and nodes from the initiation point to the end of the track buffer were assumed associated with that debris-flow track. Covariate values could then be measured at each DEM grid point or channel node along these traced tracks.
+In this section, I will describe which of these we examined and how they were determined. Miller and Burnett [-@miller2008] overlaid debris tracks mapped and digitized by ODF for the 1996 Storm Study on DEMs and other GIS data to obtain measures of covariate values at points along the tracks. We do the same here, using tracks included in both the 1996-Storm-Study inventory and the DOGAMI inventory, but with lidar-derived DEMs. The digitized track paths do not follow the DEM-traced flow paths exactly. We used the following procedure to determine the DEM-traced flow path that corresponded most closely with the digitized path. A buffer was placed around each mapped track; 120 meters for the 1996 storm tracks and 20 meters for the DOGAMI tracks. These buffers were constrained so that they did not extend below the lowest elevation along the track. The 1996-Storm inventory included both vector lines (for debris paths) and points (for channel impacts). The points had variable spacing, with an average around 100 meters. The DOGAMI inventory had all tracks digitized as vector lines. The tracks do not all line up precisely with a mapped initiation point. To associate each point with a debris track, a DEM flow path was traced from each landslide initiation point included in the inventories. If this flow path intersected the track buffer within a specified flow length, 120 meters for the 1996 inventory; 50 meters for the DOGAMI inventory, it was assumed associated with that debris-flow track. The flow path was then traced from DEM point to point, or from channel node to channel node once the path intersected a channel delineated in the synthetic network, until is came to the bottom of the track buffer. All points and nodes from the initiation point to the end of the track buffer were assumed associated with that debris-flow track.
+
+Variables used for this analysis were then measured at each DEM grid point or channel node along these traced tracks. Based on the attributes associated with debris-flow runout distance listed above, covariates used for the survival analysis were elevation derivatives of gradient and curvature calculated from a lidar DEM, modeled volume ratio, and an estimate of stand age (a proxy for tree size and the potential amount of large wood available) from modeled data available from the LEMMA project. I also included rock-type class, based on state-wide geologic mapping available from DOGAMI. I did not include measures of changes in flow direction, because these require information downslope of the current point. Survival analysis using relative risk models with time varying (distance varying) covariates can only use information from the past (upslope) ([see vignette by Therneau et al.](https://cran.r-project.org/web/packages/survival/vignettes/timedep.pdf)). Calculation of the volume ratio required determination of the probability of scour or deposition along debris-flow tracks and of probable soil depth. These models also used measures of gradient, curvature, stand age, and rock type. All are described below.
 
 ### Elevation Derivatives: Gradient and Curvature
 
@@ -362,7 +365,13 @@ Geologic mapping for Oregon is available at <https://www.oregongeology.org/pubs/
 
 : Classification of basic rock types into 5 groups
 
-The intention is to separate rock types into groups that influence landslide initiation and runout processes differently. The attributes that might distinguish such groups include degree of fracturing, rate of weathering, and presence of bedding or foliation. I have taken a broad initial classification - 12 classes to describe all rock types - and made it even broader: just five classes. The three ODF 1996 Storm study sites that provided data used for calibrating the probability of scour and deposition do not span a large geographic extent and will miss most of the initial 12 classes. The final five classes divide rock types by modes of origination. Other classifications could be used, but this proved sufficient to resolve differences in scour and deposition probabilities between rock-type classes.
+The intention is to separate rock types into groups that influence landslide initiation and runout processes differently. A primary influence is the way that different rock types erode to create differences in basin topography, with consequent differences in hillslope, channel, and valley profiles [@marshall2014]. Other factors also influence basin topography, such as uplift rate [e.g., @vanlanignham2006], but these are not as readily characterized across western Oregon. I have taken a broad initial classification - 12 classes to describe all rock types - and made it even broader: just five classes. The three ODF 1996 Storm study sites that provided data used for calibrating the probability of scour and deposition do not span a large geographic extent and will miss most of the initial 12 classes. The five classes used here divide rock types by modes of origination. Other classifications could be used, but this proved sufficient to resolve differences in scour and deposition probabilities between rock-type classes.
+
+### Stand Age
+
+Several studies suggest that debris-flow runout is reduced with increasing number and size of trees encountered along a runout path [@ishikawa2003; @bettella2018; @michelini2017; @tsunetaka2022]. Likewise, several studies suggest that debris-flow runout is reduced with increasing volumes of large wood incorporated into the deposit [@lancaster2003; @booth2020]. Direct measures of the number and size of standing trees or the amount of large wood available for incorporation into a debris flow are not readily available, but forest type and stand age may provide proxies. May [-@may2002] found that debris flows tended to travel further through clear-cut and mixed-age forests than second-growth and mature forests; Guthrie et al. [-@guthrie2010] found that debris flows traversing logged slopes tended to stop shortly after encountering mature forests. Therefore I want to include some potential measure of stand characteristics in this analysis. Using the 1996 Storm Study data and three stand-age classes, Miller and Burnett [-@miller2008] found evidence that debris-flow travel length was shorter in young stands than in older stands.
+
+The [LEMMA](https://lemma.forestry.oregonstate.edu/) project provides estimates for a large variety of stand characteristics for Washington, Oregon, and California. These are provided as raster files with 30-meter horizontal resolution. For this analysis, I used the "[Basal area weighted stand age based on dominant and co-dominant trees](https://lemmadownload.forestry.oregonstate.edu/)" for 2017.
 
 ## Data
 
@@ -382,7 +391,7 @@ The DOGAMI inventory includes both the landslide initiation site and the debris-
 
 ### Probability of Scour and Deposition
 
-From the ODF 1996-Storm-Study GIS data, we use the landslide point feature class, the debris_path line feature class, and the channel_points feature class from the three "red zone" study sites where detailed surveys were made. The landslide points and debris-flow tracks are filtered to exclude "In Channel" and "Channel Adjacent" entries in the ORIGIN field. A "closest-point" raster is generated from the debris-path and channel-points feature classes, where a "point" here refers to either a debris-path line or a channel point. The DEM provides the template for this raster and pixels are assigned to the closest debris-path or channel point lying within a 120-m radius. The DEM-traced channel nodes are then overlain on this raster. First, for each landslide initiation site, the channel node closest to the initiation point and overlying an assigned closest-node pixel is located. The flow path is then traced downslope for as long as the channel flow path remains in the assigned closest-node pixel zones. Each of these flagged channel nodes is assigned the flow type (scour, transition, deposit) of the closest debris-path or channel point. The following figures show the digitized GIS data obtained from ODF and the channel nodes associated with the mapped debris-flow tracks and channel impacts.
+From the ODF 1996-Storm-Study GIS data, we use the landslide point feature class, the debris_path line feature class, and the channel_points feature class from the three "red zone" study sites where detailed surveys were made. The landslide points and debris-flow tracks are filtered to exclude "In Channel" and "Channel Adjacent" entries in the ORIGIN field. A "closest-point" raster was generated from the debris-path and channel-points feature classes, where a "point" here refers to either a debris-path line or a channel point. The DEM provides the template for this raster and pixels are assigned to the closest debris-path or channel point lying within a 120-m radius. The DEM-traced channel nodes are then overlain on this raster. First, for each landslide initiation site, the channel node closest to the initiation point and overlying an assigned closest-node pixel is located. The flow path is then traced downslope for as long as the channel flow path remains in the assigned closest-node pixel zones. Each of these flagged channel nodes is assigned the flow type (scour, transition, deposit) of the closest debris-path or channel point. Five physical attributes are then obtained for each flagged node. Gradient, tangential curvature, and normal profile curvature are calculated over a diameter of 15 meters from lidar DEMs resampled to 2 meters; stand age is taken from the estimated dominant-tree age in 2017 from a raster file downloaded from the LEMMA study, and rock type from geological mapping for the state from DOGAMI classified into the five rock-type classes listed previously. The following figures show the digitized GIS data obtained from ODF and the channel nodes associated with the mapped debris-flow tracks and channel impacts.
 
 ![Tillamook ODF 1996-storm survey data](images/Tillamook_ODF.png){#fig-TillamookData width="6in"}
 
@@ -440,7 +449,18 @@ keep <- which(all_sites$Track_Type == "Deposit")
 deposit <- all_sites[keep, ]
 ```
 
-The range of measured gradients across the three sites is relatively consistent, shown in the box plots below for scour and depositional zones. Mapleton has slightly higher gradients for both cases, Vida slightly lower, and Tillamook inbetween. These three sites overly different substrates. Mapleton is in marine sandstones, Tillamook in volcanics, and Vida in volcaniclastic rocks, so perhaps the slight differences in the distribution of gradients between sites reflects differences in underlying rock type. Scour gradients are consistently higher than depositional gradients, consistent with other studies.
+Using the rock-type classes defined above, these three sites fall almost entirely in different rock types. Mapleton is in sedimentary rocks, Tillamook in volcanic, and Vida in volcaniclastic.
+
+```{r}
+all_sites$rock <- case_match(all_sites$geo,"1"~"Sedimentary","2"~"Volcanic","3"~"Igneous","4"~"Volcaniclastic","5"~"Unconsolidated")
+ggplot(data=all_sites) + 
+  geom_bar(mapping=aes(x=site,fill=rock),col='black',position='fill') +
+  labs(title='Rock types encountered at the three study sites', subtitle = "Each site is within a different predominant rock type:\nSedimentary for Mapleton, Volcanic for Tillamook, Volcaniclastic for Vida", y='Proportion of impacted channel length') +
+  theme(axis.title.x = element_blank()) +
+  scale_fill_discrete(name="Rock Type")
+```
+
+The range of measured gradients across the three sites is relatively consistent, shown in the box plots below for scour and depositional zones. Mapleton has slightly higher gradients for both cases, Vida slightly lower, and Tillamook inbetween. For all sites, gradients through zones of scour are persistently higher than through zones of deposition.
 
 ```{r}
 # Compare gradients across sites
@@ -448,42 +468,35 @@ The range of measured gradients across the three sites is relatively consistent,
 scour_grad <- ggplot(data = scour, aes(x = site, y = Gradient, fill = site)) + 
               geom_boxplot() + 
               ylim(0, 1) +
-              theme(legend.position="none", axis.title.x = element_blank()) +
+              theme(legend.position = "none", axis.title.x = element_blank()) +
               labs(title = "Scour Zones")
 
-dep_grad <- ggplot(data=deposit, aes(x = site, y = Gradient, fill = site)) + 
+dep_grad <- ggplot(data = deposit, aes(x = site, y = Gradient, fill = site)) + 
             geom_boxplot() + 
             ylim(0, 1) +
-            theme(legend.position = "none", axis.title.y = element_blank(), axis.text.y=element_blank(), axis.title.x=element_blank()) +
+            theme(legend.position = "none", axis.title.y = element_blank(), axis.text.y = element_blank(), axis.title.x = element_blank()) +
             labs(title = "Depositional Zones")
 
 patch <- scour_grad + dep_grad
-patch + plot_annotation(title='Gradient within impacted channels across the three study sites')
+patch + plot_annotation(title = 'Gradient within impacted channels across the three study sites')
 ```
 
-Tangential curvature is a measure of topographic confinement measured perpendicular to the downslope direction. I have set the sign on curvature so that positive values indicate concave up (swales, channels) and negative values indicate concave down (noses). Here are box plots for tangential curvature:
+As shown above, these three sites overlie different substrates. Mapleton is in marine sandstones, Tillamook in volcanics, and Vida in volcaniclastic rocks, so perhaps the differences in the distribution of gradients between sites reflects differences in underlying rock type. The maps shown in Figures show that channel impacts were mapped much further downstream at the Tillamook and Vida sites than at the Mapleton site. The following figure shows the distribution of gradients measured for each channel node through impacted channels as a function of drainage area. Drainage area provides an indication of channel size.
 
 ```{r}
-# Compare tangential curvature across sites
-scour_tan <- ggplot(data = scour, aes(x = site, y = Tan_Curv, fill = site)) + 
-             geom_boxplot() + 
-             ylim(-0.01, 0.07) +
-             theme(legend.position="none", axis.title.x = element_blank(), ) +
-             labs(title = "Scour Zones", y = "Tangential Curvature")
-
-dep_tan <- ggplot(data=deposit, aes(x = site, y = Tan_Curv, fill = site)) + 
-           geom_boxplot() + 
-           ylim(-0.01, 0.07) +
-           theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank()) +
-           labs(title = "Depositional Zones")
-
-patch <- scour_tan + dep_tan
-patch + plot_annotation(title='Tangential curvature within impacted channels across the three study sites')
+keep <- which(all_sites$Accum_km2 > 0.01)
+ggplot(data = all_sites[keep,], aes(x = Accum_km2, y = Gradient)) + 
+  geom_point(size = 1, alpha = 0.2, aes(col=Track_Type)) + 
+  geom_smooth(col='black') +
+  xlim(0.01, 100.) +  
+  ylim(0, 0.75) +
+  facet_wrap(~site, nrow = 3) + 
+  labs(title = "Gradient versus drainage area for channels with mapped debris-torrent impacts", subtitle = "Debris-torrent impacts were mapped further downstream at Tillamook and Vida than at Mapleton.\nHigh channel gradients persist further downstream at Tillamook and Vida than at Mapleton", x = "Drainage Area (sq km)", y = "Gradient") +
+  scale_x_continuous(trans = "log10") +
+  scale_colour_discrete(limits = c("Scour", "Transition", "Deposit"))
 ```
 
-Tangential curvatures are almost all positive, suggesting that these tracks are predominately in channels or swales, and values for depositional zones are consistently lower than for scour, indicating scour in more confined channels and deposition in less confined channels. Except for Mapleton, where tangential curvature through zones mapped as depositional appear no different than though zones mapped as scour. This is distinctly different than seen for Tillamook and Vida.
-
-All sites experience deposition over the same range of tangential curvatures, but Mapleton has a much larger proportion of the depositional zones in more confined channels. The maps shown in Figures @fig-TillamookData, @fig-VidaData, and @fig-MapletonData show that channel impacts were mapped much further downstream at the Tillamook and Vida sites than at the Mapleton site. The box plots below show how drainage area was distributed across the channels mapped with debris-torrent impacts at the three sites.
+Mapped channel impacts extended into larger channels - further downstream - at Tillamook and Vida than at Mapleton. This is evident as well in the maps shown in Figures @fig-TillamookData, @fig-VidaData, and @fig-MapletonData. The distribution of drainage area for channels in scour and depositional zones is thus very different across sites:
 
 ```{r}
 # Compare contributing area
@@ -503,7 +516,44 @@ patch <- scour_accum + dep_accum
 patch + plot_annotation(title='Drainage area (sq km) within impacted channels across the three study sites')
 ```
 
-Scour zones occupied about the same range of channel sizes (with a few larger outliers for Tillamook and Vida), but depositional zones were mapped through much larger channels at Tillamook and Vida than at Mapleton. As described in Robison [-@robison1999], field crews were mapping "debris-torrent" impacts. These may have included channel impacts associated with dam-break floods [@coho1993], migrating organic dams [@johnson1991], sediment waves [@miller2000], or hyperconcentrated flows [e.g., @jakob2007], which would extend further downstream than a debris-flow deposit. Our focus here is on debris flows, because debris flows are the process that carries sediment and large wood from upslope areas and headwater channels to fish-bearing streams. These other processes impact fish-bearing streams, but they are generally a consequence of a debris flow that deposits into a larger channel and the factors that affect the extent of these types of channel impacts are different than those that affect debris-flow runout. Lacking any field-based alternative, we use this dataset, but recognize that the calibrated model for probability of scour and deposition may be biased by the presence of channels that are probably downstream of actual debris-flow deposits.
+As described in Robison [-@robison1999], field crews were mapping "debris-torrent" impacts. These may have included channel impacts associated with dam-break floods [@coho1993], migrating organic dams [@johnson1991], sediment waves [@miller2000], or hyperconcentrated flows [e.g., @jakob2007], which would extend further downstream than a debris-flow deposit. Our focus here is on debris flows, because debris flows are the process that carries sediment and large wood from upslope areas and headwater channels to fish-bearing streams. These other processes impact fish-bearing streams, but they are generally a consequence of an upstream debris flow and the factors that affect the extent of these types of channel impacts are different than those that affect debris-flow runout. However, since field crews did not distinguish between these different types of debris-torrent impacts, we do not know which values reflect debris flows and which reflect other processes. The fact that some values might represent locations downstream of the extent of debris-flow runout is not intrinsically bad; this ensures that the measured values span the full range of potential debris-flow runout extents.
+
+The scatter plots above also show that the distribution of gradients within these channels is different for Mapleton. The black lines in the plots of gradient versus drainage area show a smoothed fit through the gradient points. These lines show that the high channel gradients (\~60%) close to the initiation sites drop off with drainage area more rapidly at Mapleton than at Tillamook or Vida. At 0.1 km^2^, the average gradient at Mapleton is around 25%; at Tillamook a bit above 40%, and at Vida a bit below 40%. The three sites occupy three distinctly different rock types. Perhaps these different substrates erode into different topographies that influence the extent of debris-flow runout differently. Fortunately, those differences in topography can be captured by differences in the distribution of topographic-attribute values measured for impacted channels, as shown in the plots of gradient and drainage area above.
+
+Tangential curvature is a measure of topographic confinement measured perpendicular to the downslope direction. I have set the sign on curvature so that positive values indicate concave up topography (swales, channels) and negative values indicate concave down (noses). Here are box plots for tangential curvature:
+
+```{r}
+# Compare tangential curvature across sites
+scour_tan <- ggplot(data = scour, aes(x = site, y = Tan_Curv, fill = site)) + 
+             geom_boxplot() + 
+             ylim(-0.01, 0.07) +
+             theme(legend.position="none", axis.title.x = element_blank(), ) +
+             labs(title = "Scour Zones", y = "Tangential Curvature")
+
+dep_tan <- ggplot(data=deposit, aes(x = site, y = Tan_Curv, fill = site)) + 
+           geom_boxplot() + 
+           ylim(-0.01, 0.07) +
+           theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank()) +
+           labs(title = "Depositional Zones")
+
+patch <- scour_tan + dep_tan
+patch + plot_annotation(title='Tangential curvature within impacted channels across the three study sites')
+```
+
+Tangential curvatures are almost all positive, suggesting that these tracks are predominately in channels or swales, and values for depositional zones are consistently lower than for scour, indicating scour in more confined channels and deposition in less confined channels. Except for Mapleton, where tangential curvature through zones mapped as depositional appear little different than though zones mapped as scour. This is distinctly different than seen for Tillamook and Vida. This reflects the extension of mapped impacts into larger channels at Tillamook and Vida: larger channels have lower tangential curvatures.
+
+```{r}
+keep <- which(all_sites$Accum_km2 > 0.01)
+ggplot(data = all_sites[keep,], aes(x = Accum_km2, y = Tan_Curv)) + 
+  geom_point(size = 1, alpha = 0.2, aes(col=Track_Type)) + 
+  geom_smooth(col='black') +
+  xlim(0.01, 100.) +  
+  facet_wrap(~site, nrow = 3) + 
+  labs(title = "Tangential curvature versus drainage area for channels with mapped debris-torrent impacts", subtitle = "Upslope swales have lower curvature, midslope channels high, and downstream depositional zones low", x = "Drainage Area (sq km)", y = "Tangential Curvature") +
+  scale_x_continuous(trans = "log10") +
+  scale_colour_discrete(limits = c("Scour", "Transition", "Deposit"))
+
+```
 
 Profile curvature indicates changes in gradient along a flow path. I set positive values as concave upwards, so larger profile curvature indicates zones where gradient is decreasing. Large reductions in gradient can occur at tributary junctions. The distribution of profile curvature values along the mapped tracks are shown in the box plots below for the three sites. There is a slight increase in profile curvature values through zones of deposition, but with a great deal of overlap.
 
@@ -525,20 +575,43 @@ patch <- scour_prof + dep_prof
 patch + plot_annotation(title='Profile curvature within impacted channels across the three study sites')
 ```
 
-These three sites fall almost entirely in different rock types. Mapleton is in sedimentary rocks, Tillamook in volcanic, and Vida in volcaniclastic.
-
 ```{r}
-all_sites$rock <- case_match(all_sites$geo,"1"~"Sedimentary","2"~"Volcanic","3"~"Igneous","4"~"Volcaniclastic","5"~"Unconsolidated")
-ggplot(data=all_sites) + 
-  geom_bar(mapping=aes(x=site,fill=rock),col='black',position='fill') +
-  labs(title='Rock types encountered at the three study sites',y='Proportion of impacted channel length') +
-  theme(axis.title.x = element_blank()) +
-  scale_fill_discrete(name="Rock Type")
+keep <- which(all_sites$Accum_km2 > 0.01)
+ggplot(data = all_sites[keep,], aes(x = Accum_km2, y = Norm_Curv)) + 
+  geom_point(size = 1, alpha = 0.2, aes(col=Track_Type)) + 
+  geom_smooth(col='black') +
+  xlim(0.01, 100.) + 
+  ylim(-0.01,0.05) +
+  facet_wrap(~site, nrow = 3) + 
+  labs(title = "Profile Curvatue versus drainage area for channels with mapped debris-torrent impacts", subtitle = "High profile curvature is associated with depositional zones downstream", x = "Drainage Area (sq km)", y = "Normal Curvature") +
+  scale_x_continuous(trans = "log10") +
+  scale_colour_discrete(limits = c("Scour", "Transition", "Deposit"))
+
 ```
 
+The box plots below show the distribution of estimated stand ages encountered along the mapped runout tracks. There is no obvious pattern differentiating stand ages between scoured and depositional zones.
+
+```{r}
+# Compare stand age
+scour_age <- ggplot(data = scour, aes(x = site, y = age, fill = site)) + 
+             geom_boxplot() +
+             ylim(0, 200) + 
+             theme(legend.position = "none", axis.title.x = element_blank()) +
+             labs(title = "Scour Zones", y = "Stand age")
+
+dep_age <- ggplot(data=deposit, aes(x = site, y = age, fill = site)) + 
+            geom_boxplot() + 
+            ylim(0, 200) +
+            theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x=element_blank()) +
+            labs(title = "Depositional Zones")
+
+patch <- scour_age + dep_age
+patch + plot_annotation(title='Estimated stand ages encountered within impacted channels across the three study sites')
+```
 
 ### Probability of Scour and Deposition
-We now have five candidate predictors: gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. I'll use mlr3 to build and evaluate potential classification models. Define a classification task.
+
+We have five candidate predictors: gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. I'll use mlr3 to build and evaluate potential classification models. Define a classification task.
 
 ```{r}
 # exclude site
@@ -603,7 +676,7 @@ gradEffects <- ggplot(data=grad, aes(x=.borders, y=.value, col=.class)) +
   geom_line(size=2) +
   labs(x="Gradient", y="Effect")
 
-gradEffects + scale_color_discrete(name="Track Type", labels=c("Deposit", "Scour", "Transitional"), values=cbbPalette)
+gradEffects + scale_color_discrete(name="Track Type", labels=c("Deposit", "Scour", "Transitional"))
 ```
 
 ODF 1996 Storm Study survey data
