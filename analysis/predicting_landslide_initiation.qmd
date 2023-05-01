@@ -12,14 +12,14 @@ library(terra)
 # for modeling
 library(mlr3)
 library(mlr3spatial)
-library(mlr3spatiotempcv)
-library(mlr3pipelines)
-library(mlr3learners)
+# library(mlr3spatiotempcv)
+# library(mlr3pipelines)
+# library(mlr3learners)
 
 # for visualizations
 library(ggplot2)
-library(tidyterra)
-library(viridis)
+# library(tidyterra)
+# library(viridis)
 
 # basics
 library(data.table)
@@ -292,7 +292,7 @@ total_pts <- length(pts_prob$ID)
 
 # get the cumulative area (already calculated) and calculate the cumulative landslides
 pts_cumul <- proportions[J(pts_prob$prob.pos), roll = "nearest"]
-pts_cumul$ls.prop = seq(1, 9) / total_pts
+pts_cumul$ls.prop = seq(1, length(pts_cumul$x)) / total_pts
 
 # add the origin and a point at (1, 1) to make the graphs prettier
 pts_cumul <- rbind(0, pts_cumul, fill = TRUE)
@@ -339,32 +339,113 @@ I think this will be one large for loop that iterates once per basin. I may brea
 
 ```{r}
 # replace these with the respective file paths to your DEMs
-dir = "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
-basin_list = c(paste0(dir, "Umpqua/basin_1/"),
-               paste0(dir, "Umpqua/basin_2/"))
+basin_list = c("Umpqua/basin_1", 
+               "Umpqua/basin_2",
+               "Umpqua/basin_3",
+               "Umpqua/basin_4",
+               "Umpqua/basin_5",
+               "Umpqua/basin_6",
+               "Umpqua/basin_7",
+               "Umpqua/basin_8",
+               "Umpqua/basin_9",
+               "Umpqua/basin_10",
+               "Umpqua/basin_11",
+               "Umpqua/basin_12",
+               "Umpqua/basin_13",
+               "Umpqua/basin_14",
+               "Umpqua/basin_15",
+               "Umpqua/basin_16",
+               "Umpqua/basin_17")
+
+# basin_list = c(paste0(dir, "Umpqua/basin_1/"),
+#                paste0(dir, "Umpqua/basin_2/"))
                # paste0(dir, "Umpqua/basin_3/"),
                # paste0(dir, "Umpqua/basin_4/"))
 ```
 
-A note: this code assumes we already have a trained model to use for predictions. The learner we are using here comes from the code above.
+#### For calculating elevation derivatives: 
+
+This code only needs to be run once. Eventually, I will remove it from this document.
 
 ```{r}
+dem_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+dir = "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/predicting_input/"
+dem_dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+
+
+
+for (basin in basin_list) {
+  rasters <- c(paste0("GRADIENT,", dir, basin, "/gradient"),
+               paste0("MEAN CURVATURE,", dir, basin, "/mean_curv"))
+  
+  print(rasters)
+  
+  length_scale <- 15
+  
+  dir.create(paste0(dir, basin))
+  
+  rasters <- elev_deriv(rasters = rasters,
+                  length_scale = length_scale,
+                  dem = paste0(dem_dir, basin, ".flt"),
+                  scratch_dir = paste0(dir, basin))
+}
+```
+
+Short utility script for copying the partial contributing area files downloaded from sharefile into the folders structure that will be easy for me to use.
+
+```{r}
+dem_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+pca_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/pca/"
+
+count <- 1
+
+for (basin in basin_list) {
+  target_dir <- paste0(dir, basin, "/")
+  target_file <- paste0(pca_dir, "pca_6_", count)
+  
+  target_files <- list.files(pca_dir, paste0("^pca_6_", count, "\\."), full.names = TRUE)
+  file.copy(target_files, target_dir)
+  
+  count <- count + 1
+  
+}
+```
+
+A note: this code assumes we already have a trained model to use for predictions. The learner we are using here comes from the code above. I am timing each iteration of the loop to get an idea of how long it will take to run. So far, we are hovering around 50 seconds for one basin.
+
+TODO: figure out how to crop the points and add the observed landslides to a data frame to compare. This was relatively simple above, so shouldn't be too hard to figure out.
+
+```{r}
+dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+
 model <- logreg_learner
 bins <- as.data.table(seq(0, max(proportions$prob.pos), length.out = 500))
 names(bins) <- c("probability") 
 
+count <- 1
+
 cumul_prop <- data.frame("area" = rep(0, 500), 
                          "prob" = rep(0, 500))
+
+pts_prop <- data.frame("x" = 0, 
+                       "y" = 0,
+                       "prob.pos" = 0, 
+                       "prob.cumsum" = 0, 
+                       "area.cumsum" = 0, 
+                       "ls.prop" = 0)
 
 for (basin in basin_list) { 
   
   tic(msg = paste0("loop for ", basin))
 
   # find and load the data files
-  topo_files <- c(paste0("GRADIENT,", basin, "gradient.flt"),
-                paste0("MEAN CURVATURE,", basin, "mean_curv.flt"))
+  topo_files <- c(paste0("GRADIENT,", dir, basin, "/gradient.flt"),
+                paste0("MEAN CURVATURE,", dir, basin, "/mean_curv.flt"))
   topo_rast <- elev_deriv(rasters = topo_files)
-  pca_rast <-  contributing_area(raster = paste0(basin, "pca_k1_d48.flt"))
+  pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_", count, ".flt"))
+  count <- count + 1
   rasters <- c(topo_rast, pca_rast)
   
   names(rasters) <- c("gradient", "mean_curv", "pca_k1_48")
@@ -402,6 +483,20 @@ for (basin in basin_list) {
   cumul_prop$area <- cumul_prop$area + binned_prop$area.cumsum
   cumul_prop$prob <- cumul_prop$prob + binned_prop$prob.cumsum
   
+  pts_local <- crop(pts, rasters)
+  # extract the probability values for the test points
+  pts_prob <- extract(prob_rast, pts_local, xy = TRUE)
+  pts_prob <- pts_prob[!is.na(pts_prob$prob.pos), ]
+  setorder(pts_prob, "prob.pos")
+  
+  total_pts <- length((pts_prob$prob.pos))
+
+  # get the cumulative area (already calculated) and calculate the cumulative landslides
+  pts_cumul <- proportions[J(pts_prob$prob.pos), roll = "nearest"]
+  pts_cumul$ls.prop = seq(1, length(pts_cumul$x)) / total_pts
+
+  pts_prop <- rbind(pts_prop, pts_cumul)
+  
   toc()
 }
 
@@ -412,7 +507,12 @@ total_prob <- max(cumul_prop$prob)
 cumul_prop$area_prop <- cumul_prop$area / total_area
 cumul_prop$prob_prop <- cumul_prop$prob / total_prob
 
+dt <- cbind(bins, cumul_prop)[J(pts_prop$prob.pos), roll = "nearest", on = "probability"]
+pts_prop$area_prop <- dt$area_prop
+
 ```
+
+With basins combined, we see a slightly different shape in the curves. The proportions of area and probability jump up greatly at smaller probabilities, indicating that
 
 ```{r}
 ggplot(cbind(bins, cumul_prop)) + 
@@ -420,6 +520,14 @@ ggplot(cbind(bins, cumul_prop)) +
   geom_point(aes(x = probability, y = prob_prop), color = "red") + 
   geom_line(aes(x = probability, y = area_prop), color = "lightblue") +
   geom_point(aes(x = probability, y = area_prop), color = "lightblue") + 
-  geom_line(data = pts_cumul, aes(x = prob.pos, y = ls.prop)) + 
-  geom_point(data = pts_cumul, aes(x = prob.pos, y = ls.prop))
+  geom_line(data = pts_prop, aes(x = prob.pos, y = ls.prop)) + 
+  geom_point(data = pts_prop, aes(x = prob.pos, y = ls.prop))
+```
+
+```{r}
+ggplot(cbind(bins, cumul_prop)) + 
+  geom_line(aes(x = area_prop, y = prob_prop), color = "red") + 
+  geom_point(aes(x = area_prop, y = prob_prop), color = "red")  +
+  geom_line(data = pts_prop, aes(x = area_prop, y = ls.prop), color = "black") +
+  geom_point(data = pts_prop, aes(x = area_prop, y = ls.prop), color = "black")
 ```
