@@ -82,9 +82,9 @@ The Miller-Burnett models were developed for the Coastal Analysis and Modeling S
 
 Although modeling approaches have evolved since 2008 (see the discussion), the Miller-Burnett models continue to offer unique capabilities. In particular, they provide calculations of runout probability from every DEM cell with a nonzero probability of landslide initiation. This capability provided the means for two primary analyses used for the PFA steep-slope prescriptions:
 
-1.  Delineation of nonfish-bearing channels that may be traversed by a debris-flow originating upslope and ranking these channels by the probability that a traversing debris flow will continue downstream and deliver material to a fish-bearing channel.
+1.  Delineation of nonfish-bearing channels that may be traversed by a debris-flow originating upslope and ranking these channels by the probability that a traversing debris flow will continue downstream and deliver material to a fish-bearing channel. These are the "Debris-flow traversal areas" defined in the PFA report [@odf2022 page 30].
 
-2.  Delineation of upslope source areas for debris flows that can travel to fish-bearing streams and ranking of those source areas in terms of the likely volume of material delivered.
+2.  Delineation of upslope source areas for debris flows that can travel to fish-bearing streams and ranking of those source areas in terms of the likely volume of material delivered. These are the "Sediment Source Areas" [@odf2022 page 31].
 
 Tracking all potential debris-flow tracks from every potential source is a huge computational task that this model handles through use of survival analysis [@kalbfleisch2002]. Survival analsyis is a statistical technique used extensively in medical and engineering analyses to quantify effects of environmental factors on expected lifespans and time to failure (e.g., of people or machine parts), but which had not been used previously for analysis of debris-flow runout. Miller and Burnett [-@miller2008] developed a survival-analysis approach in which the "lifespan" of a debris flow is measured in terms of runout distance, rather than time. This is a computationally efficient algorithm with which the runout probability for the many millions of potential initiation sites across a region can be calculated while accounting for environmental conditions point-by-point along each potential runout track.
 
@@ -332,17 +332,23 @@ $$
 V_I = l_I w_I d,
 $$ {#eq-initVol}
 
-where $l_I$ and $w_I$ are the average length and width of initiating landslides and $d$ is the soil depth at the initiation site based on Equations @eq-meanDepth and @eq-scourVol above.
+where $l_I$ and $w_I$ are the average length and width of initiating landslides and $d$ is the soil depth at the initiation site based on Equations @eq-meanDepth and @eq-scourVol above. So the total mobilized volume at any point $x$ along a debris-flow track is estimated as
+
+$$
+V_S(x) = V_I + \bar{w} \sum_{i=1}^n ({P_{Si} d_i \Delta l_i})
+$$ {#eq-Vs}
+
+with the sum over the $n$ track increments from the initiation point to location $x$ along the track.
 
 #### Deposited Volume
 
-Iverson et al. [-@iverson1998] described scaling relationships between lahar volume and the resulting deposit cross-sectional and planimetric areas. Schilling [-@schilling1998] then implemented these relationships into a GIS program ([LAHARZ](https://data.usgs.gov/modelcatalog/model/5db1512e-7cfd-4916-9f97-d52528eadf75)) for mapping areas susceptible to inundation by a lahar. Subsequently, Griswold and Iverson [-@griswald2008] showed that similar scaling relationships hold for debris-flow and rock-fall deposits, reporting that the cross-sectional and planimetric area of a deposit is proportional to its volume taken to the two-thirds power. Miller and Burnett [-@miller2008] then used that relationship to constrain the volume of material deposited through zones of debris-flow deposition based on the total scoured volume. We follow a similar strategy here. The volume deposited over any incremental segment of a debris-flow track is assumed proportional to the total volume scoured up to that increment:
+Iverson et al. [-@iverson1998] described scaling relationships between lahar volume and the resulting deposit cross-sectional and planimetric areas. Schilling [-@schilling1998] then implemented these relationships into a GIS program ([LAHARZ](https://data.usgs.gov/modelcatalog/model/5db1512e-7cfd-4916-9f97-d52528eadf75)) for mapping areas susceptible to inundation by a lahar. Subsequently, Griswold and Iverson [-@griswald2008] showed that similar scaling relationships hold for debris-flow and rock-fall deposits, reporting that the cross-sectional and planimetric area of a deposit is proportional to its volume taken to the two-thirds power. Miller and Burnett [-@miller2008] then used that relationship to constrain the volume of material deposited through zones of debris-flow deposition based on the total scoured volume. We follow a similar strategy here. The volume deposited over any incremental segment of a debris-flow track is assumed proportional to the total volume scoured up to that increment, so the total deposited volume at a point $x$ along a debris-flow track is estimated as
 
 $$
-\Delta V_D \propto P_D V_S^{2/3} \Delta l.
+V_D(x) = \sum_{i=1}^{n} \Delta V_{Di} = a \sum_{i=1}^{n} (P_{Di} V_S(x)^{2/3} \Delta l_i),
 $$ {#eq-DepVol}
 
-Following Miller and Burnett [-@miller2008], we use the distribution of volume ratios ($V_D/V_S$) for debris-flow tracks in the inventory to set the constant of proportionality. The volume ratios calculated for The value of that constant shifts the distribution of modeled volume ratios Miller and Burnett set that constant so that the median volume ratio calculated for runout tracks in the 1996 Storm inventory had a value of one; when the modeled deposited volume equaled the modeled scoured volume. Here we set the constant so that 95% of the runout tracks have calculated volume ratios of one or less. We will use estimates of deposited volume to characterize debris-flow source areas (the initiation zones) in terms of sediment flux to the fish-bearing channel network. There cannot be a greater volume deposited than scoured.
+where $a$ is an empirical constant. Following Miller and Burnett [-@miller2008], we use the distribution of volume ratios ($V_D/V_S$) for debris-flow track end points in the inventory to set the constant of proportionality. Miller and Burnett set that constant so that the median volume ratio calculated for runout tracks in the 1996 Storm inventory had a value of one; that is, for half the observed tracks, the calculated $V_D/V_S$ values were less than one ($V_D < V_S$) and for the other half it was greater than one. Here we set the constant so that 95% of the runout tracks have calculated volume ratios of one or less. We will use estimates of deposited volume to characterize debris-flow source areas (the initiation zones) in terms of sediment flux to the fish-bearing channel network. There cannot be a greater volume deposited than scoured.
 
 ### Substrate
 
@@ -373,9 +379,9 @@ Several studies suggest that debris-flow runout is reduced with increasing numbe
 
 The [LEMMA](https://lemma.forestry.oregonstate.edu/) project provides estimates for a large variety of stand characteristics for Washington, Oregon, and California. These are provided as raster files with 30-meter horizontal resolution. For this analysis, I used the "[Basal area weighted stand age based on dominant and co-dominant trees](https://lemmadownload.forestry.oregonstate.edu/)" for 2017.
 
-## Characterization of Source Areas in terms of Delivered Volume
+## Sediment Source Areas
 
-With descriptions of the methods used to estimate scoured and deposited volumes along debris-flow tracks, we can address the second goal of the PFA steep-slopes analysis: delineation of upslope source areas ranked by volume flux
+For the PFA, sediment source areas are those upslope sites from which the debris flows that carry material to fish-bearing streams originate, ranked in terms of the relative volume of material delivered. The methods described above provide the means for delineating and ranking these areas. The modeled probability of landslide initiation shows where debris-flow-triggering landslides can occur (Figure @fig-InitProb). The modeled probability for delivery from each initiation site to a fish-bearing stream (Figure @fig-Deliv) shows which of those sites can produce debris flows capable of traveling to fish-bearing streams (Figure @fig-InitDeliv). For each possible debris-flow track, the volume scoured
 
 ## Data
 
