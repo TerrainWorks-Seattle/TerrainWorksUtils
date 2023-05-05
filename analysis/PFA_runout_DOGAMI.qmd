@@ -381,7 +381,25 @@ The [LEMMA](https://lemma.forestry.oregonstate.edu/) project provides estimates 
 
 ## Sediment Source Areas
 
-For the PFA, sediment source areas are those upslope sites from which the debris flows that carry material to fish-bearing streams originate, ranked in terms of the relative volume of material delivered. The methods described above provide the means for delineating and ranking these areas. The modeled probability of landslide initiation shows where debris-flow-triggering landslides can occur (Figure @fig-InitProb). The modeled probability for delivery from each initiation site to a fish-bearing stream (Figure @fig-Deliv) shows which of those sites can produce debris flows capable of traveling to fish-bearing streams (Figure @fig-InitDeliv). For each possible debris-flow track, the volume scoured
+For the PFA, sediment source areas are those upslope sites from which the debris flows that carry material to fish-bearing streams originate, ranked in terms of the relative volume of material delivered. The methods described above provide the means for delineating and ranking these areas. The modeled probability of landslide initiation shows where debris-flow-triggering landslides can occur (Figure @fig-InitProb). The modeled probability for delivery from each initiation site to a fish-bearing stream (Figure @fig-Deliv) shows which of those sites can produce debris flows capable of traveling to fish-bearing streams (Figure @fig-InitDeliv). For each possible debris-flow track, the modeled volume scoured minus the modeled volume deposited at the intersection with a fish-bearing channel gives the modeled volume delivered. That volume can be associated with the DEM cell where the debris-flow track initiated to produce a map of modeled delivered volumes.
+
+![](images/DeliveredVolume.jpg){#DeliveredVolume fig-align="center" width="6in"}
+
+The resulting delivered volume is a function of the attributes along the debris-flow track that influence modeled soil depths and the probabilities for scour or deposition. This value reflects the volume associated with a single modeled debris flow. Any initiation site, however, produces a debris flow very rarely; it may take centuries for soils to accumulate to sufficient depth for another landslide to occur. To anticipate the spatial pattern of sediment source areas for a channel network for any point in time, or over some period of time, we need to account for the relative frequency with which initiation events occur. This frequency is related to the probability of initiation and delivery. Of two randomly chosen initiation sites, one with a probability of initiation and delivery of 0.002 is twice as likely to be within a landslide scar as a site with a probability of 0.001. We interpret this to also imply that a site with a probability of 0.002 has a debris-flow-triggering landslide twice as often as a site with a probability of 0.001. We therefore use the modeled probability of initiation and delivery as a measure of the relative frequency with which landslides that trigger delivering debris flows occur. An example of the modeled probability of initiation and delivery was shown in Figure @fig-InitDeliv. Multiplying the modeled delivered volume of material (Figure @fig-DeliveredVolume) by the probability of initiation and delivery gives a map of source areas in terms of the expected long-term average delivered volume.
+
+![](images/DelivVolMean.jpg){#LongTermVol fig-align="center" width="6in"}
+
+The "long-term average annual delivered volume" as depicted in the above image is potentially a bit misleading. It does not indicate anything about the pattern that would be observed in any particular year. An initiated debris flow might deliver tons of sediment, but only occur once every 4 centuries. Those tons contribute to the annual average, but there is delivery from that site only one out of every 400 years; the other 399 have no delivery, but the annual average applies to all of them.
+
+An alternative perspective is to characterize source areas in terms of the proportion of debris-flow material delivered to the entire fish-bearing channel network. We can infer that proportion from these results, but we need to choose what portion of the channel network to examine. Earlier, when looking at nonfish channels in terms of the proportion of debris-flow-track length connected to the fish-bearing network (Figure @fig-TravPropMap), we calculated that proportion over all nonfish channels in a Hydrologic Unit Code 8 (HUC8) basin. A different spatial scale was chosen for the sediment source areas. For these, the PFA authors chose to calculate the proportion based on sediment supply from within the drainage area to a nonfish-to-fish channel-type transition. These delineate the "debris-flow traversal-area sub-basins" defined in the PFA report (@odf2022 page 31). Sediment source areas are parsed into zones based on the proportion of total sediment supply to the fish-bearing channel originating solely from within each sub-basin. This is illustrated in the map below.
+
+![](images/PropSed.jpg){#fig-PropSed fig-align="center" width="6in"}
+
+Note that every sub-basin, even the smallest, have the source areas parsed into proportional zones spanning the entire range from greater than zero to 100%. Sediment source areas are identified within each sub-basin independently of all the others. The PFA prescriptions identify "designated sediment source areas" as those within sub-basins draining to debris-flow traversal-zone channels in the top 20% proportion bracket (@odf2022 page 31). The debris-flow-traversal-zone channels are shown in Figure @fig-TravPropMap. For this example, there are five channels that meet this criterion. Within those channels, only those sediment-source-area zones in the top 33% proportion bracket are identified as "designated sediment source areas". These are shown below:
+
+![](images/Designated.jpg){#fig-designated width="6in"}
+
+Because each sub-basin is examined independently, the terrain that meets the top 33% proportion criterion can differ from sub-basin to sub-basin. Note the large, western-most sub-basin: almost all of the top 33% zone drains to the eastern-most channel. Other channels within that sub-basin drain terrain with characteristics that in some other sub-basin would fall within the 33% bracket, but here do not. This choice for the spatial scale seeks to maintain sediment and wood supply to fish-bearing channels over an area local and specific to each nonfish channels that acts as debris-flow corridor into a fish-bearing stream.
 
 ## Data
 
@@ -689,31 +707,11 @@ gradEffects <- ggplot(data=grad, aes(x=.borders, y=.value, col=.class)) +
 gradEffects + scale_color_discrete(name="Track Type", labels=c("Deposit", "Scour", "Transitional"))
 ```
 
-ODF 1996 Storm Study survey data
-
-Overlay with digital data
-
-Predictors: Gradient, Tangential Curvature, Normal Profile Curvature, Stand Age, Geology
-
-Multinomial logistic regression
-
 ### Baseline Survival Curve
 
 Compare empirical distributions
 
 Exponential, Weibull, and Log-Normal parametric distributions
-
-### Survival Covariates
-
-Volume Ratio - integrates conditions of upslope travel path.
-
-Gradient, Tangential Curvature
-
-Stand Age
-
-### Delivered Volume
-
-Distribution of volume-ratio volume values; setting alpha
 
 ## Results
 
