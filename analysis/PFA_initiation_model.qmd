@@ -1,8 +1,18 @@
 ---
-title: "Landslide initiation model"
-author: Julia Lober
-format: html
+title: "PFA Landslide Initiation Model"
+author: "Julia Lober"
+format: 
+  html:
+    toc: true
+    number-section: true
+    highlight-style: github
+date: May 1, 2023
 editor: visual
+params: 
+  data_dir: 
+    label: Data Directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/out/
+    input: text
 ---
 
 ```{r setup}
@@ -15,6 +25,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r load, include = FALSE}
+# Modeling packages
 library(mlr3)
 library(mlr3spatial)
 library(mlr3spatiotempcv)
@@ -32,16 +43,16 @@ library(ranger)
 # Packages for other things
 library(terra)
 library(ggplot2)
+library(viridis)
+library(patchwork)
 library(ggpubr)
 library(maps)
 library(tidyterra)
 ```
 
-## Landslide Initiation susceptibility model for the Private Forest Accord
+# Landslide initiation susceptibility model for the Private Forest Accord
 
-This document outlines the process for making the landslide initiation model for the Oregon Private Forest Accord project. We work with data generated from the PFA_Sampling_Multiple_DEMs document that is included in this package. This document outlines in more detail where the data for different predictors is sourced and the strategy for negative sampling.
-
-The primary focus of this document is to outline the model-building process and decisions that resulted in the final model used in combination with the landslide runout model to generate riparian buffers for the Private Forest Accord. Broadly speaking, there were 3 major decisions made in this process:
+This document outlines the process for making the landslide initiation model for the Oregon Private Forest Accord project. We work with data generated from the PFA_Sampling_Multiple_DEMs document that is included in this package. The primary focus of this document is to show the model-building process and decisions that resulted in the final model used in combination with the landslide runout model to generate riparian buffers for the Private Forest Accord. Broadly speaking, there were 3 major decisions made in this process:
 
 1.  A method for feature selection.
 
@@ -49,19 +60,39 @@ The primary focus of this document is to outline the model-building process and 
 
 3.  A spatio-temporal resampling strategy.
 
-### About the data
+## The data
+
+Locate the data files and assemble into one data frame for model training. We use the natural log the partial contributing area values, as it shows a much more symmetrical distribution, which should be a better input for the model.
 
 ```{r}
-#| echo: false
-source("../R/create_model_dataframe.R")
-sample_pnts <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
-sample_pnts$geo <- as.factor(sample_pnts$geo)
-sample_pnts$gradient_sq <- sample_pnts$gradient ^ 2
-sample_pnts$grad_by_pca <- sample_pnts$gradient * sample_pnts$pca_k1_48
+# Load all of the data
+list_files <- c("ls_1996.Rdata", "ls_2007.Rdata", "ls_2011.Rdata", 
+                "nonls_1996.Rdata", "nonls_2007.Rdata", "nonls_2011.Rdata")
+capture.output(lapply(paste0(params$data_dir, list_files), load, .GlobalEnv), file = 'NUL')
+ls_2011$geo <- ls_2011$geo$GeoClass
+ls_2007$geo <- ls_2007$geo$GeoClass
 
-all_neg <- rbind(nonls_1996, nonls_2007, nonls_2011)
-all_neg$gradient_sq <- all_neg$gradient ^ 2
-all_neg$grad_by_pca <- all_neg$gradient * all_neg$pca_k1_48
+# Concatenate into one data frame
+data <- rbind(transform(ls_1996, year = "1996"),
+              transform(ls_2007, year = "2007"),
+              transform(ls_2011, year = "2011"),
+              transform(nonls_1996, year = "1996"),
+              transform(nonls_2007, year = "2007"),
+              transform(nonls_2011, year = "2011"))
+
+sample_pnts <- data[!(is.na(data$dist_to_road)), 2:length(data)]
+sample_pnts$geo <- as.factor(sample_pnts$geo)
+sample_pnts$class <- as.factor(sample_pnts$class)
+
+# Take the natural log of the PCA values for a more uniform distribution
+sample_pnts$ln_pca_k1_48 <- log(sample_pnts$pca_k1_48)
+sample_pnts$ln_pca_k1_24 <- log(sample_pnts$pca_k1_24)
+sample_pnts$ln_pca_k1_12 <- log(sample_pnts$pca_k1_12)
+sample_pnts$ln_pca_k1_6 <- log(sample_pnts$pca_k1_6)
+
+# Add a few transformed parameters to look at 
+sample_pnts$gradient_sq <- sample_pnts$gradient ^ 2
+sample_pnts$grad_by_pca <- sample_pnts$gradient * sample_pnts$ln_pca_k1_48
 
 ```
 
@@ -78,128 +109,184 @@ load("/Users/julialober/Documents/terrainworks/code/sandbox/data/oregon_map.Rdat
 ggplot() + 
   geom_polygon(data = oregon, mapping = aes(x = long, y = lat),
                color = "white", fill = "white") +
-  # geom_spatvector(data = points[points$class == "neg", ],
-  #                 mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
-  #                 show.legend = TRUE, size = 1 , color = "black", alpha = 1) +
   geom_spatvector(data = points[points$class == "pos", ],
-                  mapping = aes(shape = as.factor(points[points$class == "pos", ]$yr)),
-                  show.legend = TRUE, size = 1, color = "red", alpha = 0.4) +
-  scale_shape_manual(values = c(3, 1, 17), labels = c("1996 (213)", "2007 (137)", "2011 (47)")) + 
-  labs(x = "Longitude", y = "Latitude", shape = "Study points (count)")
+                  mapping = aes(color = as.factor(points[points$class == "pos", ]$yr), shape = as.factor(points[points$class == "pos", ]$yr)),
+                  show.legend = TRUE, size = 1, alpha = 0.6) +
+  scale_color_manual(name = "Landslide points (count)", values = viridis(4)[1:3], labels = c("1996 (213)", "2007 (137)", "2011 (47)")) + 
+  scale_shape_manual(name = "Landslide points (count)",values = c(1, 4, 17), labels = c("1996 (213)", "2007 (137)", "2011 (47)")) + 
+  labs(x = "Longitude", y = "Latitude")
 ```
 
-The data includes 767 landslide initiation points, with equal proportions of landslide points and non-landslide points. The data has obvious spatial distributions and is divided into 3 approximate year groups. Exact dates for the landslide record were not always available, so these should be viewed as groupings rather than divisions.
+The data includes 397 landslide initiation points from the inventory assembled by the Oregon Department of Geology and Mineral Resources, and combine data points from a couple different storm studies. There are 3 broad temporal groupings roughly corresponding to the years 1996, 2007, and 2011. The majority of the points come from the 1996 storm study.
+
+The reader should refer for PFA_Sampling_Multiple_DEMs for details on how the negative points are selected. We use an imbalanced sample with 10x the number of non-landslide points as landslide points. The benefit of using more non-landslide points is a more accurate representation of the non-landslide area. An imbalanced sample for our linear regression model is likely to change the magnitude of the probabilities outputted but shouldn't change the marginal probabilities. Since much of our model analysis will be a comparison of proportions, where probabilities are integrated over total probabilities and area to produce a value for number of landslides, a uniform change in probabilities shouldn't impact our observations too much.
+
+### Covariates
+
+Candidate covariates were chosen based on our understanding of the physical properties that control landslide initiation. These include physical elevation derivatives calculated based on lidar DEMs, partial contributing area for a given storm duration, total contributing area, stand age, distance to a road, and geological sediment type. Although we look at models that include stand age and distance to a road, these covariates should actually be left out of the final model as they will change over time.
+
+The elevation derivatives that we consider are mean curvature and gradient (or slope angle). These were selected on the basis of the stability model which includes those as inputs for determining when a slope will fail. Steeper slopes are more likely to slide, as are more convergent slopes(?). Partial contributing area is calculated based on a hydraulic conductivity for the soil (which we assign a value of 1) and the storm duration. We looked at a variety of storm durations, since that reflects the conditions that we are actually interested in.
 
 It is helpful to look at the how the distributions of predictors vary between our landslide points and our non-landslide points. This informs our expectations for which features will be the most important for the model and increases our confidence in the results of feature selection processes.
 
 ```{r}
 #| echo: false
-neg_pts <- sample_pnts[(sample_pnts$class == "neg"), ]
-pos_pts <- sample_pnts[(sample_pnts$class == "pos"), ]
 
-p1 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = gradient, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = gradient, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = gradient), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = gradient), color = "black") + 
-  geom_density(data = pos_pts, aes(x = gradient), color = "red") 
+p1 <- ggplot(data = sample_pnts) + 
+  geom_density(aes(x = gradient, fill = class), alpha = 0.4, color = NA) + 
+  labs(x = "Gradient", y = "") + 
+  # scale_color_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "")
 
-p2 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = mean_curv, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = mean_curv, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = mean_curv), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = mean_curv), color = "black") + 
-  geom_density(data = pos_pts, aes(x = mean_curv), color = "red")
+p2 <- ggplot(data = sample_pnts) + 
+  geom_density(aes(x = mean_curv, fill = class), alpha = 0.4, color = NA) +
+  labs(x = "Mean curvature", y = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "")
 
-p3 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = pca_k1_48, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = pca_k1_48, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = pca_k1_48), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = pca_k1_48), color = "black") + 
-  geom_density(data = pos_pts, aes(x = pca_k1_48), color = "red") 
+p3 <- ggplot(data = sample_pnts) + 
+  geom_density(aes(x = ln_pca_k1_48, fill = class), alpha = 0.4, color = NA) +
+  labs(x = "ln(PCA), 48 hr duration", y = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "")
 
-p4 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = age, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = age, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = age), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = age), color = "black") + 
-  geom_density(data = pos_pts, aes(x = age), color = "red") + 
+p4 <- ggplot(data = sample_pnts) + 
+  geom_density(aes(x = age, fill = class), alpha = 0.4, color = NA) +
+  labs(x = "Stand age", y = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "") + 
   xlim(0, 300)
 
-p5 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = dist_to_road, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = dist_to_road, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = dist_to_road), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = dist_to_road), color = "black") + 
-  geom_density(data = pos_pts, aes(x = dist_to_road), color = "red") + 
+p5 <- ggplot(data = sample_pnts) + 
+  geom_density(aes(x = dist_to_road, fill = class), alpha = 0.4, color = NA) +
+  labs(x = "Distance to a road", y = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "") + 
   xlim(0, 600)
 
-p6 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = grad_by_pca, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = grad_by_pca, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = grad_by_pca), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = grad_by_pca), color = "black") + 
-  geom_density(data = pos_pts, aes(x = grad_by_pca), color = "red")
+p6 <- ggplot(data = sample_pnts) + 
+  geom_density(aes(x = grad_by_pca, fill = class), alpha = 0.4, color = NA) +
+  labs(x = "Gradient * ln(PCA), 48 hr duration", y = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "")
 
-p7 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = pca_k1_6, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = pca_k1_6, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = pca_k1_6), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = pca_k1_6), color = "black") + 
-  geom_density(data = pos_pts, aes(x = pca_k1_6), color = "red")
+p7 <- ggplot(data = sample_pnts) +
+  geom_density(aes(x = ln_pca_k1_6, fill = class), alpha = 0.4, color = NA) +
+  labs(x = "ln(PCA), 6 hr duration", y = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "")
 
-p8 <- ggplot(data = training_data) + 
-  geom_histogram(data = neg_pts, aes(x = total_accum, y = ..density..), fill = "black", alpha = 0.4) + 
-  geom_histogram(data = pos_pts, aes(x = total_accum, y = ..density..), fill = "red", alpha = 0.3) + 
-  geom_density(data = all_neg, aes(x = total_accum), color = "darkgray") +
-  geom_density(data = neg_pts, aes(x = total_accum), color = "black") + 
-  geom_density(data = pos_pts, aes(x = total_accum), color = "red") + 
+
+p8 <- ggplot(data = sample_pnts) +
+  geom_density(aes(x = total_accum, fill = class), alpha = 0.4, color = NA) +
+  labs(x = "Total accumulation area", y = "") + 
+  scale_fill_manual(values = c("black", "red"), labels = c("Non-landslide points", "Landslide points"), name = "") +
   xlim(0, 150) 
 
-ggarrange(p1, p2, p7, p3)
+# ggarrange(p1, p2, p7, p3, common.legend = TRUE)
+combo1 <- p1 + p2 + p7 + p3 +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "top")
+combo1
 ```
 
 ```{r}
-ggarrange(p4, p5, p6, p8)
+#| echo: false
+combo2 <- p4 + p5 + p6 + p8 +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "top")
+combo2
 ```
 
-These plots show us the indicate the features where the biggest differences are noticed between landslide points and non-landslide points. Notably, the difference in the distributions of gradient between landslide points and non-landslide points are quite similar. This is surprising, given our physical understanding of slope angle as a major factor in landslide initiation. It is important to note that the sampled non-landslide points are limited to the range of gradient values observed in the landslide inventory. That is, any point with too low or too high of a slope angle is assumed to have zero probability of landslide initiation and is left out of this study.
+These plots show us the indicate the features where the biggest differences are noticed between landslide points and non-landslide points. Notably, the distributions of gradient between landslide and non-landslide points do not vary as much as some of the other covariate candidates. This is surprising, given our physical understanding of slope angle as a major factor in landslide initiation. It is important to note that the sampled non-landslide points are limited to the range of gradient values observed in the landslide inventory. That is, any point with too low or too high of a slope angle is assumed to have zero probability of landslide initiation and is left out of this study. This filtering method is called an analysis mask and the details on what this looks like can be found in the PCA_Sampling_Multiple_DEMs document.
 
 Features with noticeably different distributions between landslide and non-landslide points include mean curvature and partial contributing area.
 
-### Feature Selection
+## Logistic Regression model
+
+A logistic regression model was primarily because it is simple to code into FORTRAN, where the bulk of the data will be run through, and because it performed just as well as a Random Forest model during preliminary comparisons.
+
+A logistic regression model is a type of linear classifier. The classifier finds coefficients for the covariates that minimizes some error value or maximizes accuracy (this measure can be specified). We are not interested in a binary classification for the issue of landslide initiation, so we look at the probability that a given point is classified in the positive class; in other words, the probability landslide initiation at a location.
+
+We are using the `mlr3` ecosystem for modeling in R. This package is generally considered the newest development in machine learning modeling in R - it is more nimble than some other modeling packages and is being updated and expanded frequently. It operates using an object-oriented design. `Tasks` are used to establish what data you are training and testing with, as well as what the prediction goal is. We specify our task as a spatio-temporal task, which allows us to use a spatial resampling method.
+
+For training, we leave out the un-transformed version of partial contributing area
+
+```{r}
+# Df[,!(names(Df) %in% rows_to_select)]
+
+training_cols <- c("x", "y", "gradient", "mean_curv", "dist_to_road", "total_accum", "geo", "age", "class", "ln_pca_k1_48", "ln_pca_k1_24", "ln_pca_k1_12", "ln_pca_k1_6", "gradient_sq", "grad_by_pca")
+
+training_cols_less <- !(training_cols %in% c("age", "dist_to_road"))
+
+ls_task <- as_task_classif_st(
+  x = sample_pnts[, training_cols], 
+  id = "landslide_initiation",
+  target = "class", 
+  positive = "pos", 
+  coordinate_names = c("x", "y"), 
+  crs = "epsg:26910"
+)
+
+ls_task_less <- as_task_classif_st(
+  x = sample_pnts[, training_cols_less], 
+  id = "landslide_initiation",
+  target = "class", 
+  positive = "pos", 
+  coordinate_names = c("x", "y"), 
+  crs = "epsg:26910"
+)
+```
+
+### Data preprocessing
+
+We also define a few data pre-processing steps in order to center and scale the data, which usually makes machine learning models perform better. Scaling helps avoid any artificial inflating of importance on variables whose values are higher than others.
+
+## Spatial resampling 
+
+**A common problem among modeling problems with a spatio-temporal aspect is that traditional resampling methods can lead to overfitting of models and overoptimistic estimations of how the model will perform when shown new data.** With traditional resampling methods for training and test set splits, both sets are likely to have representation across the spatio-temporal spread of the data. Due to the nature of spatio-temporal data, new data is often outside the domain of the training data (either temporally or spatially), which means that we are training a model in one domain and then using it on data in a slightly different domain. Spatio-temporal resampling methods prevent this by assigning training and test sets based on spatial or temporal groupings, testing the model on a section of data that it hasn't seen before. This helps to prevent models from being overfit to the specific spatial or temporal patterns that we see in the data.
+
+There are many strategies for spatio-temporal resampling strategies, including k-means clustering, block cross-validation, or temporal validation strategies. The K-means clustering strategy is a good choice because it creates relatively even clusters even with uneven distributions of points, as we see in our data set.
+
+```{r}
+set.seed(12345)
+rsmp_nonsp <- rsmp("cv", 
+                  folds = 5)
+
+autoplot(rsmp_nonsp, ls_task, fold_id = c(1:5), pch = 20, alpha = 0.5) + 
+  plot_layout(widths = 1)
+```
+
+```{r}
+set.seed(12345)
+rsmp_clus <- rsmp("spcv_coords", 
+                  folds = 5)
+autoplot(rsmp_clus, ls_task, fold_id = c(1:5), pch = 20, alpha = 0.5) + 
+  plot_layout(widths = 1)
+```
+
+Here we see the difference between non-spatial resampling and spatial resampling.
+
+Divisions based on year, or a combination of lithology and year were also considered, but were deemed impractical because of the imbalanced splits that they produced.
+
+## Feature Selection
 
 Choosing good features is an essential part of the machine learning process. A good model should use features that are correlated to the output class and independent from each other. The other main goal of feature selection is to choose the smallest possible set of features that produces a good model, which both reduces the runtime of training models and the risk of over-fitting. The definition of a "good model" can be difficult to define, but for our purposes, we use the area under the ROC curve (AUC) as a measure of model performance. A higher AUC indicates a better model, so the feature selection processes will try to maximize this value.
 
-```{r}
-#| echo: false
-load("/Users/julialober/Documents/terrainworks/code/sandbox/filter_results.Rdata")
+Ideally, we could do an exhaustive search of all possible combinations of features, which leads to 2\^n possible combinations of features. With our 13 features, this is already 8192 possibly configurations. When you add a layer of cross validation resampling (we use 5 folds and 2 repetitions), the runtime of this task rapidly grows, we approach the 10,000s to 100,000s of models to evaluate.
 
-ggplot(results, aes(x = feature, y = total)) + 
-  geom_bar(stat = "identity")
-```
+Using the AUC allows us to work in the `mlr3` ecosystem, but ultimately, we want to evaluate the model based on the proportions and generate a success-rate curve. So, we use a combination of filtering methods, feature selection, and success-rate curves to determine which features produce the best model.
 
-### Logistic Regression model
-
-A logistic regression model was chosen for two primary purposes: because it is simple to code into FORTRAN and because it performed just as well as the Random Forest model when exploring some different types of models.
-
-The first reason is particularly important, as this is how the model will be implemented for predicting. The data sets for predicting encompass all of Oregon and would take a very long time to put through the model in a high-level language like R.
-
-The figure below shows the measured performance across a couple of different types of model. Our performance measure for this comparison (and for feature selection) is the area under the ROC curve (or AUC). For a more detail on the comparisons that were performed between the Random Forest model and linear regression model, refer to the analysis/comparing_landslide_models document.
+Instead, we do a forward stepping feature selection process, called `sequential` in `mlr3fselect`. First, a model is built with a single candidate predictor. The predictor from the single-variable model that performs the best is then chosen, and a two-variable model is trained with that variable and the remaining variable. These steps are repeated until there are no more variables left to add. The model with the highest measure is then chosen (here, AUC). Generally, the best model will turn out to be one of the models that does not include all of the predictors. We create an instance of the feature selector and define our model-type (`learner`), resampling method, evaluation measure, and give it the data (`task`).
 
 ```{r}
-#| echo: false
-load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.14.pipelinetuneresult.Rdata")
+run <- TRUE
 
-to_plot <- cbind(as.data.frame(target_archive$classif.auc), (as.data.frame(target_archive$branch.selection)))
-names(to_plot) <- c("auc", "model_type")
-to_plot$model_type <- as.factor(to_plot$model_type)
-
-ggplot(to_plot, aes(x = model_type, y = auc)) + 
-  geom_boxplot(aes(col = model_type)) + 
-  geom_jitter(aes(col = model_type), position = position_jitter(0.2)) + 
-  scale_x_discrete(breaks = c("lr", "lr_fs", "rf", "rf_fs"), labels = c("LR", "LR with feature selection", "RF", "RF with feature selection")) + 
-  xlab("Type of model") +
-  ylab("Performance (AUC)") + 
-  theme(legend.position = "none")
+if (run) {
+  instance <- fselect(
+    fselector = fs("sequential"),
+    task =  ls_task,
+    learner = lrn("classif.log_reg", predict_type = "prob"),
+    resampling = rsmp("repeated_spcv_coords",
+                         folds = 5,
+                         repeats = 3),
+    measure = msr("classif.auc")
+  )
+}
 ```
+
+For our task, the best model use age, distance to a road, partial contributing area (48 hr), and mean curvature. One possible consideration is that this is
