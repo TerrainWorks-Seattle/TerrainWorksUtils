@@ -61,7 +61,7 @@ Lets look at a few filtering methods. These calculate some measure of correlatio
 The benefit of these methods are a simpler method that does not involve building a bunch of models to test the impact of different features. The downside is that it is possible that the filter does not truly reflect the impact on the final model.
 
 ```{r}
-task <- task_orig
+task <- task_ext
 ```
 
 ```{r}

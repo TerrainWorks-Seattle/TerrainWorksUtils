@@ -26,6 +26,10 @@ library(data.table)
 library(tictoc)
 ```
 
+```{r setup}
+library(TerrainWorksUtils)
+```
+
 ## Predicting landslide initiation
 
 We start by predicting on 1 small basin as part of 1 of the watershed designations of DOGAMI in Oregon. Find the data wherever it is located on your computer.
@@ -60,6 +64,8 @@ We need to calculate the partial contributing area and mean curvature using the 
 The model is trained on all of the available inventory points and stored in "logreg_learner". This happens in the comparing_landslide_models.qmd file.
 
 ```{r}
+calculate <- FALSE
+
 scratch <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/"
 scratch <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/scratch/"
 
@@ -68,39 +74,26 @@ rasters <- c(paste0("GRADIENT,", scratch, "gradient"),
 
 length_scale <- 15
 
-rasters <- elev_deriv(rasters = rasters,
-                length_scale = length_scale,
-                dem = paste0(dir, "Umpqua/basin_1.flt"),
+if (calculate) {
+  rasters <- elev_deriv(rasters = rasters,
+                  length_scale = length_scale,
+                  dem = paste0(dir, "Umpqua/basin_1.flt"),
                 scratch_dir = scratch)
+}
 ```
 
 Now, calculate partial contributing area. The 48-hour duration was the best across all of the model investigating, so we only need to calculate that one.
 
 ```{r}
-rasters <- c(rasters, contributing_area(raster = paste0(scratch, "pca_k1_d48"),
+if (calculate) {
+  rasters <- c(rasters, contributing_area(raster = paste0(scratch, "pca_k1_d48"),
                     dem = paste0(dir, "Umpqua/basin_1.flt"), 
                     length_scale = 15, 
                     k = 1, 
                     d = 48, 
                     scratch_dir = scratch))
-```
+}
 
-Stand age data comes from 2017. It has to be first reprojected into the UTM zone 10 CRS and then resampled to the same extent and resolution as the DEM. Then, we can extract the values and match them with the values in the topographical parameters DEM.
-
-```{r}
-age_fn <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/age_dom_2017.tif"
-
-# \\Mac\Home\Documents\terrainworks\code\sandbox\data\downloaded_3.6\in
-# "\\Mac\Home\Documents\terrainworks\code\sandbox\data\downloaded_3.6\in\age_dom_2017.tif"
-
-age_rast <- terra::rast(age_fn)
-
-age_proj <- project(age_rast, "epsg:26910")
-age_resampled <- resample(age_proj, dem, 'near')
-```
-
-```{r}
-plot(age_resampled)
 ```
 
 Now that the scripts have been run, we can assemble the data from files (and never run the 2 hour script again).
@@ -363,7 +356,7 @@ basin_list = c("Umpqua/basin_1",
                # paste0(dir, "Umpqua/basin_4/"))
 ```
 
-#### For calculating elevation derivatives: 
+#### For calculating elevation derivatives:
 
 This code only needs to be run once. Eventually, I will remove it from this document.
 
@@ -512,7 +505,7 @@ pts_prop$area_prop <- dt$area_prop
 
 ```
 
-With basins combined, we see a slightly different shape in the curves. The proportions of area and probability jump up greatly at smaller probabilities, indicating that
+With basins combined, we see a slightly different shape in the curves. The proportions of area and probability jump up greatly at smaller probabilities.
 
 ```{r}
 ggplot(cbind(bins, cumul_prop)) + 
@@ -527,7 +520,5 @@ ggplot(cbind(bins, cumul_prop)) +
 ```{r}
 ggplot(cbind(bins, cumul_prop)) + 
   geom_line(aes(x = area_prop, y = prob_prop), color = "red") + 
-  geom_point(aes(x = area_prop, y = prob_prop), color = "red")  +
-  geom_line(data = pts_prop, aes(x = area_prop, y = ls.prop), color = "black") +
-  geom_point(data = pts_prop, aes(x = area_prop, y = ls.prop), color = "black")
+  geom_point(aes(x = area_prop, y = prob_prop), color = "red")  
 ```

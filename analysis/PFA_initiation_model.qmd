@@ -13,6 +13,14 @@ params:
     label: Data Directory
     value: /Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/out/
     input: text
+  pred_dir: 
+    label: Data Directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/
+    input: text
+  init_pts: 
+    label: Data Directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/all_initiation_points.shp
+    input: text
 ---
 
 ```{r setup}
@@ -232,13 +240,9 @@ ls_task_less <- as_task_classif_st(
 )
 ```
 
-### Data preprocessing
-
-We also define a few data pre-processing steps in order to center and scale the data, which usually makes machine learning models perform better. Scaling helps avoid any artificial inflating of importance on variables whose values are higher than others.
-
 ## Spatial resampling 
 
-**A common problem among modeling problems with a spatio-temporal aspect is that traditional resampling methods can lead to overfitting of models and overoptimistic estimations of how the model will perform when shown new data.** With traditional resampling methods for training and test set splits, both sets are likely to have representation across the spatio-temporal spread of the data. Due to the nature of spatio-temporal data, new data is often outside the domain of the training data (either temporally or spatially), which means that we are training a model in one domain and then using it on data in a slightly different domain. Spatio-temporal resampling methods prevent this by assigning training and test sets based on spatial or temporal groupings, testing the model on a section of data that it hasn't seen before. This helps to prevent models from being overfit to the specific spatial or temporal patterns that we see in the data.
+A common problem among modeling problems with a spatio-temporal aspect is that traditional resampling methods can lead to overfitting of models and overoptimistic estimations of how the model will perform when shown new data. With traditional resampling methods for training and test set splits, both sets are likely to have representation across the spatio-temporal spread of the data. Due to the nature of spatio-temporal data, new data is often outside the domain of the training data (either temporally or spatially), which means that we are training a model in one domain and then using it on data in a slightly different domain. Spatio-temporal resampling methods prevent this by assigning training and test sets based on spatial or temporal groupings, testing the model on a section of data that it hasn't seen before. This helps to prevent models from being overfit to the specific spatial or temporal patterns that we see in the data.
 
 There are many strategies for spatio-temporal resampling strategies, including k-means clustering, block cross-validation, or temporal validation strategies. The K-means clustering strategy is a good choice because it creates relatively even clusters even with uneven distributions of points, as we see in our data set.
 
@@ -265,6 +269,8 @@ Divisions based on year, or a combination of lithology and year were also consid
 
 ## Feature Selection
 
+### Step-forward feature selection
+
 Choosing good features is an essential part of the machine learning process. A good model should use features that are correlated to the output class and independent from each other. The other main goal of feature selection is to choose the smallest possible set of features that produces a good model, which both reduces the runtime of training models and the risk of over-fitting. The definition of a "good model" can be difficult to define, but for our purposes, we use the area under the ROC curve (AUC) as a measure of model performance. A higher AUC indicates a better model, so the feature selection processes will try to maximize this value.
 
 Ideally, we could do an exhaustive search of all possible combinations of features, which leads to 2\^n possible combinations of features. With our 13 features, this is already 8192 possibly configurations. When you add a layer of cross validation resampling (we use 5 folds and 2 repetitions), the runtime of this task rapidly grows, we approach the 10,000s to 100,000s of models to evaluate.
@@ -274,7 +280,7 @@ Using the AUC allows us to work in the `mlr3` ecosystem, but ultimately, we want
 Instead, we do a forward stepping feature selection process, called `sequential` in `mlr3fselect`. First, a model is built with a single candidate predictor. The predictor from the single-variable model that performs the best is then chosen, and a two-variable model is trained with that variable and the remaining variable. These steps are repeated until there are no more variables left to add. The model with the highest measure is then chosen (here, AUC). Generally, the best model will turn out to be one of the models that does not include all of the predictors. We create an instance of the feature selector and define our model-type (`learner`), resampling method, evaluation measure, and give it the data (`task`).
 
 ```{r}
-run <- TRUE
+run <- FALSE
 
 if (run) {
   instance <- fselect(
@@ -289,4 +295,283 @@ if (run) {
 }
 ```
 
-For our task, the best model use age, distance to a road, partial contributing area (48 hr), and mean curvature. One possible consideration is that this is
+For our task, the best model use age, distance to a road, partial contributing area (48 hr), and mean curvature.
+
+Let's do the same thing, but leave out stand age and distance to road. We are interested in how these variables affect the landslide initiation probability, but don't want to include them in the final output for
+
+```{r}
+run <- FALSE
+
+if (run) {
+  instance <- fselect(
+    fselector = fs("sequential"),
+    task =  ls_task_less,
+    learner = lrn("classif.log_reg", predict_type = "prob"),
+    resampling = rsmp("repeated_spcv_coords",
+                         folds = 5,
+                         repeats = 3),
+    measure = msr("classif.auc")
+  )
+}
+```
+
+### Feature filtering
+
+Another way of evaluating feature importance is through a filter. Filters use a correlation measure (of which there are many to choose from) to evaluate which features are most tied to the output class. A major difference between filters and other feature selection algorithms is that these methods do evaluate which features perform best in a model; they only look at the correlation between two variables. Filters are often used when the number of features is large enough that a feature selection algorithm is impractical to run in a reasonable amount of time. Here, we use it to gather more information about which features may be the most useful.
+
+```{r}
+info_filter <- flt("information_gain")
+info_filter$calculate(ls_task)
+res_info <- as.data.table(info_filter)
+res_info$rank <- 1:length(res_info$feature)
+
+cmim_filter <- flt("cmim")
+cmim_filter$calculate(ls_task)
+res_cmim <- as.data.table(cmim_filter)
+res_cmim$rank <- 1:length(res_cmim$feature)
+
+jmi_filter <- flt("jmi")
+jmi_filter$calculate(ls_task)
+res_jmi <- as.data.table(jmi_filter)
+res_jmi$rank <- 1:length(res_jmi$feature)
+
+relief_filter <- flt("relief")
+relief_filter$calculate(ls_task)
+res_relief <- as.data.table(relief_filter)
+res_relief$rank <- 1:length(res_relief$feature)
+```
+
+The output of these filters has been scaled and combined in the figure below. Each different method showed relatively similar ordering of the variables. Of note is that the longer durations for the partial contributing areas are consistently higher
+
+```{r}
+#| echo: false
+filter_res <- res_info
+filter_res$InfoGain <- (res_info$score / max(res_info$score))
+filter_res$CondMIM <- (res_cmim$score / max(res_cmim$score))
+filter_res$JMI <- (res_jmi$score / max(res_jmi$score))
+filter_res$Relief <- (res_relief$score / max(res_relief$score))
+
+filter_res.m <- melt(filter_res[, c("feature", "InfoGain", "CondMIM", "JMI", "Relief")])
+
+ggplot(filter_res.m) + 
+  geom_bar(aes(x = reorder(feature, -value), y = value, fill = variable), stat = "identity", position = "stack") + 
+  scale_fill_manual(values = viridis(5)[1:4], labels = c("Information Gain", "Minimal Conditional \nMutual Information \nMaximization", "Joint Mutual Information", "Relief"), name = "Filter name") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, face = "bold"),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  labs(x = "", y = "Score") + 
+  scale_x_discrete(labels = c("ln(pca), 48 hrs", "mean curvature", "ln(pca), 24 hrs", "total accumulation", "gradient * pca, 48 hrs", "ln(pca), 12 hrs", "ln(pca), 6 hrs", "gradient^2", "gradient", "distance to a road", "geology", "stand age")) + 
+  facet_grid(variable ~ .) + 
+  theme(legend.position = "none")
+  
+```
+
+## Training the model
+
+From the feature selection processes, we choose a handful of possible feature selection algorithms and do a more in-depth analysis using success-rate curve as the metric for model performance. This involves training a model and then using the model to predict on DEMs.
+
+We start with a model that uses gradient, 48-hour partial contributing area, and the product of the two.
+
+```{r}
+set.seed(12345)
+ls_task$select(c("ln_pca_k1_48", "grad_by_pca", "gradient"))
+
+# create a pipeline for data preprocessing
+scale_features <- 
+  po("scale") %>>% 
+  po("encode") 
+scale_features$train(ls_task)
+ls_task_eng <- scale_features$predict(ls_task)$encode.output
+
+# define the type of model
+ls_model <- lrn("classif.log_reg", 
+             predict_type = "prob")
+
+model <- mlr3::resample(
+  task = ls_task_eng, 
+  learner = ls_model, 
+  resampling = rsmp("repeated_spcv_coords", 
+                    folds = 5, 
+                    repeats = 50)
+)
+
+model$aggregate(msr("classif.auc"))
+```
+
+First, we run a whole bunch of spatial resampling iterations to get a confident estimate of how well the model will perform. For this estimation, we are only able to look at measures that can be tested in the framework of `mlr3`. We look at area under the ROC curve (AUC).
+
+Our final model is trained on all of the data, to maximize the use of our landslide inventory.
+
+```{r}
+ls_model$train(ls_task_eng)
+ls_model$model
+```
+
+## Predicting 
+
+### Single basin
+
+The predicting directory must have the elevation derivative files for the required predictors.
+
+```{r}
+pred_dir <- params$pred_dir
+
+# find and load the data files
+topo_files <- c(paste0("GRADIENT,", pred_dir, "Umpqua/basin_1/gradient.flt"))
+topo_rast <- elev_deriv(rasters = topo_files)
+pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_1.flt"))
+rasters <- c(topo_rast, pca_rast)
+names(rasters) <- c("gradient", "pca_k1_48")
+
+# convert to a data frame and add the feature interactions. 
+pd <- as.data.frame(rasters, xy = TRUE)
+pd$grad_by_pca <- pd$gradient * pd$pca_k1_48
+pd$ln_pca_k1_48 <- log(pd$pca_k1_48)
+
+# manually pre process the data: take the log of the pca and center+scale the data
+center_vals <- scale_features$pipeops$scale$state$center
+scale_vals <- scale_features$pipeops$scale$state$scale
+
+pd$grad_by_pca <- (pd$grad_by_pca - center_vals[1]) / scale_vals[1]
+pd$gradient <- (pd$gradient - center_vals[2]) / scale_vals[2]
+pd$ln_pca_k1_48 <- (pd$ln_pca_k1_48 - center_vals[3]) / scale_vals[3]
+
+pd <- subset(pd, select = c("x", "y", "grad_by_pca", "gradient", "ln_pca_k1_48"))
+```
+
+```{r}
+# predict the basin using scaled and centered data.
+predictions_df <- as.data.table(ls_model$predict_newdata(pd))
+predictions_df <- cbind(pd, predictions_df)
+```
+
+Here we predict on a sub-basin of the larger Umpqua watershed. There are 9 landslide initiation points located inside this basin.
+
+```{r}
+pts <- terra::vect(params$init_pts)
+pts_local <- crop(pts, rasters)
+
+ggplot(predictions_dt) + 
+  geom_tile(aes(x = x, y = y, fill = prob.pos)) + 
+  scale_fill_viridis(option = "A", direction = -1) + 
+  geom_spatvector(data = pts_local)
+```
+
+### Multiple basin
+
+To generate a success rate curve, we combine multiple basins. The success rate curve is the proportions of landslide predicted over the proportion of the predicted area. A smaller area under the success rate curve indicates that the model was more specific with the areas that it deemed to have a high probability of landslide initiation. Looking at the model performance in this way limits the
+
+```{r}
+basin_list = c("Umpqua/basin_1", 
+               "Umpqua/basin_2",
+               "Umpqua/basin_3",
+               "Umpqua/basin_4",
+               "Umpqua/basin_5",
+               "Umpqua/basin_6",
+               "Umpqua/basin_7",
+               "Umpqua/basin_8",
+               "Umpqua/basin_9",
+               "Umpqua/basin_10",
+               "Umpqua/basin_11",
+               "Umpqua/basin_12",
+               "Umpqua/basin_13",
+               "Umpqua/basin_14",
+               "Umpqua/basin_15",
+               "Umpqua/basin_16",
+               "Umpqua/basin_17")
+```
+
+```{r}
+model <- ls_model
+bins <- as.data.table(seq(0, 1, length.out = 500))
+names(bins) <- c("probability") 
+
+count <- 1
+cumul_prop <- data.frame("area" = rep(0, 500), 
+                         "prob" = rep(0, 500))
+pts_prop <- data.frame("x" = 0, 
+                       "y" = 0,
+                       "prob.pos" = 0, 
+                       "prob.cumsum" = 0, 
+                       "area.cumsum" = 0, 
+                       "ls.prop" = 0)
+
+for (basin in basin_list[1:5]) { 
+  
+  tic(msg = paste0("loop for ", basin))
+
+  # find and load the data files
+  topo_files <- c(paste0("GRADIENT,", pred_dir, basin, "/gradient.flt"))
+  topo_rast <- elev_deriv(rasters = topo_files)
+  pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_", count, ".flt"))
+  count <- count + 1
+  rasters <- c(topo_rast, pca_rast)
+  names(rasters) <- c("gradient", "pca_k1_48")
+  
+  predicting_data <- as.data.frame(rasters, xy = TRUE)
+  predicting_data$ln_pca_k1_48 <- log(predicting_data$pca_k1_48)
+  predicting_data$grad_by_pca <- predicting_data$gradient * predicting_data$pca_k1_48
+  
+  pd <- predicting_data
+  pd <- subset(pd, select = c("x", "y", "grad_by_pca", "gradient", "ln_pca_k1_48"))
+
+  # manually pre process the data: take the log of the pca and center+scale the data
+  center_vals <- pl_feature_eng$pipeops$scale$state$center
+  scale_vals <- pl_feature_eng$pipeops$scale$state$scale
+  
+  pd$grad_by_pca <- (pd$grad_by_pca - center_vals[1]) / scale_vals[1]
+  pd$gradient <- (pd$gradient - center_vals[2]) / scale_vals[2]
+  pd$ln_pca_k1_48 <- (pd$ln_pca_k1_48 - center_vals[3]) / scale_vals[3]
+  
+  # predict the basin using scaled and centered data.
+  predictions_df <- as.data.table(model$predict_newdata(pd))
+  predictions_df <- cbind(predictions_df, pd)
+  
+  proportions <- as.data.table(subset(predictions_df, select = c("x", "y", "prob.pos")))
+  setorder(proportions, cols = "prob.pos") 
+  
+  # calculate the cumulative sums of area and probabilities
+  proportions$prob.cumsum <- cumsum(proportions$prob.pos)
+  prob_sum <- max(proportions$prob.cumsum)
+  proportions$area.cumsum <- seq(1, length(proportions$x))
+  area_sum <- max(proportions$area.cumsum)
+
+  setattr(proportions, "sorted", "prob.pos")
+  
+  binned_prop <- proportions[J(bins$probability), roll = "nearest"]
+  cumul_prop$area <- cumul_prop$area + binned_prop$area.cumsum
+  cumul_prop$prob <- cumul_prop$prob + binned_prop$prob.cumsum
+  
+  pts_local <- crop(pts, rasters)
+  # extract the probability values for the test points
+  pts_prob <- extract(prob_rast, pts_local, xy = TRUE)
+  pts_prob <- pts_prob[!is.na(pts_prob$prob.pos), ]
+  setorder(pts_prob, "prob.pos")
+  
+  total_pts <- length((pts_prob$prob.pos))
+
+  # get the cumulative area (already calculated) and calculate the cumulative landslides
+  pts_cumul <- proportions[J(pts_prob$prob.pos), roll = "nearest"]
+  pts_cumul$ls.prop = seq(1, length(pts_cumul$x)) / total_pts
+
+  pts_prop <- rbind(pts_prop, pts_cumul)
+  
+  toc()
+}
+
+
+total_area <- max(cumul_prop$area)
+total_prob <- max(cumul_prop$prob)
+
+cumul_prop$area_prop <- cumul_prop$area / total_area
+cumul_prop$prob_prop <- cumul_prop$prob / total_prob
+
+dt <- cbind(bins, cumul_prop)[J(pts_prop$prob.pos), roll = "nearest", on = "probability"]
+pts_prop$area_prop <- dt$area_prop
+```
+
+```{r}
+ggplot(cbind(bins, cumul_prop)) + 
+  geom_line(aes(x = area_prop, y = prob_prop), color = "red") + 
+  geom_point(aes(x = area_prop, y = prob_prop), color = "red")
+```
