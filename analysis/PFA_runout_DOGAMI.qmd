@@ -399,7 +399,25 @@ Note that every sub-basin, even the smallest, have the source areas parsed into 
 
 ![](images/Designated.jpg){#fig-designated width="6in"}
 
-Because each sub-basin is examined independently, the terrain that meets the top 33% proportion criterion can differ from sub-basin to sub-basin. Note the large, western-most sub-basin: almost all of the top 33% zone drains to the eastern-most channel. Other channels within that sub-basin drain terrain with characteristics that in some other sub-basin would fall within the 33% bracket, but here do not. This choice for the spatial scale seeks to maintain sediment and wood supply to fish-bearing channels over an area local and specific to each nonfish channels that acts as debris-flow corridor into a fish-bearing stream.
+Because each sub-basin is examined independently, the terrain that meets the top 33% proportion criterion can differ from sub-basin to sub-basin. Note the large, western-most sub-basin: almost all of the top 33% zone drains to the eastern-most channel. Other channels within that sub-basin drain terrain with characteristics that in some other sub-basin would fall within the 33% bracket, but here do not. This choice for the spatial scale seeks to maintain sediment and wood supply to fish-bearing channels over an area local and specific to each nonfish channel that acts as a debris-flow corridor into a fish-bearing stream.
+
+The PFA authors recognized that operational and safety constraints required some flexibility to allow yarding corridors through zones delineated as Designated Sediment Source Areas. To identify zones within the Designated Sediment Source Areas where a yarding corridor might have the smallest impact on landslide potential, the Designated Sediment Source Areas within each sub-basin were further parsed and ranked in terms of the modeled susceptibility for landslide initiation and delivery. This susceptibility was measured in terms of the proportion of all expected landslide events originating within the Designated Sediment Source Areas, with those areas then ranked from lowest to highest probability of initiation and delivery. These are the "Trigger Sources" defined in the PFA report (@odf2022 page 31).
+
+The following figures show the three steps involved in delineating upslope debris-flow source areas for the northwest corner of the small basin used in the previous examples. First is parsing of each nonfish sub-basin into zones containing initiation sites for equal proportions (20% intervals shown here) of the volume of debris-flow-carried material delivered to the receiving fish-bearing channel. Each of the five colored zones are source areas for equal volumes of delivered material; 20% of the total. They are ranked from those zones with the highest expected rate of delivery (dark red) to those with the lowest expected rate (light blue). The high-rate (dark red) zones encompass a much smaller area than the low-rate (light blue) zones.
+
+![](images/SourceCloseup.jpg){#fig-SedSourceCloseup fig-align="center" width="6in"}
+
+Next those sub-basins with nonfish channels at their mouth within the top 20% traversal proportion (@fig-TravPropMap) are identified and within these sub-basins the sediment source areas providing one third (33%) of the total volume are flagged. These are the Designated Sediment Source Areas, shown as the red zones in the figure below. These are further filtered to remove any zones less than one quarter acre (1011.7 m^2^) in size.
+
+![](images/DesignatedClose.jpg){#fig-DesignatedClose fig-align="center" width="6in"}
+
+Then, the Designated Sediment Source Areas themselves are parsed into zones based on modeled susceptibility to initiation of delivering debris flows. This susceptibility is based on the proportion of events within each delineated zone, ranked from those with high probability of occurrence (a high landslide density) to those with a low probability. In the figure below, these zones each contain 20% of the expected future events, ranked from highest probability (red) to lowest (light blue). The top 20%, those with the highest probability of occurrence, are designated as Trigger Zones ( @odf2022 page 31).
+
+![](images/SuscClose.jpg){#fig-SuscClose fig-align="center" width="6in"}
+
+The following figure shows the resulting Designated Sediment Source Areas and Trigger Zones for this small area.
+
+![](images/Zones.jpg){#fig-Zones fig-align="center" width="6in"}
 
 ## Data
 
@@ -637,6 +655,8 @@ patch <- scour_age + dep_age
 patch + plot_annotation(title='Estimated stand ages encountered within impacted channels across the three study sites')
 ```
 
+### Debris-Flow Runout Distance: Survival Curves
+
 ### Probability of Scour and Deposition
 
 We have five candidate predictors: gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. I'll use mlr3 to build and evaluate potential classification models. Define a classification task.
@@ -707,7 +727,7 @@ gradEffects <- ggplot(data=grad, aes(x=.borders, y=.value, col=.class)) +
 gradEffects + scale_color_discrete(name="Track Type", labels=c("Deposit", "Scour", "Transitional"))
 ```
 
-### Baseline Survival Curve
+### Survival Curve
 
 Compare empirical distributions
 
