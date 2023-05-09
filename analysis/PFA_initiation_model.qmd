@@ -56,6 +56,10 @@ library(patchwork)
 library(ggpubr)
 library(maps)
 library(tidyterra)
+library(data.table)
+library(tictoc)
+
+library(TerrainWorksUtils)
 ```
 
 # Landslide initiation susceptibility model for the Private Forest Accord
@@ -212,11 +216,7 @@ A logistic regression model is a type of linear classifier. The classifier finds
 
 We are using the `mlr3` ecosystem for modeling in R. This package is generally considered the newest development in machine learning modeling in R - it is more nimble than some other modeling packages and is being updated and expanded frequently. It operates using an object-oriented design. `Tasks` are used to establish what data you are training and testing with, as well as what the prediction goal is. We specify our task as a spatio-temporal task, which allows us to use a spatial resampling method.
 
-For training, we leave out the un-transformed version of partial contributing area
-
 ```{r}
-# Df[,!(names(Df) %in% rows_to_select)]
-
 training_cols <- c("x", "y", "gradient", "mean_curv", "dist_to_road", "total_accum", "geo", "age", "class", "ln_pca_k1_48", "ln_pca_k1_24", "ln_pca_k1_12", "ln_pca_k1_6", "gradient_sq", "grad_by_pca")
 
 training_cols_less <- !(training_cols %in% c("age", "dist_to_road"))
@@ -240,7 +240,7 @@ ls_task_less <- as_task_classif_st(
 )
 ```
 
-## Spatial resampling 
+## Spatial resampling
 
 A common problem among modeling problems with a spatio-temporal aspect is that traditional resampling methods can lead to overfitting of models and overoptimistic estimations of how the model will perform when shown new data. With traditional resampling methods for training and test set splits, both sets are likely to have representation across the spatio-temporal spread of the data. Due to the nature of spatio-temporal data, new data is often outside the domain of the training data (either temporally or spatially), which means that we are training a model in one domain and then using it on data in a slightly different domain. Spatio-temporal resampling methods prevent this by assigning training and test sets based on spatial or temporal groupings, testing the model on a section of data that it hasn't seen before. This helps to prevent models from being overfit to the specific spatial or temporal patterns that we see in the data.
 
@@ -297,7 +297,7 @@ if (run) {
 
 For our task, the best model use age, distance to a road, partial contributing area (48 hr), and mean curvature.
 
-Let's do the same thing, but leave out stand age and distance to road. We are interested in how these variables affect the landslide initiation probability, but don't want to include them in the final output for
+Let's do the same thing, but leave out stand age and distance to road. We are interested in how these variables affect the landslide initiation probability, but don't want to include them in the final model that is linked with the runout model.
 
 ```{r}
 run <- FALSE
@@ -341,7 +341,7 @@ res_relief <- as.data.table(relief_filter)
 res_relief$rank <- 1:length(res_relief$feature)
 ```
 
-The output of these filters has been scaled and combined in the figure below. Each different method showed relatively similar ordering of the variables. Of note is that the longer durations for the partial contributing areas are consistently higher
+The output of these filters has been scaled and combined in the figure below. Each different method showed relatively similar ordering of the variables. Of note is that the longer durations for the partial contributing areas are consistently given better scores than shorter durations.
 
 ```{r}
 #| echo: false
@@ -388,10 +388,10 @@ ls_model <- lrn("classif.log_reg",
              predict_type = "prob")
 
 model <- mlr3::resample(
-  task = ls_task_eng, 
-  learner = ls_model, 
-  resampling = rsmp("repeated_spcv_coords", 
-                    folds = 5, 
+  task = ls_task_eng,
+  learner = ls_model,
+  resampling = rsmp("repeated_spcv_coords",
+                    folds = 5,
                     repeats = 50)
 )
 
@@ -407,7 +407,7 @@ ls_model$train(ls_task_eng)
 ls_model$model
 ```
 
-## Predicting 
+## Predicting
 
 ### Single basin
 
@@ -419,7 +419,7 @@ pred_dir <- params$pred_dir
 # find and load the data files
 topo_files <- c(paste0("GRADIENT,", pred_dir, "Umpqua/basin_1/gradient.flt"))
 topo_rast <- elev_deriv(rasters = topo_files)
-pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_1.flt"))
+pca_rast <-  contributing_area(raster = paste0(pred_dir, "Umpqua/basin_1/pca_6_1.flt"))
 rasters <- c(topo_rast, pca_rast)
 names(rasters) <- c("gradient", "pca_k1_48")
 
@@ -445,13 +445,13 @@ predictions_df <- as.data.table(ls_model$predict_newdata(pd))
 predictions_df <- cbind(pd, predictions_df)
 ```
 
-Here we predict on a sub-basin of the larger Umpqua watershed. There are 9 landslide initiation points located inside this basin.
+Here we predict on a sub-basin of the larger Umpqua watershed.
 
 ```{r}
 pts <- terra::vect(params$init_pts)
 pts_local <- crop(pts, rasters)
 
-ggplot(predictions_dt) + 
+ggplot(predictions_df) + 
   geom_tile(aes(x = x, y = y, fill = prob.pos)) + 
   scale_fill_viridis(option = "A", direction = -1) + 
   geom_spatvector(data = pts_local)
@@ -459,26 +459,10 @@ ggplot(predictions_dt) +
 
 ### Multiple basin
 
-To generate a success rate curve, we combine multiple basins. The success rate curve is the proportions of landslide predicted over the proportion of the predicted area. A smaller area under the success rate curve indicates that the model was more specific with the areas that it deemed to have a high probability of landslide initiation. Looking at the model performance in this way limits the
+To generate a success rate curve, we combine multiple basins. The success rate curve is the proportions of landslide predicted over the proportion of the predicted area. A smaller area under the success rate curve indicates that the model was more specific with the areas that it deemed to have a high probability of landslide initiation.
 
 ```{r}
-basin_list = c("Umpqua/basin_1", 
-               "Umpqua/basin_2",
-               "Umpqua/basin_3",
-               "Umpqua/basin_4",
-               "Umpqua/basin_5",
-               "Umpqua/basin_6",
-               "Umpqua/basin_7",
-               "Umpqua/basin_8",
-               "Umpqua/basin_9",
-               "Umpqua/basin_10",
-               "Umpqua/basin_11",
-               "Umpqua/basin_12",
-               "Umpqua/basin_13",
-               "Umpqua/basin_14",
-               "Umpqua/basin_15",
-               "Umpqua/basin_16",
-               "Umpqua/basin_17")
+basin_list <- list.files(dem_dir, "^basin_[0-9]{1,3}\\.flt", recursive = TRUE)
 ```
 
 ```{r}
@@ -496,14 +480,19 @@ pts_prop <- data.frame("x" = 0,
                        "area.cumsum" = 0, 
                        "ls.prop" = 0)
 
-for (basin in basin_list[1:5]) { 
+for (basin in basin_list) { 
+  
+  basin <- sub("\\..*","", basin)
   
   tic(msg = paste0("loop for ", basin))
 
   # find and load the data files
   topo_files <- c(paste0("GRADIENT,", pred_dir, basin, "/gradient.flt"))
   topo_rast <- elev_deriv(rasters = topo_files)
-  pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_", count, ".flt"))
+  
+  pca_file <- list.files(paste0(pred_dir, basin), "^pca_6_[0-9]{1,3}\\.flt", full.names = TRUE)
+  print(pca_file)
+  pca_rast <-  contributing_area(raster = pca_file)
   count <- count + 1
   rasters <- c(topo_rast, pca_rast)
   names(rasters) <- c("gradient", "pca_k1_48")
@@ -516,8 +505,8 @@ for (basin in basin_list[1:5]) {
   pd <- subset(pd, select = c("x", "y", "grad_by_pca", "gradient", "ln_pca_k1_48"))
 
   # manually pre process the data: take the log of the pca and center+scale the data
-  center_vals <- pl_feature_eng$pipeops$scale$state$center
-  scale_vals <- pl_feature_eng$pipeops$scale$state$scale
+  center_vals <- scale_features$pipeops$scale$state$center
+  scale_vals <- scale_features$pipeops$scale$state$scale
   
   pd$grad_by_pca <- (pd$grad_by_pca - center_vals[1]) / scale_vals[1]
   pd$gradient <- (pd$gradient - center_vals[2]) / scale_vals[2]
@@ -542,20 +531,6 @@ for (basin in basin_list[1:5]) {
   cumul_prop$area <- cumul_prop$area + binned_prop$area.cumsum
   cumul_prop$prob <- cumul_prop$prob + binned_prop$prob.cumsum
   
-  pts_local <- crop(pts, rasters)
-  # extract the probability values for the test points
-  pts_prob <- extract(prob_rast, pts_local, xy = TRUE)
-  pts_prob <- pts_prob[!is.na(pts_prob$prob.pos), ]
-  setorder(pts_prob, "prob.pos")
-  
-  total_pts <- length((pts_prob$prob.pos))
-
-  # get the cumulative area (already calculated) and calculate the cumulative landslides
-  pts_cumul <- proportions[J(pts_prob$prob.pos), roll = "nearest"]
-  pts_cumul$ls.prop = seq(1, length(pts_cumul$x)) / total_pts
-
-  pts_prop <- rbind(pts_prop, pts_cumul)
-  
   toc()
 }
 
@@ -573,5 +548,11 @@ pts_prop$area_prop <- dt$area_prop
 ```{r}
 ggplot(cbind(bins, cumul_prop)) + 
   geom_line(aes(x = area_prop, y = prob_prop), color = "red") + 
-  geom_point(aes(x = area_prop, y = prob_prop), color = "red")
+  geom_point(aes(x = area_prop, y = prob_prop), color = "red") + 
+  scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  labs(x = "Proportion of area", y = "Proportion of total probability") + 
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", linewidth = 1, color = "black",), 
+        panel.border = element_rect(linewidth = 1, color = NA, fill = NA)) 
 ```

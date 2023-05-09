@@ -12,21 +12,18 @@ library(terra)
 # for modeling
 library(mlr3)
 library(mlr3spatial)
-# library(mlr3spatiotempcv)
-# library(mlr3pipelines)
-# library(mlr3learners)
+library(mlr3spatiotempcv)
+library(mlr3pipelines)
+library(mlr3learners)
 
 # for visualizations
 library(ggplot2)
-# library(tidyterra)
-# library(viridis)
+library(tidyterra)
+library(viridis)
 
 # basics
 library(data.table)
 library(tictoc)
-```
-
-```{r setup}
 library(TerrainWorksUtils)
 ```
 
@@ -350,6 +347,8 @@ basin_list = c("Umpqua/basin_1",
                "Umpqua/basin_16",
                "Umpqua/basin_17")
 
+basin_list <- list.files(dem_dir, paste0("^basin_[0-9]{1,3}\\.flt"), recursive = TRUE)
+
 # basin_list = c(paste0(dir, "Umpqua/basin_1/"),
 #                paste0(dir, "Umpqua/basin_2/"))
                # paste0(dir, "Umpqua/basin_3/"),
@@ -366,43 +365,53 @@ dir = "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_inp
 dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/predicting_input/"
 dem_dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
 
-
-
-for (basin in basin_list) {
-  rasters <- c(paste0("GRADIENT,", dir, basin, "/gradient"),
-               paste0("MEAN CURVATURE,", dir, basin, "/mean_curv"))
+if (calculate) {
+  for (basin in basin_list) {
+    
+    # create directories for basins and sub-basins if needed. 
+    if (!dir.exists(paste0(dir, sub("/.*","", basin)))) {
+      dir.create(paste0(dir, sub("/.*","", basin)))
+    }
+    if (!dir.exists(paste0(dir, sub("\\..*","", basin)))) {
+      dir.create(paste0(dir, sub("\\..*","", basin)))
+    }
+    
+  # define the elevation derivatives that we want to be calculated
+  rasters <- c(paste0("GRADIENT,", dir, sub("\\..*","", basin), "/gradient"),
+               paste0("MEAN CURVATURE,", dir, sub("\\..*","", basin), "/mean_curv"))
   
   print(rasters)
   
   length_scale <- 15
   
-  dir.create(paste0(dir, basin))
-  
   rasters <- elev_deriv(rasters = rasters,
                   length_scale = length_scale,
-                  dem = paste0(dem_dir, basin, ".flt"),
-                  scratch_dir = paste0(dir, basin))
+                  dem = paste0(dem_dir, basin),
+                  scratch_dir = paste0(dir, sub("\\..*","", basin)))
 }
+}
+
 ```
 
-Short utility script for copying the partial contributing area files downloaded from sharefile into the folders structure that will be easy for me to use.
+Short utility script for copying the partial contributing area files downloaded from sharefile into the folders structure that will be easy for me to use. I have the basins listed in a different order, so I have to inspect the input file for the correct number suffix that will correspond to the correct pca file.
 
 ```{r}
 dem_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
 dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
 pca_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/pca/"
 
-count <- 1
+# the pca files are given numbered in the order that they appear in this input file
+input_order <- read.delim("/Users/julialober/Documents/input_list.txt")
+names(input_order) <- c("list")
 
 for (basin in basin_list) {
-  target_dir <- paste0(dir, basin, "/")
-  target_file <- paste0(pca_dir, "pca_6_", count)
+  target_dir <- paste0(dir, sub("\\..*","", basin), "/")
   
-  target_files <- list.files(pca_dir, paste0("^pca_6_", count, "\\."), full.names = TRUE)
+  # find the row number where the basin name matches
+  num <- which(grepl(sub("\\..*","", basin), input_order$list,  ignore.case = TRUE))
+  
+  target_files <- list.files(pca_dir, paste0("^pca_6_", num, "\\."), full.names = TRUE)
   file.copy(target_files, target_dir)
-  
-  count <- count + 1
-  
 }
 ```
 
@@ -430,6 +439,8 @@ pts_prop <- data.frame("x" = 0,
                        "ls.prop" = 0)
 
 for (basin in basin_list) { 
+  
+  basin <- sub("\\..*","", basin)
   
   tic(msg = paste0("loop for ", basin))
 
