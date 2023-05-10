@@ -415,7 +415,7 @@ Then, the Designated Sediment Source Areas themselves are parsed into zones base
 
 ![](images/SuscClose.jpg){#fig-SuscClose fig-align="center" width="6in"}
 
-The following figure shows the resulting Designated Sediment Source Areas and Trigger Zones for this small area.
+The following figure shows the resulting Designated Sediment Source Areas and Trigger Zones for this small area. These zones reflect the modeled probability of initiation and delivery and the modeled volume of delivered material. These are functions of the topographic attributes that we think influence the potential for failure: soil depth, the seepage of water through the soil during storms, the balance of forces holding the soil in place on a hillslope. These zones are also determined by the topographic attributes that influence the probable runout length of a debris flow: hillslope and channel gradient, changes in gradient, and topographic confinement. The potential for delivery depends on the distance from the initiating landslide to the fish-bearing channel and those topographic attributes along that travel path. Delivery potential has a strong influence on the location of the Designated Sediment Source Areas and, in particular, the trigger zones, so these areas and zones tend to occur at locations with shorter and steeper delivery corridors to the fish-bearing channel. The functional relationships slso vary with underlying geology and stand characteristics at the initiation site and along the travel corridor. Geology is included in the PFA modeling, but the influence of stand age is not. We have focused on those attributes that do not change over the time period of interest (a harvest rotation) and stand age is assumed uniform for delineation of debris-flow-traversal zones and sediment source areas.
 
 ![](images/Zones.jpg){#fig-Zones fig-align="center" width="6in"}
 
@@ -425,7 +425,7 @@ We had two datasets to work with, the field-based landslide inventory from the O
 
 The 1996 Storm study included 6 study areas following the February 1996 storm and two following the November 1996 storm. Three of the sites following the February storm, Mapleton, Tillamook, and Vida, were chosen for more detailed surveys because of the high density of landslides at these locations.
 
-![](images/1996_Storm_Study_Sites.png){fig-align="center" width="6in"}
+![](images/1996_Storm_Study_Sites.png){#fig-DataLocations fig-align="center" width="6in"}
 
 Surveys at these three areas including detailed mapping of channel impacts associated with the storm. Being field based, these surveys were able to distinguish four types of debris-flow-runout behavior: 1) a scoured debris path, along unchannelized topography or within channels greater than 40% gradient, 2) channelized flow with scour, 3) channelized flow with deposition, and 4) transitional channelized flow with no net scour or deposition. At these sites, all channels with gradients up to 40% were surveyed and storm impacts were categorized as high, medium, or low and recorded at \~150-foot increments [@robison1999]. High impacts were associated with "debris torrents" and impacts in these channels were further categorized as scour, deposit, transitional, or debris jam. Although "debris torrent" and "debris flow" are not synonomous, we used this mapping to calibrate a logistic regression model for the probability of debris-flow scour or deposition.
 
@@ -729,15 +729,8 @@ gradEffects + scale_color_discrete(name="Track Type", labels=c("Deposit", "Scour
 
 ### Survival Curve
 
-Compare empirical distributions
-
-Exponential, Weibull, and Log-Normal parametric distributions
-
-## Results
-
-This code chunk will assemble the data file if it doesn't already exist. This takes awhile.
-
 ```{r}
+# This chunk will assemble the data file of runout-path attributes from the DOGAMI inventory if it doesn't already exist. This takes awhile.
 
 if (!file.exists(params$out_Rdata)) {
   
@@ -814,21 +807,20 @@ if (!file.exists(params$out_Rdata)) {
 }
 ```
 
-Load the saved data file. We use the logarithm of the VolRatio values, so remove all zero records. And, GeoClass needs to be recognized as a factor.
-
 ```{r}
+# A bit of cleanup is needed.
 load(params$out_Rdata)
+# We will look at the logarithm of the VolRatio, so remove zero values.
 keep <- which(data_file$VolRatio > 0.)
 data_file <- data_file[keep,]
+# Rock type is categorical, so recognize it as a factor.
 data_file$GeoClass <- as.factor(data_file$GeoClass)
 summary(data_file)
 ```
 
-The VolRatio field is the ratio of the modeled deposited volume (DepVol) to scoured volume (ScourVol): VolRatio = DepVol/ScourVol. the scoured volume is initially assigned an initiating landslide volume and then grows through zones where the modeled probability of scour is greater than zero as the debris flow progresses downslope. The deposited volume increases through zones where the modeled probability of deposition is greater than zero. (See PFA_runout.qmd for a description of how probability of scour and deposition were determined). The deposited volume is proportional to the scoured volume taken to the two thirds power. This is based on the LAHARZ model [@griswald2008], for which the cross-sectional area of a debris-flow deposit is found to be proportional to the total deposit volume taken to the two thirds power. Here we assume that the cross-sectional area of deposited material is proportional to the total scoured volume to that point. Thus the volume ratio indicates conditions along the upslope debris-flow track. We assume that the probability for a debris flow to continue through any increment of travel (one minus the hazard rate) varies with the volume ratio. We also assume that the probability might vary with conditions at each point along the travel path; particularly gradient, tangent curvature, stand age, and rock type. Changes in flow direction may also pose a good candidate, but I did not include it here for technical issues I haven't yet solved.
+As described previously, the probability that a debris-flow will travel to any point downslope is estimated using survival analysis. That probability can be estimated using the cumulative distribution of measured runout lengths for an inventory of debris-flow events. Conceptually, it is convenient to characterize runout probability in terms of the probability that a debris flow will continue through the next increment of travel. This probability is given by the hazard rate (Equation @eq-HazRate) that is integrated along the runout path to give the cumulative hazard (Equation @eq-CumHaz) at each point along a potential travel path. The probability that a debris flow will reach any downslope location, given by the survival curve, is a function of the cumulative hazard (Equation @eq-SurvCumH). The influence of conditions along the travel path can be incorporated into the hazard rate using a relative risk model (Equation @eq-TimeVarh), which can be integrated piecemeal along a travel path to give a cumulative hazard function (Equation @eq-H_timeVar) and the resulting survival curve (Equation @eq-S_timeVar). The relative risk model requires a baseline survival curve. That baseline curve and the empirical coefficients estimated with the relative risk model are inferred from the cumulative distribution of measured runout lengths. The shape of that distribution provides the basis for inferences of runout probability.
 
-Each mapped debris-flow track is parsed into segments corresponding to channel-node segments, or DEM cell segments upslope of the channel initiation points. Each segment is associated with a VolRatio, gradient, tangential curvature, stand age, and rock-type value. The last segment along a track that does not intersect any other track is recognized as an end point.
-
-Here is the cumulative distribution of complete (nontruncated) runout lengths, along with two other sets of runout lengths collected over more localized regions. The Knowles Creek values come from Lee Benda's Masters Thesis and the Hoffman Creek values from Landcaster et al. [@lancaster2003].
+The plot below shows the cumulative distribution of complete (nontruncated) runout lengths from the DOGAMI inventory. Also shown are two other sets of runout lengths collected over more localized regions. The Knowles Creek values come from Lee Benda's Masters Thesis and the Hoffman Creek values from Lancaster et al. [@lancaster2003].
 
 ```{r}
 benda <- c(220,240,240,240,240,280,312,380,400,416,418,432,450,480,480,480,510,554,600,600,600,600,600,602,625,648,720,780,810,840,875,880,880,960,1000,1085,1120,1200,1200,1300,1300,1400,1485,1500)
@@ -859,23 +851,27 @@ alltracks <- rbind(dogami,HoffmanCr,benda_thesis)
 ggplot(data = alltracks, aes(x = Tend, y = 1 - ..y.., fill = Origin)) + 
   coord_cartesian(xlim = c(0,2000)) +
   stat_ecdf(geom = "point", shape = 21, size = 3, alpha = 0.5, pad = FALSE) +
-  xlab("Debris-Flow Track Length (m)") +
-  ylab("Proportion Less Than")
+  labs(x = "Debris-Flow Track Length (m)", y = "Proportion Less Than")
 
 ```
 
-Why such different results? The Knowles Creek and Hoffman Creek data represent debris flows from within single basins, whereas the DOGAMI data are for debris flows across western Oregon. The distributions of hillslope length and gradient likely influence the distribution of debris-flow-track lengths, so topographic variability across basins may result in different distributions of debris-flow length. We are using the DOGAMI data to provide a regional average distribution of debris-flow lengths. We will
+Why such different results? The Knowles Creek and Hoffman Creek data represent debris flows from within single basins, whereas the DOGAMI data are for debris flows across western Oregon. Basin-specific distributions of hillslope length and gradient influence the distribution of associated debris-flow-track lengths, so topographic variability across basins result in different distributions of debris-flow length. We are using the DOGAMI data to provide a characterization of potential debris-flow lengths across all of Western Oregon ( @fig-DataLocations). These include short runout debris flows, like those observed in Hoffman Creek in the plot above, and those extending over 8 km down the flanks of Mount Hood. The distribution of lengths from the DOGAMI inventory provides the baseline survival curve; probability along any specific runout path is then determined using that baseline curve with the coefficients fit using a Cox relative risk model with time-varying coefficients applied with Equation @eq-H_timeVar. Here we look at characteristics of the baseline curve.
 
-The DOGAMI track-length distribution is very right skewed, shown in this histogram.
+The DOGAMI track-length distribution is very right skewed, as shown in this histogram. Most tracks are relatively short and only a handful are greater than 2000 meters.
 
 ```{r}
 keep <- which(data_file$Death == 1)
 tracks <- data_file[keep,]
 ggplot(data=tracks, aes(x = Tend)) + labs(x = "Track Length (m)") + 
-  geom_histogram(binwidth = 50, color = "black", fill = "gray", )
+  geom_histogram(binwidth = 50, color = "black", fill = "gray") + 
+  labs(title = "Histogram of uncensored debris-flow runout lengths", subtitle = "DOGAMI inventory", x = "Runout Length (m)", y = "Count")
 ```
 
-Most tracks are relatively short and only a handful are greater than 2000 meters.
+This histogram shows only the uncensored runout tracks, those for which the terminal endpoint was recorded in the GIS data. Survival analysis incorporates the measured length of tracks for which the endpoint is unknown; those that intersect other tracks, for example. Inclusion of all data yields a histogram like this:
+
+```{r}
+
+```
 
 ```{r}
 densityPlot(log(tracks$Tend))
