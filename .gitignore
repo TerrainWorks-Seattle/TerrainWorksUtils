@@ -15,6 +15,7 @@ PFA_landslide_initiation_files/figure-html/
 
 NAMESPACE
 
+<<<<<<< Updated upstream
 .dbf
 
 .log
@@ -68,3 +69,14 @@ analysis/PFA_runout_DOGAMI_files/libs/quarto-html/
 analysis/PFA_runout_DOGAMI.toc
 
 R/create_model_dataframe.R
+=======
+analysis/PFA_data_extraction_files/figure-html/
+
+*.js
+
+*.css
+
+*.woff
+>>>>>>> Stashed changes
+
+analysis/prcomp_training_data.qmd
