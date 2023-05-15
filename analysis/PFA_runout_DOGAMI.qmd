@@ -475,7 +475,7 @@ From the ODF 1996-Storm-Study GIS data, we use the landslide point feature class
 ```{r}
 # Load ODF Storm Study data
 
-# Topographic data extracted by Fortran program DF_track_ODF
+# Topographic data were extracted by Fortran program DF_track_ODF and stored in ODF_track_points shapefiles.
 Tillamook <- terra::vect(paste0(params$data_dir, "/ODF_1996_Storm_Study/Tillamook/ODF_track_points.shp"))
 Tillamook$site <- "Tillamook"
 
@@ -501,7 +501,7 @@ vals <- vals[keep,]
 vals <- vals[, "age"]
 all_sites$age <- vals
 
-# Rock type from classification in above table performed in ArcGIS
+# Rock type from classification in above table performed in ArcGIS and stored in geoPoly shapefile.
 geoPoly <- terra::vect(paste0(params$data_dir, "/geoPoly.shp"))
 vals <- terra::extract(geoPoly,
                        all_sites)
@@ -519,6 +519,8 @@ deposit <- all_sites[keep, ]
 Using the rock-type classes defined above, these three sites fall almost entirely in different rock types. Mapleton is in sedimentary rocks, Tillamook in volcanic, and Vida in volcaniclastic.
 
 ```{r}
+#| label: Rock-Type
+#| fig-cap: "Proportion of channel length by rock type for each study site"
 all_sites$rock <- case_match(all_sites$geo,"1"~"Sedimentary","2"~"Volcanic","3"~"Igneous","4"~"Volcaniclastic","5"~"Unconsolidated")
 ggplot(data=all_sites) + 
   geom_bar(mapping=aes(x=site,fill=rock),col='black',position='fill') +
@@ -580,7 +582,8 @@ dep_accum <- ggplot(data=deposit, aes(x = site, y = Accum_km2, fill = site)) +
             labs(title = "Depositional Zones")
 
 patch <- scour_accum + dep_accum
-patch + plot_annotation(title='Drainage area (sq km) within impacted channels across the three study sites')
+patch + plot_annotation(title='Drainage area (sq km) within impacted channels across the three study sites', 
+                        subtitle = 'Depositional zones at Tillamook and Vida included much larger channels than those mapped at Mapleton')
 ```
 
 As described in Robison [-@robison1999], field crews were mapping "debris-torrent" impacts. These may have included channel impacts associated with dam-break floods [@coho1993], migrating organic dams [@johnson1991], sediment waves [@miller2000], or hyperconcentrated flows [e.g., @jakob2007], which would extend further downstream than a debris-flow deposit. Our focus here is on debris flows, because debris flows are the process that carries sediment and large wood from upslope areas and headwater channels to fish-bearing streams. These other processes impact fish-bearing streams, but they are generally a consequence of an upstream debris flow and the factors that affect the extent of these types of channel impacts are different than those that affect debris-flow runout. However, since field crews did not distinguish between these different types of debris-torrent impacts, we do not know which values reflect debris flows and which reflect other processes. The fact that some values might represent locations downstream of the extent of debris-flow runout is not intrinsically bad; this ensures that the measured values span the full range of potential debris-flow runout extents.
@@ -965,6 +968,7 @@ ggplot(data=data_file, aes(x=Tend,y=VolRatio)) +
 ```
 
 Debris-flow-track end points tend to have larger modeled volume ratios relative to the rest of the track length.
+
 ```{r}
 ggplot(data=data_1, aes(x = Death, y = VolRatio, fill = Death)) + 
   geom_boxplot() + 
@@ -975,20 +979,198 @@ ggplot(data=data_1, aes(x = Death, y = VolRatio, fill = Death)) +
        y = "Volume Ratio")
   
 ```
+
 Hence, we expect that the hazard rate increases with increasing volume ratio.
 
 These examples illustrate general trends across the sample of runout tracks in the DOGAMI inventory. Each runout track is unique. Here are two examples from the Siuslaw basin; one ran out nearly 1000 meters, the other about 200 meters.
+
 ```{r}
 keep <- which(data_file$V14 == "Siuslaw")
 siuslaw <- data_file[keep, ]
 trks <- subset(siuslaw, Track == 1 | Track == 50)
 trks$Track <- as.factor(trks$Track)
-ggplot(data=trks, 
+grad <-ggplot(data=trks, 
        aes(x=Tend, y = Gradient, color = Track)) +
-       geom_line()
+       geom_line(linewidth = 2) + 
+       theme(legend.position = "none", axis.title.x = element_blank()) + 
+       labs(title = "Attributes along two debris-flow tracks with different total lengths")
+tan <- ggplot(data=trks, 
+       aes(x=Tend, y = TanCurv, color = Track)) +
+       geom_line(linewidth = 2) + 
+       theme(legend.position = "none", axis.title.x = element_blank()) + 
+       labs(y = "Tangential Curvature")
+volRat <- ggplot(data=trks, 
+       aes(x=Tend, y = VolRatio, color = Track)) +
+       geom_line(linewidth = 2) + 
+       theme(legend.position = "none") + 
+       labs(x = "Runout Distance (m)", y = "Volume Ratio")
+
+grad / tan / volRat
 ```
 
+Each track encountered a different sequence of conditions along the travel path. At equal runout distances from the initiation point, the shorter track had a generally lower gradient, with a very large drop in gradient near the terminus. The shorter track entered a broad valley (low tangential curvature) just upslope of the terminus, whereas the longer track was confined to a narrow valley (relatively high tangential curvature values) over most of its length, and beyond about 125 meters, the shorter track had a much larger volume ratio. The relative risk model seeks to relate the total length of each track to the unique combination of conditions along the travel path for all 654 tracks in the DOGAMI inventory.
+
 # Results {#sec-Results}
+
+In the sections above, we listed the factors thought to influence debris-flow runout length, identified empirical statistical models that can be used to relate those factors to runout lengths measured from a sample of debris flows to quantify the probability of runout to any point downslope of an initiation site, described methods for measuring the relevant attributes using available data, and showed how those attribute values are distributed relative to observed runout lengths. Now we will use those models to determine which factors can be quantitatively related to runout length and to find appropriate values for the model coefficients.
+
+## Probability of Scour and Deposition
+
+### Feature Importance
+
+We have five candidate predictors (independent or explanatory variables): gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. We will use these predictors to determine the probability that a debris flow will scour or deposit material at every point along a potential travel path (Equations @eq-Pscour and @eq-Pdep). To what extent does each predictor provide information about the potential for scour or deposition? The coefficient values of a calibrated model tell us something about how much each variable affects the model result, but for a logistic regression model these coefficients refer to the logarithm of the odds; not readily interpretable. With the advent of machine-learning methods, a variety of approaches have been explored for interpreting model behavior (see <https://christophm.github.io/interpretable-ml-book/>). [Permutation Feature Importance](https://christophm.github.io/interpretable-ml-book/feature-importance.html) provides a method for examining the influence of each feature (predictor) on model predictions. The model is trained (calibrated) to all or some subset of the data and some measure of model performance is made. For this case, we use the proportion of channel nodes incorrectly classified as scour, transitional flow, or deposition as a measure of error. Then for a single feature, the values are randomly permuted (shuffled), the model recalibrated using the shuffled values, and the model error recalculated. If the feature has a large influence on model predictions, the model error using the permuted feature values The ratio of model error with the permuted values to that of the error for the original model ($error_{permuted} / error_{original}$) provides a measure of feature importance. If this ratio is large, the feature has a large influence on model predictions; if the ratio is one, the feature has no influence. We use the R packages mlr3 and iml to implement this method. Here is a plot of feature importance for these five predictors with a multinomial logistic regression model applied to the ODF 1996 Storm survey data.
+
+```{r}
+# set up the data frame
+runData <- subset(all_sites, select = -site)
+runData <- subset(runData, select = -rock)
+runData <- subset(runData, select = -Accum_km2)
+
+# define a machine-learning task
+run <- mlr3::as_task_classif(runData,
+                       target = "Track_Type",
+                       id = "ODF_1996_Survey")
+
+# define the model to apply
+multiLog <- lrn("classif.multinom")
+multiLog$predict_type = "prob"
+multiLog$train(run) # train (calibrate) the model on the entire data set
+
+# set up a data frame with just the features
+x = runData[which(names(runData) != "Track_Type")]
+
+# create a new instance of an iml Predictor object for this model
+model = iml::Predictor$new(multiLog, data = x, y = runData$Track_Type)
+
+# Calculate importance for all features
+importance = iml::FeatureImp$new(model, loss = "ce") # "ce" is a measure of classification error
+num_features = c("Gradient", "Tan_Curv", "Norm_Curv", "age", "geo")
+importance$plot(features = num_features) + 
+  labs(title = "Permutation Feature Importance", 
+       subtitle = "For predicting debris-flow scour, transitional flow, or deposition")
+```
+
+Here are the calculated error ratios:
+
+```{r}
+importance$results
+```
+
+None of the predictors have a particularly large influence, reflecting the overlap in the distributions of feature values for each class shown in Section @sec_DataScourDep. However, gradient and tangential curvature are the most influential, consistent with previous studies [e.g., @reid2016]. For the Mapleton study site, Miller and Burnett [-@miller2008] found that probability of scour or deposition varied with "width-weighted gradient" (gradient divided by a measure of confining width). Here we use tangential curvature as a measure of confining width.
+
+[Partial dependence plots](https://christophm.github.io/interpretable-ml-book/pdp.html) provide another way of examining the influence of a predictor on model predictions. A partial dependence plot shows the predicted value, here probability of scour, transitional flow, or deposition, over the range of one predictor with all other predictor values held constant. Shown below are partial dependence plots for gradient, tangential and profile curvature, and stand age.
+
+```{r}
+ale_grad = iml::FeatureEffect$new(model, feature = "Gradient", method = "pdp")
+grad_effect <- ale_grad$results
+effect_grad <- ggplot(data=grad_effect, aes(x = Gradient, y = .value, color = .class)) + 
+  geom_line(linewidth = 2) +
+  labs(title = "Gradient",
+       x = "Gradient",
+       y = "Predicted probability") +
+  theme(legend.position = "none") +
+  geom_rug(data=runData, aes(x=Gradient), inherit.aes=FALSE, alpha = 0.5)
+
+ale_tan = iml::FeatureEffect$new(model, feature = "Tan_Curv", method = "pdp")
+tan_effect <- ale_tan$results
+effect_tan <- ggplot(data=tan_effect, aes(x=Tan_Curv, y=.value, color=.class)) + 
+  geom_line(linewidth = 2) +
+  ylim(0, 1.0) +
+  labs(title = "Tangential Curvature", 
+       x = "Tangential Curvature") +
+  theme(axis.title.y = element_blank()) +
+  scale_color_discrete(name = "Track Type", labels = c("Deposit", "Scour", "Transitional")) +
+  geom_rug(data=runData, aes(x=Tan_Curv), inherit.aes = FALSE, alpha=0.5)
+
+ale_prof = iml::FeatureEffect$new(model, feature = "Norm_Curv", method = "pdp")
+prof_effect = ale_prof$results
+effect_prof <- ggplot(data=prof_effect, aes(x = Norm_Curv, y = .value, color = .class)) + 
+  geom_line(linewidth = 2) +
+  ylim(0, 1.0) +
+  labs(title = "Profile Curvature",
+       x = "Profile Curvature",
+       y = "Predicted probability") +
+  theme(legend.position = "none") +
+  geom_rug(data=runData, aes(x=Norm_Curv), inherit.aes = FALSE, alpha = 0.5)
+
+ale_age = iml::FeatureEffect$new(model, feature = "age", method = "pdp")
+age_effect <- ale_age$results
+effect_age <- ggplot(data=age_effect, aes(x=age, y=.value, color=.class)) + 
+  geom_line(linewidth = 2) +
+  ylim(0, 1.0) +
+  labs(title = "Stand Age", 
+       x = "Stand Age (years)") +
+  theme(axis.title.y = element_blank()) +
+  scale_color_discrete(name = "Track Type", labels = c("Deposit", "Scour", "Transitional")) +
+  geom_rug(data = runData, aes(x=age), inherit.aes = FALSE, alpha = 0.5)
+
+(effect_grad | effect_tan) / (effect_prof | effect_age) +
+  plot_annotation(title="Partial Dependence Plots")
+```
+
+Consistent with the feature importance plots, the largest variation in predicted probability is associated with gradient, followed by tangential and then profile curvature. These results are consistent with our expectations: the probability for deposition decreases with increasing gradient and tangential curvature while the probability of scour increases. The probability of scour tends to decrease with increasing profile curvature, although somewhat counter to expectation, the probability of deposition remains essentially constant. The predictions are relatively insensitive to stand age for this model with these data. There is a slight increase in the probability for deposition relative to scour as stand age increases. Miller and Burnett (2008) found a more pronounced difference in probability of scour and deposition with stand age using the same channel-survey dataset from the Mapleton study area, but that study relied on a different dataset for stand age based primarily on timber-harvest history, with ages binned into three age groups. Such data is not available over the entire area affected by the PFA.
+
+For categorical predictors, like rock type, partial dependence is calculated by setting the predictor value to a single category for all data points, calculating a model prediction for every point, and then averaging those predicted values. In this case, the partial dependence plot shows what the average predicted probability for scour and deposition would be if every surveyed channel were in a single rock type. Comparing those averages across rock types shows how rock type tends to affect the potential for scour or deposition.
+
+```{r}
+ale_geo = iml::FeatureEffect$new(model, feature = "geo", method = "pdp")
+geo_effect <- ale_geo$results
+
+keep <- which(geo_effect$.class == "Scour")
+geo_dep <- geo_effect[keep,]
+effect_scour <- ggplot(data=geo_dep, aes(x=geo, y=.value)) + 
+  geom_bar(stat = "identity", color = "black", fill = "gray") +
+  ylim(0, 0.7) +
+  scale_x_discrete(labels = NULL) +
+  theme(axis.title.x = element_blank()) +
+  labs(title = "Scour", y = "Average Probability")
+
+keep <- which(geo_effect$.class == "Deposit")
+geo_dep <- geo_effect[keep,]
+effect_dep <- ggplot(data=geo_dep, aes(x=geo, y=.value)) + 
+  geom_bar(stat = "identity", color = "black", fill = "gray") +
+  ylim(0, 0.7) +
+  theme(axis.title.x = element_blank()) +
+  scale_x_discrete(labels = c("Sedimentary", "Volcanic", "Igneous+Metamorphic", "Volcaniclastic", "Unconsolidated")) +
+  labs(title = "Deposition", y = "Average Probability")
+
+(effect_scour / effect_dep) + 
+  plot_annotation(title="Partial Dependence Plots for Rock Type")
+```
+
+Recall Figure @fig-Rock-Type; channels at each of the three study sites fall primarily in a single rock type. These are sedimentary for Mapletong, volcanic at Tillamook, and volcaniclastic at Vida. Very little channel length occupies igneous/metamorphic and unconsolidated types and none of the sites has more than two rock types. The partial dependence plot indicates a slight increase in the probability for scour going from sedimentary to volcanic to volcaniclastic rock types with the opposite trend for the probability of deposition. The igneous/metamorphic shows a large difference relative to the other rock types, but with so little data for this and the unconsolidated types, there is some uncertainty in that result.
+
+### Model Performance
+
+Logistic regression as used here is a "classification" model, in that we seek to classify debris-flow tracks as locations of scour, transitional flow, or deposition. Generally, performance of a classification model is measured by the proportion of cases correctly classified. Our interest, however, is not in classification, but in the probability for scour or deposition. These are the values used in Equations @eq-Pscour and @eq-Pdep to estimate the scoured and deposited volumes along any debris-flow track. We found with the plots shown in Section @sec-DataScourDep that there is considerable overlap in the predictor values at which scour and deposition occur. The probabilities output by the model indicate the proportion of track length in each class within any increment of predictor values. If we look at 100 randomly selected channel nodes with a modeled probability for scour of 0.1, none will be classified as "scour", but we should find that one of them fell within a scoured portion of a track and 99 of them did not. That prediction of one percent that was scoured is useful information that we want to capitalize on. Given that the modeled probability represents a proportion, the integral of probability over track length then gives the track length where scour or deposition were recorded. For our use, comparison of the predicted and measured length of scour and deposition provides a useful measure of model performance.
+
+Here are results for the model with all predictors calibrated to the entire data set from all three study sites.
+
+```{r}
+pred_all <- multiLog$predict(run)
+probs <- as.data.frame(pred_all$prob)
+probs$length <- all_sites$Length_m
+
+# This sum gives the integral of modeled probability of deposition over total track length.
+# This is the predicted length of track with deposition.
+predicted_dep <- sum(probs$length * probs$Deposit)
+
+# We can compare the predicted length to the surveyed length of track with deposition.
+keep <- which(all_sites$Track_Type == "Deposit")
+measured_dep <- sum(all_sites$Length_m[keep])
+
+# Now do the same for scour.
+predicted_scour <- sum(probs$length * probs$Scour)
+keep <- which(all_sites$Track_Type == "Scour")
+measured_scour <- sum(all_sites$Length_m[keep])
+```
+
+|                | Predicted           | Measured           | Error %                                            |
+|----------------|---------------------|--------------------|----------------------------------------------------|
+| **Scour**      | `r predicted_scour` | `r measured_scour` | `r 100.*(1.0 -(predicted_scour / measured_scour))` |
+| **Deposition** | `r predicted_dep`   | `r measured_dep`   | `r 100.*(1.0 - (predicted_dep / measured_dep))`    |
+
+It reproduces the measured lengths of scour and deposition quite accurately, simply indicating that logistic regression with these data works as intended. But with what accuracy can the resulting model predict the length of scour and deposition for a basin where we have no prior channel surveys? Lacking new survey data with which to answer this question, we can gain insight by dividing the available data into a "training" and "test" group, calibrating the model with the training data, then checking the accuracy to which it predicts scour and deposition track lengths for the test data.
 
 ## Survival Curve
 
@@ -1011,73 +1193,3 @@ plot(fit_exp, xlab = "Track Length (m)", type = "hazard", xlim = c(0, 2000))
 ```
 
 Log normal is clearly a better fit. We'll use that for the baseline survival function.
-
-## Probability of Scour and Deposition
-
-We have five candidate predictors: gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. I'll use mlr3 to build and evaluate potential classification models. Define a classification task.
-
-```{r}
-# exclude site
-runData <- subset(all_sites, select = -site)
-runData <- subset(runData, select = -rock)
-runData <- subset(runData, select = -Accum_km2)
-run <- as_task_classif(runData,
-                       target = "Track_Type",
-                       id = "tracks")
-
-```
-
-Feature selection using FSelectInstance in mlr3.
-
-```{r}
-#| include: false
-
-instance = fsi(task = run,
-               learner = lrn("classif.rpart"),
-               resampling = rsmp("holdout"),
-               measure = msr("classif.acc"),
-               terminator = trm("stagnation"))
-
-fselector = fs("exhaustive_search")
-
-fselector$optimize(instance)
-```
-
-```{r}
-as.data.table(instance$result)[, .(features, classif.acc)] 
-```
-
-```{r}
-multiLog <- lrn("classif.multinom")
-multiLog$predict_type = "prob"
-multiLog$train(run)
-multiLog$model
-```
-
-Use [package iml](https://cran.r-project.org/web/packages/iml/vignettes/intro.html) to explore model behavior. First look at feature importance.
-
-```{r}
-x = runData[which(names(runData) != "Track_Type")]
-model = Predictor$new(multiLog, data = x, y = runData$Track_Type)
-num_features = c("Gradient", "Norm_Curv", "Tan_Curv", "age", "geo")
-importance = FeatureImp$new(model, loss = "ce")
-importance$plot(features = num_features)
-```
-
-```{r}
-x = runData[which(names(runData) != "Track_Type")]
-model = Predictor$new(multiLog, data = x, y = runData$Track_Type)
-num_features = c("Gradient", "Norm_Curv", "Tan_Curv", "age", "geo")
-effect = FeatureEffects$new(model)
-plot(effect, features = num_features)
-```
-
-```{r}
-effect.data <- effect$results
-grad <- effect.data$Gradient
-gradEffects <- ggplot(data=grad, aes(x=.borders, y=.value, col=.class)) +
-  geom_line(size=2) +
-  labs(x="Gradient", y="Effect")
-
-gradEffects + scale_color_discrete(name="Track Type", labels=c("Deposit", "Scour", "Transitional"))
-```
