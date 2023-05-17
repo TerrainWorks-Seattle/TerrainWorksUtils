@@ -24,7 +24,7 @@ format:
 #            table-align-text-pre=false,
 #            table-align-text-post=false
 #         ]}
-date: May 11, 2023
+date: May 15, 2023
 editor: visual
 number-sections: true
 params:
@@ -55,6 +55,8 @@ params:
 editor_options: 
   chunk_output_type: console
 bibliography: references.bib
+execute:
+  warning: false
 ---
 
 ```{r load, include = FALSE}
@@ -149,13 +151,13 @@ $$
 h(x,Z(x)) = h_0(x)\exp(\sum_{i=1}^p\beta_i Z(x)_i)
 $$ {#eq-TimeVarh}
 
-where $Z(x)$ is a vector of distance-varying covariates (e.g., gradient), $\beta$ is a vector of coefficients, one for each covariate, $p$ is the number of covariates, and $h_0(x)$ is a baseline hazard rate (i.e., the hazard rate when all the covariates $Z$ are zero). We fit the empirical survival curve, Equation @eq-EmpSurv, with a parametric distribution to define $h_0(x)$. Once values for the coefficients $\beta$ are estimated, the change in cumulative hazard function at any point $x$ along a potential debris-flow track is estimated as
+where $Z(x)$ is a vector of distance-varying covariates (e.g., gradient), $\beta$ is a vector of coefficients, one for each covariate, $p$ is the number of covariates, and $h_0(x)$ is a baseline hazard rate (i.e., the hazard rate when all the covariates $Z$ are zero). We fit the empirical survival curve, @eq-EmpSurv, with a parametric distribution to define $h_0(x)$. Once values for the coefficients $\beta$ are estimated, the change in cumulative hazard function at any point $x$ along a potential debris-flow track is estimated as
 
 $$
 \Delta H(x|Z(x)) = 1 - (1-\Delta H_0(x))^ {\exp(x\beta(x))}
 $$ {#eq-H_timeVar}
 
-where $\Delta H_0$ is the baseline cumulative hazard function defined in Equation @eq-CumHaz using a parametric-distribution fit to the empirical survival curve [@kalbfleisch2002; @ruhe2018]. The survival curve is then determined as
+where $\Delta H_0$ is the baseline cumulative hazard function defined in @eq-CumHaz using a parametric-distribution fit to the empirical survival curve [@kalbfleisch2002; @ruhe2018]. The survival curve is then determined as
 
 $$
 S(x|Z(x)) = \exp(-\sum_{i=1}^n \Delta H(x_i|Z(x_i)) ,
@@ -177,7 +179,7 @@ $$
 \hat{H}_0(x) = \sum_{x_i \leq x} \frac{d_i}{n_i},
 $$ {#eq-NelsonAalen}
 
-The zero subscript indicates that this estimate can be used as the baseline cumulative hazard function for the relative-risk model (Equation @eq-TimeVarh), as it does not include the influence of any covariates.
+The zero subscript indicates that this estimate can be used as the baseline cumulative hazard function for the relative-risk model (@eq-TimeVarh), as it does not include the influence of any covariates.
 
 ## Determination of Flow Paths: Synthetic Channel Networks {#sec-SyntheticNetwork}
 
@@ -217,21 +219,21 @@ Debris-flow travel paths are traced along nodes in the delineated channel networ
 
 ## Probability of Debris-Flow Delivery and Traversal {#sec-ProbDelivTrav}
 
-Once coefficients $\beta(x)$ have been calibrated for a relative-risk survival model, a survival curve can be calculated along any potential flow path to provide the probability that a debris flow will travel to any downslope point along that path. For any debris-flow initiation site, the probability of runout to any location along the downslope flow path traced on the DEM is determined using Equations @eq-H_timeVar and @eq-S_timeVar. Any potential flow path may have multiple initiation sites that feed into it. Following Miller and Burnett [-@miller2008], the probability $P_{DF}$ that a debris-flow from any upslope initiation site will reach a point $x$ along that path is
+Once coefficients $\beta(x)$ have been calibrated for a relative-risk survival model, a survival curve can be calculated along any potential flow path to provide the probability that a debris flow will travel to any downslope point along that path. For any debris-flow initiation site, the probability of runout to any location along the downslope flow path traced on the DEM is determined using @eq-H_timeVar and @eq-S_timeVar. Any potential flow path may have multiple initiation sites that feed into it. Following Miller and Burnett [-@miller2008], the probability $P_{DF}$ that a debris-flow from any upslope initiation site will reach a point $x$ along that path is
 
 $$
 P_{DF}(x) = 1 - \prod_{i=1}^n(1-S_iP_{Ii})
 $$ {#eq-MultiS}
 
-where $S_i$ is the survival-curve value at point $x$ (from Equation @eq-S_timeVar) and $P_{Ii}$ the probability of initiation for the $i^{th}$ initiation site, with the product over all $n$ upslope initiation sites. The derivation of initiation probability $P_I$ is described in a separate document, but an example of the spatial distribution modeled for $P_I$ is shown in Figure @fig-InitProb below for a small drainage in the Siuslaw basin. To implement calculation of Equation @eq-MultiS over a DEM, surface-flow paths are traced from every DEM grid point with a nonzero initiation probability and @eq-MultiS calculated for every point along the flow path until the survival-curve value goes to zero.
+where $S_i$ is the survival-curve value at point $x$ (from @eq-S_timeVar) and $P_{Ii}$ the probability of initiation for the $i^{th}$ initiation site, with the product over all $n$ upslope initiation sites. The derivation of initiation probability $P_I$ is described in a separate document, but an example of the spatial distribution modeled for $P_I$ is shown in @fig-InitProb below for a small drainage in the Siuslaw basin. To implement calculation of @eq-MultiS over a DEM, surface-flow paths are traced from every DEM grid point with a nonzero initiation probability and @eq-MultiS calculated for every point along the flow path until the survival-curve value goes to zero.
 
 ![Modeled initiation probability for a small drainage in the Siuslaw basin. Black circles show landslide initiation sites from the DOGAMI inventory.](images/InitProb.jpg){#fig-InitProb fig-align="center" width="6in"}
 
-The probability that a point in a nonfish channel is traversed by a debris flow that originates upslope and continues flowing downslope to deposit material into a fish-bearing channel is determined in a similar fashion [see @burnett2007]. The travel path from each DEM point with a nonzero probability of initiation is traced downslope until it intersects a fish-bearing channel. Label that intersection location as $x_F$. The probability calculated for that debris flow at that point of intersection is $S_i(x_F)P_{Ii}$, where $S_i(x_F)$ is the survival-curve value at $x_F$ and $P_{Ii}$ is the initiation probability for the $i^{th}$ DEM cell (where the flow path originated). $S_i(x_F)$ gives the probability that a debris flow from the $i^{th}$ DEM cell will travel to a fish-bearing channel. This value can be mapped back to the initiating DEM cell to create a map of delivery probabilities, an example of which is shown in Figure @fig-Deliv below. Note in Figure @fig-Deliv the extent of the debris-flow tracks from the DOGAMI inventory: all originated in areas with a low modeled probability of delivery and none of them extend to the fish-bearing channel.
+The probability that a point in a nonfish channel is traversed by a debris flow that originates upslope and continues flowing downslope to deposit material into a fish-bearing channel is determined in a similar fashion [see @burnett2007]. The travel path from each DEM point with a nonzero probability of initiation is traced downslope until it intersects a fish-bearing channel. Label that intersection location as $x_F$. The probability calculated for that debris flow at that point of intersection is $S_i(x_F)P_{Ii}$, where $S_i(x_F)$ is the survival-curve value at $x_F$ and $P_{Ii}$ is the initiation probability for the $i^{th}$ DEM cell (where the flow path originated). $S_i(x_F)$ gives the probability that a debris flow from the $i^{th}$ DEM cell will travel to a fish-bearing channel. This value can be mapped back to the initiating DEM cell to create a map of delivery probabilities, an example of which is shown in @fig-Deliv below. Note in @fig-Deliv the extent of the debris-flow tracks from the DOGAMI inventory: all originated in areas with a low modeled probability of delivery and none of them extend to the fish-bearing channel.
 
 ![Probability of debris-flow delivery to a fish-bearing channel. The red lines show mapped debris-flow tracks from the DOGAMI inventory.](images/Delivery.jpg){#fig-Deliv fig-align="center" width="6in"}
 
-The quantity $S_i(x_F)P_{Ii}$ gives the probability that a debris flow from the $i^{th}$ DEM cell delivers material to a fish-bearing channel. This value too can be mapped back to the DEM cell where each flow path originates to create a map showing the modeled probability that a debris flow will be initiated and travel to a fish-bearing stream, illustrated in Figure @fig-InitDeliv below.
+The quantity $S_i(x_F)P_{Ii}$ gives the probability that a debris flow from the $i^{th}$ DEM cell delivers material to a fish-bearing channel. This value too can be mapped back to the DEM cell where each flow path originates to create a map showing the modeled probability that a debris flow will be initiated and travel to a fish-bearing stream, illustrated in @fig-InitDeliv below.
 
 ![Probability of initiation and delivery to a fish-bearing channel.](images/init_and_deliv.jpg){#fig-InitDeliv fig-align="center" width="6in"}
 
@@ -241,27 +243,27 @@ $$
 P_T = 1 - \prod_{i=1}^n(1-S_i(x_F)P_i)
 $$ {#eq-TravProb}
 
-with the product performed for all $n$ upslope DEM cells with nonzero initiation probability. This value is calculated for all cells along all potential debris flow paths that intersect a fish-bearing channel. It can be translated back to each corresponding traversed DEM cell or channel node to generate a map of traversal probabilities. An example is shown in Figure @fig-DeliveryWeightedInit below. The probability of traversal increases as the number of upslope debris-flow source areas with potential delivery to the fish-bearing channel increases.
+with the product performed for all $n$ upslope DEM cells with nonzero initiation probability. This value is calculated for all cells along all potential debris flow paths that intersect a fish-bearing channel. It can be translated back to each corresponding traversed DEM cell or channel node to generate a map of traversal probabilities. An example is shown in @fig-DeliveryWeightedInit below. The probability of traversal increases as the number of upslope debris-flow source areas with potential delivery to the fish-bearing channel increases.
 
 ![Probability that a non-fish-bearing channel will be traversed by a debris flow that travels to a fish-bearing channel.](images/TravProb.jpg){#fig-DeliveryWeightedInit fig-align="center" width="6in"}
 
 ## Proportion of Debris-Flow Track Length {#sec-PropTrack}
 
-Equations @eq-MultiS and @eq-TravProb provide estimates for the probability of debris-flow impacts that can be calculated for all potential debris-flow travel paths. The models that provide these probabilities were calibrated against an observed set of landslide initiation sites and debris-flow tracks and thus reflect the spatial density of those features. A different inventory with a different number of events would have a different spatial density and produce different probabilities. Our interest, therefore, is not in the magnitude of these probabilities, but in the relative change in that magnitude from point to point. We also want a measure of that relative change that can be used to test the model on other landslide inventories.
+@eq-MultiS and @eq-TravProb provide estimates for the probability of debris-flow impacts that can be calculated for all potential debris-flow travel paths. The models that provide these probabilities were calibrated against an observed set of landslide initiation sites and debris-flow tracks and thus reflect the spatial density of those features. A different inventory with a different number of events would have a different spatial density and produce different probabilities. Our interest, therefore, is not in the magnitude of these probabilities, but in the relative change in that magnitude from point to point. We also want a measure of that relative change that can be used to test the model on other landslide inventories.
 
-Burnett and Miller [-@burnett2007] devised a strategy for accomplishing that. These probabilities both depend on the modeled probability of landslide initiation. In developing these models, we assumed that initiation events could be represented as a Poisson process, meaning that the location of any initiation site is independent of any other initiation site. The logistic regression model used to estimate probability of initiation therefore maintains the marginal probability of initiation locations, meaning that the integral of the modeled initiation probability over all potential initiation sites within the study area used to calibrate the model will equal the total number of observed initiation sites. In other words, that probability is proportional to the spatial landslide density (number of initiation sites per unit area). This probability is calculated for each DEM cell. Each DEM cell with nonzero initiation probability also has an associated downslope debris-flow travel path. Each DEM grid point or channel node along that path represents a short segment of that travel path. Each short segment has an associated probability that a debris flow will reach it based on @eq-MultiS and a probability that it will be traversed by a debris flow that continues to a fish-bearing channel based on @eq-TravProb. Just as integration of modeled initiation probability across the study area will return the total number of initiation sites, integration over all channels of the modeled probability that a debris flow will occur ($P_{DF}$ from Equation @eq-MultiS) will return a value proportional to the total observed debris-flow-track length within the study area and integration of the modeled probability of traversal by a debris flow that will continue to a fish-bearing stream ($P_T$ from Equation @eq-TravProb) will return a value proportional to the length of nonfish channels traversed by delivering debris flows observed within the study area.
+Burnett and Miller [-@burnett2007] devised a strategy for accomplishing that. These probabilities both depend on the modeled probability of landslide initiation. In developing these models, we assumed that initiation events could be represented as a Poisson process, meaning that the location of any initiation site is independent of any other initiation site. The logistic regression model used to estimate probability of initiation therefore maintains the marginal probability of initiation locations, meaning that the integral of the modeled initiation probability over all potential initiation sites within the study area used to calibrate the model will equal the total number of observed initiation sites. In other words, that probability is proportional to the spatial landslide density (number of initiation sites per unit area). This probability is calculated for each DEM cell. Each DEM cell with nonzero initiation probability also has an associated downslope debris-flow travel path. Each DEM grid point or channel node along that path represents a short segment of that travel path. Each short segment has an associated probability that a debris flow will reach it based on @eq-MultiS and a probability that it will be traversed by a debris flow that continues to a fish-bearing channel based on @eq-TravProb. Just as integration of modeled initiation probability across the study area will return the total number of initiation sites, integration over all channels of the modeled probability that a debris flow will occur ($P_{DF}$ from @eq-MultiS) will return a value proportional to the total observed debris-flow-track length within the study area and integration of the modeled probability of traversal by a debris flow that will continue to a fish-bearing stream ($P_T$ from @eq-TravProb) will return a value proportional to the length of nonfish channels traversed by delivering debris flows observed within the study area.
 
-The $P_{DF}$ and $P_T$ values are proportional to the spatial density of debris-flow tracks, measured as track length per unit channel length. As with the initiation sites, we can translate these probability values to the proportion of the total track length. The probability values are ranked from smallest to largest and summed to generate a cumulative frequency distribution of flow-path-segment lengths ordered by probability. The sum over all segments gives the total observed length of all debris-flow tracks or of those that intersected fish-bearing channels. The cumulative frequency distribution is then divided by the total track length to give a cumulative distribution. This distribution varies from zero to one and shows the proportion of observed track length as a function of modeled probability of debris-flow runout (Equation @eq-MultiS) or traversal (Equation @eq-TravProb). These ideas are illustrated in Figure @fig-TravPropGraph below for traversal probability modeled over the small drainage shown in the previous figures. The total nonfish channel length within this small subbasin that could be traversed by debris flows that continue to a fish-bearing stream is 18,167 meters. Integrating the modeled probability of traversal ($P_T$ Equation @eq-TravProb) over all these channels indicates a total expected length of traversed channels of 114 meters. Clearly, if any of the six mapped debris-flow tracks shown in Figure @fig-Deliv had reached a fish-bearing stream, it would be longer than that. Rather, the 114-meter value indicates the proportion of the total length of debris-flow-traversed channels included in the DOGAMI inventory that this subbasin is expected to contain based on the modeled initiation and delivery probabilities. The spatial variation in the modeled $P_{DF}$ value indicates which channels are more or less likely to have been traversed by a debris flow. In Figure @fig-TravPropGraph, the modeled probability of traversal is plotted along the x axis and the proportion of channel length on the y axis. The blue line is a cumulative distribution for all 18,167 meters of potentially traversed channels, showing what proportion of that channel length has a modeled probability less than or equal to the x-axis value. The orange line shows the cumulative integral over channel length of the modeled probability; this is the [expected value](https://en.wikipedia.org/wiki/Expected_value) (in a mathmatical sense) of debris-flow traversed channels, with a total length of 114 meters. By plotting the cumulative distributions, which vary from zero to one, we can compare how the total and expected debris-flow-traversed channel lengths vary as a function of modeled probability.
+The $P_{DF}$ and $P_T$ values are proportional to the spatial density of debris-flow tracks, measured as track length per unit channel length. As with the initiation sites, we can translate these probability values to the proportion of the total track length. The probability values are ranked from smallest to largest and summed to generate a cumulative frequency distribution of flow-path-segment lengths ordered by probability. The sum over all segments gives the total observed length of all debris-flow tracks or of those that intersected fish-bearing channels. The cumulative frequency distribution is then divided by the total track length to give a cumulative distribution. This distribution varies from zero to one and shows the proportion of observed track length as a function of modeled probability of debris-flow runout (@eq-MultiS) or traversal (@eq-TravProb). These ideas are illustrated in @fig-TravPropGraph below for traversal probability modeled over the small drainage shown in the previous figures. The total nonfish channel length within this small subbasin that could be traversed by debris flows that continue to a fish-bearing stream is 18,167 meters. Integrating the modeled probability of traversal ($P_T$ @eq-TravProb) over all these channels indicates a total expected length of traversed channels of 114 meters. Clearly, if any of the six mapped debris-flow tracks shown in @fig-Deliv had reached a fish-bearing stream, it would be longer than that. Rather, the 114-meter value indicates the proportion of the total length of debris-flow-traversed channels included in the DOGAMI inventory that this subbasin is expected to contain based on the modeled initiation and delivery probabilities. The spatial variation in the modeled $P_{DF}$ value indicates which channels are more or less likely to have been traversed by a debris flow. In @fig-TravPropGraph, the modeled probability of traversal is plotted along the x axis and the proportion of channel length on the y axis. The blue line is a cumulative distribution for all 18,167 meters of potentially traversed channels, showing what proportion of that channel length has a modeled probability less than or equal to the x-axis value. The orange line shows the cumulative integral over channel length of the modeled probability; this is the [expected value](https://en.wikipedia.org/wiki/Expected_value) (in a mathmatical sense) of debris-flow traversed channels, with a total length of 114 meters. By plotting the cumulative distributions, which vary from zero to one, we can compare how the total and expected debris-flow-traversed channel lengths vary as a function of modeled probability.
 
-As described earlier, the magnitude of the modeled probability is problematic. It depends on the number of debris-flow tracks included in the inventory. Likewise, the distribution of channel lengths as a function of modeled probability will vary from sub-basin to sub-basin, depending on the distribution of topographic attributes unique to each sub-basin. As described by Burnett and Miller [-@burnett2007], use of proportions effectively normalizes these differences so that results can be compared directly between sites. The cumulative distribution shows how the proportion of channel length is distributed across the range of modeled probability values. Rather than mapping probability, we can map channels in terms of the proportion of expected debris-flow-traversed length. This is illustrated with the black lines and arrows in Figure @fig-TravPropGraph; each increment includes 20% of the modeled channel length.
+As described earlier, the magnitude of the modeled probability is problematic. It depends on the number of debris-flow tracks included in the inventory. Likewise, the distribution of channel lengths as a function of modeled probability will vary from sub-basin to sub-basin, depending on the distribution of topographic attributes unique to each sub-basin. As described by Burnett and Miller [-@burnett2007], use of proportions effectively normalizes these differences so that results can be compared directly between sites. The cumulative distribution shows how the proportion of channel length is distributed across the range of modeled probability values. Rather than mapping probability, we can map channels in terms of the proportion of expected debris-flow-traversed length. This is illustrated with the black lines and arrows in @fig-TravPropGraph; each increment includes 20% of the modeled channel length.
 
 ![Proportion of channel length as a function of modeled traversal probability.](images/PropCurves.png){#fig-TravPropGraph alt="Proportion of channel length as a function of modeled traversal probability." fig-align="center" width="6in"}
 
-These values can be mapped back to the traced flow paths. The flow paths can then be parsed into segments containing a specified proportion of the total track length, ordered from lowest probability to highest (or visa versa), as shown in Figure @fig-TravPropMap below. This is the methodology used to identify the "Debris-flow traversal area" and "Designated debris-flow traversal areas" defined for the PFA [@odf2022, pages 30-31].
+These values can be mapped back to the traced flow paths. The flow paths can then be parsed into segments containing a specified proportion of the total track length, ordered from lowest probability to highest (or visa versa), as shown in @fig-TravPropMap below. This is the methodology used to identify the "Debris-flow traversal area" and "Designated debris-flow traversal areas" defined for the PFA [@odf2022, pages 30-31].
 
 ![Nonfish channels colored in terms of the proportion of total traversed channel length.](images/TravProp.jpg){#fig-TravPropMap fig-align="center" width="6in"}
 
-An important point with this approach is that the proportions calculated are relative to the total debris-flow-track length modeled within the area encompassed by the modeling. If a large basin contains regions with steep, debris-flow-prone terrain and with lower-gradient, less-debris-flow-prone terrain, the steep terrain will contain all of the high-proportion channels (i.e., the 80% to 100% channels in Figure @fig-TravPropMap) and the lower-gradient terrain will contain only the lower-proportion channels. However, if the modeling were done for the high- and low-gradient portions of the basin separately, then the lower-gradient terrain would contain channels in the high 80% to 100% values. This aspect with use of proportions renders the model outcomes sensitive to local and regional variations in debris-flow susceptibility. We assume that regional ecosystems have evolved to accommodate, even capitalize, on these variations. It is appropriate, therefore, to devise management guidelines that seek to maintain these patterns in debris-flow variability. This approach does that, but requires consideration of the appropriate spatial scale over which to maintain those patterns. For the PFA, this scale the [Hydrologic Unit Code](https://enviroatlas.epa.gov/enviroatlas/datafactsheets/pdf/Supplemental/HUC.pdf) 8 (HUC8) basin.
+An important point with this approach is that the proportions calculated are relative to the total debris-flow-track length modeled within the area encompassed by the modeling. If a large basin contains regions with steep, debris-flow-prone terrain and with lower-gradient, less-debris-flow-prone terrain, the steep terrain will contain all of the high-proportion channels (i.e., the 80% to 100% channels in @fig-TravPropMap) and the lower-gradient terrain will contain only the lower-proportion channels. However, if the modeling were done for the high- and low-gradient portions of the basin separately, then the lower-gradient terrain would contain channels in the high 80% to 100% values. This aspect with use of proportions renders the model outcomes sensitive to local and regional variations in debris-flow susceptibility. We assume that regional ecosystems have evolved to accommodate, even capitalize, on these variations. It is appropriate, therefore, to devise management guidelines that seek to maintain these patterns in debris-flow variability. This approach does that, but requires consideration of the appropriate spatial scale over which to maintain those patterns. For the PFA, this scale the [Hydrologic Unit Code](https://enviroatlas.epa.gov/enviroatlas/datafactsheets/pdf/Supplemental/HUC.pdf) 8 (HUC8) basin.
 
 ## Covariates {#sec-Covariates}
 
@@ -331,21 +333,21 @@ $$
 d = \frac{\Delta d}{\Delta\kappa}\kappa + \bar{d}
 $$ {#eq-soilMean}
 
-where $d$ is soil depth at a point, $\Delta d/\Delta \kappa$ is the rate of change in soil depth with change in curvature $\kappa$, and $\bar{d}$ is mean soil depth on a planar slope. They report values of $\Delta d / \Delta \kappa$ ranging from near zero to over 21 (with depth measured in meters and curvature as meter^-1^) and find that these values vary linearly with the standard deviation of curvature values measured over the areas analyzed. They used an ArcGIS function that measures curvature over a 9-cell window, using DEMs sampled to 5 meters. This is approximately equivalent to measuring over a 5-meter radius. They did not specify which curvature they used, but did indicate the calculation was based on the method presented by Zevenbergen and Thorne [-@zevenbergen1987], which should correspond to mean curvature ($(tangential + profile) \div 2$) calculated for a smooth surface fit to 9 points. We use Equation @eq-soilMean to estimate spatial variation in soil depth, with mean depth $\bar{d}$ set as a function of slope gradient $\theta$,
+where $d$ is soil depth at a point, $\Delta d/\Delta \kappa$ is the rate of change in soil depth with change in curvature $\kappa$, and $\bar{d}$ is mean soil depth on a planar slope. They report values of $\Delta d / \Delta \kappa$ ranging from near zero to over 21 (with depth measured in meters and curvature as meter^-1^) and find that these values vary linearly with the standard deviation of curvature values measured over the areas analyzed. They used an ArcGIS function that measures curvature over a 9-cell window, using DEMs sampled to 5 meters. This is approximately equivalent to measuring over a 5-meter radius. They did not specify which curvature they used, but did indicate the calculation was based on the method presented by Zevenbergen and Thorne [-@zevenbergen1987], which should correspond to mean curvature ($(tangential + profile) \div 2$) calculated for a smooth surface fit to 9 points. We use @eq-soilMean to estimate spatial variation in soil depth, with mean depth $\bar{d}$ set as a function of slope gradient $\theta$,
 
 $$
 \bar{d} = 1 - 0.84 \tan \theta
 $$ {#eq-meanDepth}
 
-based on a visual fit of the curve for the Rock Creek area in Dietrich et al. [-@dietrich1982]. We have no data for testing or calibrating the coefficients in these equations and did not, therefore, use the standard deviation in measured curvature values over a region to set the $\Delta d / \Delta \kappa$ value, as suggested by Patton et al. [-@patton2018]. Rather, we applied a constant value everywhere and set the $\Delta d/\Delta \kappa$ value so that the range of modeled bulking rates fell within the reported range. Use of Equations @eq-soilMean and @eq-meanDepth allow us to incorporate available topographic information and the consequent spatial variability in modeled soil depth into estimates of mean bulking rates. This is a rough measure, but it incorporates available information about topographic influences on soil depth more fully than assumption of a single constant bulking rate.
+based on a visual fit of the curve for the Rock Creek area in Dietrich et al. [-@dietrich1982]. We have no data for testing or calibrating the coefficients in these equations and did not, therefore, use the standard deviation in measured curvature values over a region to set the $\Delta d / \Delta \kappa$ value, as suggested by Patton et al. [-@patton2018]. Rather, we applied a constant value everywhere and set the $\Delta d/\Delta \kappa$ value so that the range of modeled bulking rates fell within the reported range. Use of @eq-soilMean and @eq-meanDepth allow us to incorporate available topographic information and the consequent spatial variability in modeled soil depth into estimates of mean bulking rates. This is a rough measure, but it incorporates available information about topographic influences on soil depth more fully than assumption of a single constant bulking rate.
 
-At any point along a debris-flow travel path, the volume scoured per unit length is estimated as a function of topography with Equations @eq-soilMean and @eq-meanDepth. The probability of scour is estimated as a function of topography, stand age, and rock type of the substrate using a logistic regression equation calibrated with the 1996-Storm survey data. The volume scoured over any increment $\Delta l$ of a debris-flow travel path is then estimated as
+At any point along a debris-flow travel path, the volume scoured per unit length is estimated as a function of topography with @eq-soilMean and @eq-meanDepth. The probability of scour is estimated as a function of topography, stand age, and rock type of the substrate using a logistic regression equation calibrated with the 1996-Storm survey data. The volume scoured over any increment $\Delta l$ of a debris-flow travel path is then estimated as
 
 $$
 \Delta V_S = P_S\bar{w}d\Delta l
 $$ {#eq-scourVol}
 
-where $P_S$ is the calculated probability of scour, $\bar{w}$ is average debris-flow-track width, and $d$ is soil depth calculated with Equations @eq-soilMean and @eq-meanDepth. The total modeled volume scoured at any point along a debris-flow track is then $\sum \Delta V_S$, with the sum over all upslope travel increments.
+where $P_S$ is the calculated probability of scour, $\bar{w}$ is average debris-flow-track width, and $d$ is soil depth calculated with @eq-soilMean and @eq-meanDepth. The total modeled volume scoured at any point along a debris-flow track is then $\sum \Delta V_S$, with the sum over all upslope travel increments.
 
 To avoid a modeled scoured volume of zero at the upslope end of a modeled debris-flow track, we included a volume $V_I$ for the initiating landslide. This volume is estimated as
 
@@ -353,7 +355,7 @@ $$
 V_I = l_I w_I d,
 $$ {#eq-initVol}
 
-where $l_I$ and $w_I$ are the average length and width of initiating landslides and $d$ is the soil depth at the initiation site based on Equations @eq-meanDepth and @eq-scourVol above. So the total mobilized volume at any point $x$ along a debris-flow track is estimated as
+where $l_I$ and $w_I$ are the average length and width of initiating landslides and $d$ is the soil depth at the initiation site based on @eq-meanDepth and @eq-scourVol above. So the total mobilized volume at any point $x$ along a debris-flow track is estimated as
 
 $$
 V_S(x) = V_I + \bar{w} \sum_{i=1}^n ({P_{Si} d_i \Delta l_i})
@@ -402,21 +404,21 @@ The [LEMMA](https://lemma.forestry.oregonstate.edu/) project provides estimates 
 
 ## Sediment Source Areas {#sec-SedSourceArea}
 
-For the PFA, sediment source areas are those upslope sites from which the debris flows that carry material to fish-bearing streams originate, ranked in terms of the relative volume of material delivered. The methods described above provide the means for delineating and ranking these areas. The modeled probability of landslide initiation shows where debris-flow-triggering landslides can occur (Figure @fig-InitProb). The modeled probability for delivery from each initiation site to a fish-bearing stream (Figure @fig-Deliv) shows which of those sites can produce debris flows capable of traveling to fish-bearing streams (Figure @fig-InitDeliv). For each possible debris-flow track, the modeled volume scoured minus the modeled volume deposited at the intersection with a fish-bearing channel gives the modeled volume delivered. That volume can be associated with the DEM cell where the debris-flow track initiated to produce a map of modeled delivered volumes.
+For the PFA, sediment source areas are those upslope sites from which the debris flows that carry material to fish-bearing streams originate, ranked in terms of the relative volume of material delivered. The methods described above provide the means for delineating and ranking these areas. The modeled probability of landslide initiation shows where debris-flow-triggering landslides can occur (@fig-InitProb). The modeled probability for delivery from each initiation site to a fish-bearing stream (@fig-Deliv) shows which of those sites can produce debris flows capable of traveling to fish-bearing streams (@fig-InitDeliv). For each possible debris-flow track, the modeled volume scoured minus the modeled volume deposited at the intersection with a fish-bearing channel gives the modeled volume delivered. That volume can be associated with the DEM cell where the debris-flow track initiated to produce a map of modeled delivered volumes.
 
 ![](images/DeliveredVolume.jpg){#DeliveredVolume fig-align="center" width="6in"}
 
-The resulting delivered volume is a function of the attributes along the debris-flow track that influence modeled soil depths and the probabilities for scour or deposition. This value reflects the volume associated with a single modeled debris flow. Any initiation site, however, produces a debris flow very rarely; it may take centuries for soils to accumulate to sufficient depth for another landslide to occur. To anticipate the spatial pattern of sediment source areas for a channel network for any point in time, or over some period of time, we need to account for the relative frequency with which initiation events occur. This frequency is related to the probability of initiation and delivery. Of two randomly chosen initiation sites, one with a probability of initiation and delivery of 0.002 is twice as likely to be within a landslide scar as a site with a probability of 0.001. We interpret this to also imply that a site with a probability of 0.002 has a debris-flow-triggering landslide twice as often as a site with a probability of 0.001. We therefore use the modeled probability of initiation and delivery as a measure of the relative frequency with which landslides that trigger delivering debris flows occur. An example of the modeled probability of initiation and delivery was shown in Figure @fig-InitDeliv. Multiplying the modeled delivered volume of material (Figure @fig-DeliveredVolume) by the probability of initiation and delivery gives a map of source areas in terms of the expected long-term average delivered volume.
+The resulting delivered volume is a function of the attributes along the debris-flow track that influence modeled soil depths and the probabilities for scour or deposition. This value reflects the volume associated with a single modeled debris flow. Any initiation site, however, produces a debris flow very rarely; it may take centuries for soils to accumulate to sufficient depth for another landslide to occur. To anticipate the spatial pattern of sediment source areas for a channel network for any point in time, or over some period of time, we need to account for the relative frequency with which initiation events occur. This frequency is related to the probability of initiation and delivery. Of two randomly chosen initiation sites, one with a probability of initiation and delivery of 0.002 is twice as likely to be within a landslide scar as a site with a probability of 0.001. We interpret this to also imply that a site with a probability of 0.002 has a debris-flow-triggering landslide twice as often as a site with a probability of 0.001. We therefore use the modeled probability of initiation and delivery as a measure of the relative frequency with which landslides that trigger delivering debris flows occur. An example of the modeled probability of initiation and delivery was shown in @fig-InitDeliv. Multiplying the modeled delivered volume of material (@fig-DeliveredVolume) by the probability of initiation and delivery gives a map of source areas in terms of the expected long-term average delivered volume.
 
 ![](images/DelivVolMean.jpg){#LongTermVol fig-align="center" width="6in"}
 
 The "long-term average annual delivered volume" as depicted in the above image is potentially a bit misleading. It does not indicate anything about the pattern that would be observed in any particular year. An initiated debris flow might deliver tons of sediment, but only occur once every 4 centuries. Those tons contribute to the annual average, but there is delivery from that site only one out of every 400 years; the other 399 have no delivery, but the annual average applies to all of them.
 
-An alternative perspective is to characterize source areas in terms of the proportion of debris-flow material delivered to the entire fish-bearing channel network. We can infer that proportion from these results, but we need to choose what portion of the channel network to examine. Earlier, when looking at nonfish channels in terms of the proportion of debris-flow-track length connected to the fish-bearing network (Figure @fig-TravPropMap), we calculated that proportion over all nonfish channels in a Hydrologic Unit Code 8 (HUC8) basin. A different spatial scale was chosen for the sediment source areas. For these, the PFA authors chose to calculate the proportion based on sediment supply from within the drainage area to a nonfish-to-fish channel-type transition. These delineate the "debris-flow traversal-area sub-basins" defined in the PFA report (@odf2022 page 31). Sediment source areas are parsed into zones based on the proportion of total sediment supply to the fish-bearing channel originating solely from within each sub-basin. This is illustrated in the map below.
+An alternative perspective is to characterize source areas in terms of the proportion of debris-flow material delivered to the entire fish-bearing channel network. We can infer that proportion from these results, but we need to choose what portion of the channel network to examine. Earlier, when looking at nonfish channels in terms of the proportion of debris-flow-track length connected to the fish-bearing network (@fig-TravPropMap), we calculated that proportion over all nonfish channels in a Hydrologic Unit Code 8 (HUC8) basin. A different spatial scale was chosen for the sediment source areas. For these, the PFA authors chose to calculate the proportion based on sediment supply from within the drainage area to a nonfish-to-fish channel-type transition. These delineate the "debris-flow traversal-area sub-basins" defined in the PFA report (@odf2022 page 31). Sediment source areas are parsed into zones based on the proportion of total sediment supply to the fish-bearing channel originating solely from within each sub-basin. This is illustrated in the map below.
 
 ![](images/PropSed.jpg){#fig-PropSed fig-align="center" width="6in"}
 
-Note that every sub-basin, even the smallest, have the source areas parsed into proportional zones spanning the entire range from greater than zero to 100%. Sediment source areas are identified within each sub-basin independently of all the others. The PFA prescriptions identify "designated sediment source areas" as those within sub-basins draining to debris-flow traversal-zone channels in the top 20% proportion bracket (@odf2022 page 31). The debris-flow-traversal-zone channels are shown in Figure @fig-TravPropMap. For this example, there are five channels that meet this criterion. Within those channels, only those sediment-source-area zones in the top 33% proportion bracket are identified as "designated sediment source areas". These are shown below:
+Note that every sub-basin, even the smallest, have the source areas parsed into proportional zones spanning the entire range from greater than zero to 100%. Sediment source areas are identified within each sub-basin independently of all the others. The PFA prescriptions identify "designated sediment source areas" as those within sub-basins draining to debris-flow traversal-zone channels in the top 20% proportion bracket (@odf2022 page 31). The debris-flow-traversal-zone channels are shown in @fig-TravPropMap. For this example, there are five channels that meet this criterion. Within those channels, only those sediment-source-area zones in the top 33% proportion bracket are identified as "designated sediment source areas". These are shown below:
 
 ![](images/Designated.jpg){#fig-designated width="6in"}
 
@@ -565,7 +567,7 @@ ggplot(data = all_sites[keep,], aes(x = Accum_km2, y = Gradient)) +
   scale_colour_discrete(limits = c("Scour", "Transition", "Deposit"))
 ```
 
-Mapped channel impacts extended into larger channels - further downstream - at Tillamook and Vida than at Mapleton. This is evident as well in the maps shown in Figures @fig-TillamookData, @fig-VidaData, and @fig-MapletonData. The distribution of drainage area for channels in scour and depositional zones is thus very different across sites:
+Mapped channel impacts extended into larger channels - further downstream - at Tillamook and Vida than at Mapleton. This is evident as well in the maps shown in @fig-TillamookData, @fig-VidaData, and @fig-MapletonData. The distribution of drainage area for channels in scour and depositional zones is thus very different across sites:
 
 ```{r}
 # Compare contributing area
@@ -772,7 +774,7 @@ data_file$GeoClass <- as.factor(data_file$GeoClass)
 summary(data_file)
 ```
 
-As described previously, the probability that a debris-flow will travel to any point downslope is estimated using survival analysis. That probability can be estimated using the cumulative distribution of measured runout lengths for an inventory of debris-flow events. Conceptually, it is convenient to characterize runout probability in terms of the probability that a debris flow will stop within the next increment of travel. This probability is given by the hazard rate (Equation @eq-HazRate) that is integrated along the runout path to give the cumulative hazard (Equation @eq-CumHaz) at each point along a potential travel path. The probability that a debris flow will reach any downslope location, given by the survival curve, is a function of the cumulative hazard (Equation @eq-SurvCumH). The influence of conditions along the travel path can be incorporated into the hazard rate using a relative risk model (Equation @eq-TimeVarh), which can be integrated piecemeal along a travel path to give a cumulative hazard function (Equation @eq-H_timeVar) and the resulting survival curve (Equation @eq-S_timeVar). The relative risk model requires a baseline survival curve. That baseline curve and the empirical coefficients estimated with the relative risk model are inferred from the cumulative distribution of measured runout lengths. The shape of that distribution provides the basis for inferences of runout probability.
+As described previously, the probability that a debris-flow will travel to any point downslope is estimated using survival analysis. That probability can be estimated using the cumulative distribution of measured runout lengths for an inventory of debris-flow events. Conceptually, it is convenient to characterize runout probability in terms of the probability that a debris flow will stop within the next increment of travel. This probability is given by the hazard rate (@eq-HazRate) that is integrated along the runout path to give the cumulative hazard (@eq-CumHaz) at each point along a potential travel path. The probability that a debris flow will reach any downslope location, given by the survival curve, is a function of the cumulative hazard (@eq-SurvCumH). The influence of conditions along the travel path can be incorporated into the hazard rate using a relative risk model (@eq-TimeVarh), which can be integrated piecemeal along a travel path to give a cumulative hazard function (@eq-H_timeVar) and the resulting survival curve (@eq-S_timeVar). The relative risk model requires a baseline survival curve. That baseline curve and the empirical coefficients estimated with the relative risk model are inferred from the cumulative distribution of measured runout lengths. The shape of that distribution provides the basis for inferences of runout probability.
 
 The plot below shows the cumulative distribution of complete (nontruncated) runout lengths from the DOGAMI inventory. Also shown are two other sets of runout lengths collected over more localized regions. The Knowles Creek values come from Lee Benda's Masters Thesis and the Hoffman Creek values from Lancaster et al. [@lancaster2003].
 
@@ -802,6 +804,10 @@ dogami[ ,3] = "DOGAMI"
 colnames(dogami)[3] = "Origin"
 
 alltracks <- rbind(dogami,HoffmanCr,benda_thesis)
+```
+
+```{r}
+#| label: EmpiricalSurvivalCurves 
 
 ggplot(data = alltracks, aes(x = Tend, y = 1 - ..y.., fill = Origin)) + 
   coord_cartesian(xlim = c(0,2000)) +
@@ -810,11 +816,12 @@ ggplot(data = alltracks, aes(x = Tend, y = 1 - ..y.., fill = Origin)) +
 
 ```
 
-Why such different results? The Knowles Creek and Hoffman Creek data represent debris flows from within single basins, whereas the DOGAMI data are for debris flows across western Oregon. Basin-specific distributions of hillslope length and gradient influence the distribution of associated debris-flow-track lengths, so topographic variability across basins result in different distributions of debris-flow length. We are using the DOGAMI data to provide a characterization of potential debris-flow lengths across all of Western Oregon ( @fig-DataLocations). These include short runout debris flows, like those observed in Hoffman Creek in the plot above, and those extending over 8 km down the flanks of Mount Hood. The distribution of lengths from the DOGAMI inventory provides the baseline survival curve; probability along any specific runout path is then determined using that baseline curve with the coefficients fit using a Cox relative risk model with time-varying coefficients applied with Equation @eq-H_timeVar. Here we look at characteristics of the baseline curve.
+Why such different results? The Knowles Creek and Hoffman Creek data represent debris flows from within single basins, whereas the DOGAMI data are for debris flows across western Oregon. Basin-specific distributions of hillslope length and gradient influence the distribution of associated debris-flow-track lengths, so topographic variability across basins result in different distributions of debris-flow length. We are using the DOGAMI data to provide a characterization of potential debris-flow lengths across all of Western Oregon ( @fig-DataLocations). These include short runout debris flows, like those observed in Hoffman Creek in the plot above, and those extending over 8 km down the flanks of Mount Hood. The distribution of lengths from the DOGAMI inventory provides the baseline survival curve; probability along any specific runout path is then determined using that baseline curve with the coefficients fit using a Cox relative risk model with time-varying coefficients applied with @eq-H_timeVar. Here we look at characteristics of the baseline curve.
 
 The DOGAMI track-length distribution is very right skewed, as shown in this histogram. Most tracks are relatively short and only a handful are greater than 2000 meters.
 
 ```{r}
+#| label: HistoRunout1
 keep <- which(data_file$Death == 1)
 tracks <- data_file[keep, ]
 ggplot(data=tracks, aes(x = Tend)) +  
@@ -825,6 +832,7 @@ ggplot(data=tracks, aes(x = Tend)) +
 This histogram shows only the uncensored runout tracks, those for which the terminal endpoint was recorded in the GIS data. Survival analysis incorporates the measured length of tracks for which the endpoint is unknown; those that intersect other tracks, for example. We know those debris flows traveled at least to the downslope-most point at which they were observed and that information can also be used to characterize runout probability. Inclusion of all data yields a histogram like this:
 
 ```{r}
+#| label: HistoRunout2
 keep <- which(data_file$EndPoint == 1)
 end_points <- data_file[keep, ]
 end_points$Death <- as.factor(end_points$Death)
@@ -837,6 +845,7 @@ ggplot(data = end_points, aes(x = Tend, fill = Death)) +
 The censored tracks fall at the shorter end of the distribution (since the measured length includes only a portion of the entire track) so the distribution of all censored and uncensored tracks is even more skewed. However, the logarithm of runout lengths has a fairly symmetric distribution.
 
 ```{r}
+#| label: HistoRunoutLog
 ggplot(data = end_points, aes(x = log(Tend), fill = Death)) +
   geom_histogram(binwidth = 0.1, color = "black") + 
   labs(title = "Stacked histogram of all debris-flow tracks", subtitle = "DOGAMI Inventory", x = "Log(Runout Length)", y = "Count") +
@@ -953,7 +962,7 @@ depVol <- ggplot(data=data_file, aes(x=Tend,y=DepVol)) +
 scourVol + depVol
 ```
 
-The scoured volume includes the initiating landslide volume (Equation @eq-initVol), which sets the minimum value, wherease the deposited volume starts at zero from the initiation point. Hence, the ratio of deposited to scoured volume increases with increasing travel length.
+The scoured volume includes the initiating landslide volume (@eq-initVol), which sets the minimum value, wherease the deposited volume starts at zero from the initiation point. Hence, the ratio of deposited to scoured volume increases with increasing travel length.
 
 ```{r}
 options(scipen = 999)
@@ -1018,23 +1027,24 @@ In the sections above, we listed the factors thought to influence debris-flow ru
 
 ### Feature Importance
 
-We have five candidate predictors (independent or explanatory variables): gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. We will use these predictors to determine the probability that a debris flow will scour or deposit material at every point along a potential travel path (Equations @eq-Pscour and @eq-Pdep). To what extent does each predictor provide information about the potential for scour or deposition? The coefficient values of a calibrated model tell us something about how much each variable affects the model result, but for a logistic regression model these coefficients refer to the logarithm of the odds; not readily interpretable. With the advent of machine-learning methods, a variety of approaches have been explored for interpreting model behavior (see <https://christophm.github.io/interpretable-ml-book/>). [Permutation Feature Importance](https://christophm.github.io/interpretable-ml-book/feature-importance.html) provides a method for examining the influence of each feature (predictor) on model predictions. The model is trained (calibrated) to all or some subset of the data and some measure of model performance is made. For this case, we use the proportion of channel nodes incorrectly classified as scour, transitional flow, or deposition as a measure of error. Then for a single feature, the values are randomly permuted (shuffled), the model recalibrated using the shuffled values, and the model error recalculated. If the feature has a large influence on model predictions, the model error using the permuted feature values The ratio of model error with the permuted values to that of the error for the original model ($error_{permuted} / error_{original}$) provides a measure of feature importance. If this ratio is large, the feature has a large influence on model predictions; if the ratio is one, the feature has no influence. We use the R packages mlr3 and iml to implement this method. Here is a plot of feature importance for these five predictors with a multinomial logistic regression model applied to the ODF 1996 Storm survey data.
+We have five candidate predictors (independent or explanatory variables): gradient, tangential curvature, profile (or normal) curvature, stand age, and rock-type class to predict three track-type classes: Scour, Transitional Flow, and Deposition. We will use these predictors to determine the probability that a debris flow will scour or deposit material at every point along a potential travel path (@eq-Pscour and @eq-Pdep). To what extent does each predictor provide information about the potential for scour or deposition? The coefficient values of a calibrated model tell us something about how much each variable affects the model result, but for a logistic regression model these coefficients refer to the logarithm of the odds; not readily interpretable. With the advent of machine-learning methods, a variety of approaches have been explored for interpreting model behavior (see <https://christophm.github.io/interpretable-ml-book/>). [Permutation Feature Importance](https://christophm.github.io/interpretable-ml-book/feature-importance.html) provides a method for examining the influence of each feature (predictor) on model predictions. The model is trained (calibrated) to all or some subset of the data and some measure of model performance is made. For this case, we use the proportion of channel nodes incorrectly classified as scour, transitional flow, or deposition as a measure of error. Then for a single feature, the values are randomly permuted (shuffled), the model recalibrated using the shuffled values, and the model error recalculated. If the feature has a large influence on model predictions, the model error using the permuted feature values The ratio of model error with the permuted values to that of the error for the original model ($error_{permuted} / error_{original}$) provides a measure of feature importance. If this ratio is large, the feature has a large influence on model predictions; if the ratio is one, the feature has no influence. We use the R packages mlr3 and iml to implement this method. Here is a plot of feature importance for these five predictors with a multinomial logistic regression model applied to the ODF 1996 Storm survey data.
 
 ```{r}
 # set up the data frame
 runData <- subset(all_sites, select = -site)
 runData <- subset(runData, select = -rock)
 runData <- subset(runData, select = -Accum_km2)
+runData <- subset(runData, select = -Length_m)
 
 # define a machine-learning task
-run <- mlr3::as_task_classif(runData,
-                       target = "Track_Type",
-                       id = "ODF_1996_Survey")
+classif_task <- mlr3::as_task_classif(runData,
+                                     target = "Track_Type",
+                                     id = "ODF_1996_Survey")
 
 # define the model to apply
 multiLog <- lrn("classif.multinom")
 multiLog$predict_type = "prob"
-multiLog$train(run) # train (calibrate) the model on the entire data set
+multiLog$train(classif_task) # train (calibrate) the model on the entire data set
 
 # set up a data frame with just the features
 x = runData[which(names(runData) != "Track_Type")]
@@ -1113,6 +1123,7 @@ Consistent with the feature importance plots, the largest variation in predicted
 For categorical predictors, like rock type, partial dependence is calculated by setting the predictor value to a single category for all data points, calculating a model prediction for every point, and then averaging those predicted values. In this case, the partial dependence plot shows what the average predicted probability for scour and deposition would be if every surveyed channel were in a single rock type. Comparing those averages across rock types shows how rock type tends to affect the potential for scour or deposition.
 
 ```{r}
+#| label: RockTypeProb
 ale_geo = iml::FeatureEffect$new(model, feature = "geo", method = "pdp")
 geo_effect <- ale_geo$results
 
@@ -1138,56 +1149,313 @@ effect_dep <- ggplot(data=geo_dep, aes(x=geo, y=.value)) +
   plot_annotation(title="Partial Dependence Plots for Rock Type")
 ```
 
-Recall Figure @fig-Rock-Type; channels at each of the three study sites fall primarily in a single rock type. These are sedimentary for Mapletong, volcanic at Tillamook, and volcaniclastic at Vida. Very little channel length occupies igneous/metamorphic and unconsolidated types and none of the sites has more than two rock types. The partial dependence plot indicates a slight increase in the probability for scour going from sedimentary to volcanic to volcaniclastic rock types with the opposite trend for the probability of deposition. The igneous/metamorphic shows a large difference relative to the other rock types, but with so little data for this and the unconsolidated types, there is some uncertainty in that result.
+Recall @fig-Rock-Type; channels at each of the three study sites fall primarily in a single rock type. These are sedimentary for Mapletong, volcanic at Tillamook, and volcaniclastic at Vida. Very little channel length occupies igneous/metamorphic and unconsolidated types and none of the sites has more than two rock types. The partial dependence plot indicates a slight increase in the probability for scour going from sedimentary to volcanic to volcaniclastic rock types with the opposite trend for the probability of deposition. The igneous/metamorphic shows a large difference relative to the other rock types, but with so little data for this and the unconsolidated types, there is some uncertainty in that result.
 
 ### Model Performance
 
-Logistic regression as used here is a "classification" model, in that we seek to classify debris-flow tracks as locations of scour, transitional flow, or deposition. Generally, performance of a classification model is measured by the proportion of cases correctly classified. Our interest, however, is not in classification, but in the probability for scour or deposition. These are the values used in Equations @eq-Pscour and @eq-Pdep to estimate the scoured and deposited volumes along any debris-flow track. We found with the plots shown in Section @sec-DataScourDep that there is considerable overlap in the predictor values at which scour and deposition occur. The probabilities output by the model indicate the proportion of track length in each class within any increment of predictor values. If we look at 100 randomly selected channel nodes with a modeled probability for scour of 0.1, none will be classified as "scour", but we should find that one of them fell within a scoured portion of a track and 99 of them did not. That prediction of one percent that was scoured is useful information that we want to capitalize on. Given that the modeled probability represents a proportion, the integral of probability over track length then gives the track length where scour or deposition were recorded. For our use, comparison of the predicted and measured length of scour and deposition provides a useful measure of model performance.
+Logistic regression as used here is a "classification" model, in that we seek to classify debris-flow tracks as locations of scour, transitional flow, or deposition. Generally, performance of a classification model is measured by the proportion of cases correctly classified. Our interest, however, is not in classification, but in the probability for scour or deposition. These are the values used in @eq-Pscour and @eq-Pdep to estimate the scoured and deposited volumes along any debris-flow track. We found with the plots shown in Section @sec-DataScourDep that there is considerable overlap in the predictor values at which scour and deposition occur. The probabilities output by the model indicate the proportion of track length in each class within any increment of predictor values. If we look at 100 randomly selected channel nodes with a modeled probability for scour of 0.1, none will be classified as "scour", but we should find that one of them fell within a scoured portion of a track and 99 of them did not. That prediction of one percent that was scoured is useful information that we want to capitalize on. Given that the modeled probability represents a proportion, the integral of probability over track length then gives the track length where scour or deposition were recorded. For our use, comparison of the predicted and measured length of scour and deposition provides a useful measure of model performance.
 
-Here are results for the model with all predictors calibrated to the entire data set from all three study sites.
+Here are results for the model with all predictors calibrated to the entire data set from all three study sites, shown separately for each study site.
 
 ```{r}
-pred_all <- multiLog$predict(run)
+results <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(results) <- c("Measure", "Value", "Site")
+
+pred_all <- multiLog$predict(classif_task)
 probs <- as.data.frame(pred_all$prob)
 probs$length <- all_sites$Length_m
 
 # This sum gives the integral of modeled probability of deposition over total track length.
 # This is the predicted length of track with deposition.
 predicted_dep <- sum(probs$length * probs$Deposit)
+results[1,1] <- "pred_dep"
+results[1,2] <- predicted_dep
+results[1,3] <- "All"
 
 # We can compare the predicted length to the surveyed length of track with deposition.
 keep <- which(all_sites$Track_Type == "Deposit")
 measured_dep <- sum(all_sites$Length_m[keep])
+results[2,1] <- "meas_dep"
+results[2,2] <- measured_dep
+results[2,3] <- "All"
 
 # Now do the same for scour.
 predicted_scour <- sum(probs$length * probs$Scour)
+results[3,1] <- "pred_scour"
+results[3,2] <- predicted_scour
+results[3,3] <- "All"
 keep <- which(all_sites$Track_Type == "Scour")
 measured_scour <- sum(all_sites$Length_m[keep])
+results[4,1] <- "meas_scour"
+results[4,2] <- measured_scour
+results[4,3] <- "All"
+
+meas_dep_Mapleton = 0
+meas_scour_Mapleton = 0
+pred_dep_Mapleton = 0
+pred_scour_Mapleton = 0
+total_length_Mapleton = 0
+meas_dep_Tillamook = 0
+meas_scour_Tillamook = 0
+pred_dep_Tillamook = 0
+pred_scour_Tillamook = 0
+total_length_Tillamook = 0
+meas_dep_Vida = 0
+meas_scour_Vida = 0
+pred_dep_Vida = 0
+pred_scour_Vida = 0
+total_length_Vida = 0
+
+for (i in 1:nrow(all_sites)) {
+  
+  if (all_sites$site[i] == "Mapleton") {
+    if (all_sites$Track_Type[i] == "Deposit") {
+      meas_dep_Mapleton = meas_dep_Mapleton + all_sites$Length_m[i]
+    } else if (all_sites$Track_Type[i] == "Scour") {
+      meas_scour_Mapleton = meas_scour_Mapleton + all_sites$Length_m[i]
+    }
+    pred_scour_Mapleton = pred_scour_Mapleton + probs$Scour[i] * all_sites$Length_m[i]
+    pred_dep_Mapleton = pred_dep_Mapleton + probs$Deposit[i] * all_sites$Length_m[i]
+    total_length_Mapleton = total_length_Mapleton + all_sites$Length_m[i]
+  
+  } else if (all_sites$site[i] == "Tillamook") {
+    if (all_sites$Track_Type[i] == "Deposit") {
+      meas_dep_Tillamook = meas_dep_Tillamook + all_sites$Length_m[i]
+    } else if (all_sites$Track_Type[i] == "Scour") {
+      meas_scour_Tillamook = meas_scour_Tillamook + all_sites$Length_m[i]
+    }
+    pred_scour_Tillamook = pred_scour_Tillamook + probs$Scour[i] * all_sites$Length_m[i]
+    pred_dep_Tillamook = pred_dep_Tillamook + probs$Deposit[i] * all_sites$Length_m[i]
+    total_length_Tillamook = total_length_Tillamook + all_sites$Length_m[i]
+  
+  } else if (all_sites$site[i] == "Vida") {
+    if (all_sites$Track_Type[i] == "Deposit") {
+      meas_dep_Vida = meas_dep_Vida + all_sites$Length_m[i]
+    } else if (all_sites$Track_Type[i] == "Scour") {
+      meas_scour_Vida = meas_scour_Vida + all_sites$Length_m[i]
+    }
+    pred_scour_Vida = pred_scour_Vida + probs$Scour[i] * all_sites$Length_m[i]
+    pred_dep_Vida = pred_dep_Vida + probs$Deposit[i] * all_sites$Length_m[i]
+    total_length_Vida = total_length_Vida + all_sites$Length_m[i]    
+  }
+}
+results[5,1] <- "pred_dep"
+results[5,2] <- pred_dep_Mapleton
+results[5,3] <- "Mapleton"
+results[6,1] <- "meas_dep"
+results[6,2] <- meas_dep_Mapleton
+results[6,3] <- "Mapleton"
+results[7,1] <- "pred_scour"
+results[7,2] <- pred_scour_Mapleton
+results[7,3] <- "Mapleton"
+results[8,1] <- "meas_scour"
+results[8,2] <- meas_scour_Mapleton
+results[8,3] <- "Mapleton"
+
+results[9,1] <- "pred_dep"
+results[9,2] <- pred_dep_Tillamook
+results[9,3] <- "Tillamook"
+results[10,1] <- "meas_dep"
+results[10,2] <- meas_dep_Tillamook
+results[10,3] <- "Tillamook"
+results[11,1] <- "pred_scour"
+results[11,2] <- pred_scour_Tillamook
+results[11,3] <- "Tillamook"
+results[12,1] <- "meas_scour"
+results[12,2] <- meas_scour_Tillamook
+results[12,3] <- "Tillamook"
+
+results[13,1] <- "pred_dep"
+results[13,2] <- pred_dep_Vida
+results[13,3] <- "Vida"
+results[14,1] <- "meas_dep"
+results[14,2] <- meas_dep_Vida
+results[14,3] <- "Vida"
+results[15,1] <- "pred_scour"
+results[15,2] <- pred_scour_Vida
+results[15,3] <- "Vida"
+results[16,1] <- "meas_scour"
+results[16,2] <- meas_scour_Vida
+results[16,3] <- "Vida"
+
+keep <- which(results$Site != "All")
+
+tracks <- c("Measured Scour", "Predicted Scour", "Measured Deposit", "Predicted Deposit")
+ggplot(data=results[keep,], aes(x=Measure, y=Value, fill=Measure)) + 
+  scale_x_discrete(limits = c("meas_scour", "pred_scour", "meas_dep", "pred_dep"),
+                   labels = tracks,
+                   name = NULL) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 8500)) +
+  geom_bar(position="dodge", stat="identity", color = "black", alpha = 0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.position = "none") +
+  facet_wrap(~Site)
 ```
 
-|                | Predicted           | Measured           | Error %                                            |
-|----------------|---------------------|--------------------|----------------------------------------------------|
-| **Scour**      | `r predicted_scour` | `r measured_scour` | `r 100.*(1.0 -(predicted_scour / measured_scour))` |
-| **Deposition** | `r predicted_dep`   | `r measured_dep`   | `r 100.*(1.0 - (predicted_dep / measured_dep))`    |
+The model reproduces the measured lengths of scour and deposition quite accurately, simply indicating that logistic regression with these data works as intended. This is reassuring, because as discussed in @sec-DataScourDep, there are systematic differences in rock type and channel profiles between these basins. But with what accuracy can the resulting model predict the length of scour and deposition for a basin where we have no prior channel surveys? Lacking new survey data with which to answer this question, we can gain insight by dividing the available data into a "training" and "test" group, calibrating the model with the training data, then checking the accuracy to which it predicts scour and deposition track lengths for the test data.
 
-It reproduces the measured lengths of scour and deposition quite accurately, simply indicating that logistic regression with these data works as intended. But with what accuracy can the resulting model predict the length of scour and deposition for a basin where we have no prior channel surveys? Lacking new survey data with which to answer this question, we can gain insight by dividing the available data into a "training" and "test" group, calibrating the model with the training data, then checking the accuracy to which it predicts scour and deposition track lengths for the test data.
+```{r}
+# Create a data frame to hold the results for subsequent plotting
+results <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(results) <- c("Measure", "Value", "Site")
+
+# Train a model using the Tillamook and Vida datasets
+keep <- which(all_sites$site != "Mapleton")
+task1 <- classif_task$clone()
+task1$filter(keep)
+multiLog$train(task1)
+
+# Now apply that model to the Mapleton dataset
+task1 <- classif_task$clone()
+keep <- which(all_sites$site == "Mapleton")
+task1$filter(keep)
+pred_Mapleton <- multiLog$predict(task1)
+
+probs <- as.data.frame(pred_Mapleton$prob)
+probs$length <- all_sites$Length_m[keep]
+
+# This sum gives the integral of modeled deposition probability over total track length.
+# This is the predicted length of track with deposition.
+pred_dep_Mapleton <- sum(probs$length * probs$Deposit)
+err_dep_Mapleton <- 100. * (1. - (pred_dep_Mapleton/meas_dep_Mapleton))
+
+# Now do the same for scour.
+pred_scour_Mapleton <- sum(probs$length * probs$Scour)
+err_scour_Mapleton <- 100. * (1. - (pred_scour_Mapleton/meas_scour_Mapleton))
+
+# The surveyed lengths were calculated above.
+results[1,1] <- "pred_dep"
+results[1,2] <- pred_dep_Mapleton
+results[1,3] <- "Mapleton"
+results[2,1] <- "meas_dep"
+results[2,2] <- meas_dep_Mapleton
+results[2,3] <- "Mapleton"
+results[3,1] <- "pred_scour"
+results[3,2] <- pred_scour_Mapleton
+results[3,3] <- "Mapleton"
+results[4,1] <- "meas_scour"
+results[4,2] <- meas_scour_Mapleton
+results[4,3] <- "Mapleton"
+
+# Train a model using the Tillamook and Mapleton datasets
+keep <- which(all_sites$site != "Vida")
+task1 <- classif_task$clone()
+task1$filter(keep)
+multiLog$train(task1)
+
+# Now apply that model to the Vida dataset
+task1 <- classif_task$clone()
+keep <- which(all_sites$site == "Vida")
+task1$filter(keep)
+pred_Vida <- multiLog$predict(task1)
+
+probs <- as.data.frame(pred_Vida$prob)
+probs$length <- all_sites$Length_m[keep]
+
+pred_dep_Vida <- sum(probs$length * probs$Deposit)
+err_dep_Vida <- 100. * (1. - (pred_dep_Vida/meas_dep_Vida))
+
+pred_scour_Vida <- sum(probs$length * probs$Scour)
+err_scour_Vida <- 100. * (1. - (pred_scour_Vida/meas_scour_Vida))
+
+results[5,1] <- "pred_dep"
+results[5,2] <- pred_dep_Vida
+results[5,3] <- "Vida"
+results[6,1] <- "meas_dep"
+results[6,2] <- meas_dep_Vida
+results[6,3] <- "Vida"
+results[7,1] <- "pred_scour"
+results[7,2] <- pred_scour_Vida
+results[7,3] <- "Vida"
+results[8,1] <- "meas_scour"
+results[8,2] <- meas_scour_Vida
+results[8,3] <- "Vida"
+
+# Train a model using the Mapleton and Vida datasets
+keep <- which(all_sites$site != "Tillamook")
+task1 <- classif_task$clone()
+task1$filter(keep)
+multiLog$train(task1)
+
+# Now apply that model to the Tillamook dataset
+task1 <- classif_task$clone()
+keep <- which(all_sites$site == "Tillamook")
+task1$filter(keep)
+pred_Tillamook <- multiLog$predict(task1)
+
+probs <- as.data.frame(pred_Tillamook$prob)
+probs$length <- all_sites$Length_m[keep]
+
+pred_dep_Tillamook <- sum(probs$length * probs$Deposit)
+err_dep_Tillamook = 100. * (1. - (pred_dep_Tillamook/meas_dep_Tillamook))
+
+pred_scour_Tillamook <- sum(probs$length * probs$Scour)
+err_scour_Tillamook = 100. * (1. - (pred_scour_Tillamook/meas_scour_Tillamook))
+
+results[9,1] <- "pred_dep"
+results[9,2] <- pred_dep_Tillamook
+results[9,3] <- "Tillamook"
+results[10,1] <- "meas_dep"
+results[10,2] <- meas_dep_Tillamook
+results[10,3] <- "Tillamook"
+results[11,1] <- "pred_scour"
+results[11,2] <- pred_scour_Tillamook
+results[11,3] <- "Tillamook"
+results[12,1] <- "meas_scour"
+results[12,2] <- meas_scour_Tillamook
+results[12,3] <- "Tillamook"
+
+tracks <- c("Measured Scour", "Predicted Scour", "Measured Deposit", "Predicted Deposit")
+ggplot(data=results, aes(x=Measure, y=Value, fill=Measure)) + 
+  scale_x_discrete(limits = c("meas_scour", "pred_scour", "meas_dep", "pred_dep"),
+                   labels = tracks,
+                   name = NULL) +
+  scale_fill_discrete(labels=tracks) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 10000)) +
+  geom_bar(position="dodge", stat="identity", color = "black", alpha = 0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.position = "none") +
+  facet_wrap(~Site)
+```
+
+A model trained using data from the Tillamook and Vida sites over-predicts the length of scour by almost a factor of two at Mapleton. Because each site lies in different rock types, the full model (trained on all the data) can accommodate the difference at Mapleton by adjusting the effect of sedimentary rock type on predicted probability of scour. We saw this in @fig-RockTypeProb; the probability for scour within sedimentary rock types (Mapleton) is lower than for volcanic (Tillamook) or volcaniclastic (Vida) rock types. This provides some reassurance that the full model will work across these three rock types, but we do not have data to evaluate the model performance on other rock types.
+
+We use all predictors with all data from the three sites gives coefficients with a mulitnomial logistic regression model.
+
+```{r}
+multiLog$train(classif_task)
+multiLog$model
+```
 
 ## Survival Curve
 
-The log of track lengths is nearly normally distributed, suggesting a log-normal distribution. We can use flexsurvreg to fit a parametric baseline survival function to the distribution of track lengths. I'll only plot up to 2000m..
-
-```{r}
-fit_lognorm <- flexsurvreg(Surv(Tend,Death)~1, data = tracks, dist = "lognormal")
-fit_lognorm
-plot(fit_lognorm, xlab = "Track Length (m)", ylab = "Probability of Survival", xlim = c(0, 2000))
-plot(fit_lognorm, type = "hazard", xlab = "Track Length (m)", xlim = c(0, 2000), ylim = c(0, 0.0025))
-```
-
-The empirical hazard rate increases rapidly up to about 200m and then decreases. I cannot come up with a physical explanation. Here's how an exponential distribution fits:
+In @fig-EmpiricalSurvivalCurves and the following histograms we showed that the cumulative distribution of measured runout lengths in the DOGAMI inventory is highly right (positively) skewed, consistent with what Miller and Burnett [-@miller2008] found with the 1996 storm data. Miller and Burnett fit an exponential distribution to those data; here we show fits for both an exponential and a log-normal distribution.
 
 ```{r}
 fit_exp <- flexsurvreg(Surv(Tend,Death)~1, data = tracks, dist = "exponential")
-fit_exp
+exp_df <- data.frame(as.data.frame(summary(fit_exp))$time, as.data.frame(summary(fit_exp))$est)
+exp_df$model <- "Exponential"
+names(exp_df) <- c("Length", "Surv", "Model")
+fit_lognorm <- flexsurvreg(Surv(Tend,Death)~1, data = tracks, dist = "lognormal")
+lognorm_df <- data.frame(as.data.frame(summary(fit_lognorm))$time, as.data.frame(summary(fit_lognorm))$est)
+lognorm_df$model <- "Log Normal"
+names(lognorm_df) <- c("Length", "Surv", "Model")
+plot_df <- rbind(exp_df, lognorm_df)
+
+ggplot(data = tracks, aes(x = Tend, y = 1 - ..y.., fill = "DOGAMI")) + labs(fill="Data") +
+  stat_ecdf(geom = "point", shape = 21, size = 4, alpha = 0.5, pad = FALSE, color="black") +
+  coord_cartesian(xlim = c(0,2000)) +
+  labs(title = "Survival Curve", subtitle = "Both censored and uncensored tracks", x = "Debris-Flow Track Length (m)", y = "Proportion Less Than") +
+  geom_line(data=plot_df, aes(x = Length, y = Surv, color = Model), linewidth=1.2) +
+  scale_color_manual(values=c("blue", "red4"))
+```
+
+The log normal distribution is clearly a better fit.
+hazard
+The empirical hazard rate increases rapidly up to about 200m and then decreases. I cannot come up with a physical explanation. Here's how an exponential distribution fits:
+
+```{r}
+
 plot(fit_exp, xlab = "Track Length (m)", ylab = "Probability of Survival", xlim = c(0, 2000))
 plot(fit_exp, xlab = "Track Length (m)", type = "hazard", xlim = c(0, 2000))
 ```
