@@ -24,7 +24,7 @@ format:
 #            table-align-text-pre=false,
 #            table-align-text-post=false
 #         ]}
-date: May 15, 2023
+date: May 17, 2023
 editor: visual
 number-sections: true
 params:
@@ -1429,35 +1429,86 @@ multiLog$model
 
 ## Survival Curve
 
-In @fig-EmpiricalSurvivalCurves and the following histograms we showed that the cumulative distribution of measured runout lengths in the DOGAMI inventory is highly right (positively) skewed, consistent with what Miller and Burnett [-@miller2008] found with the 1996 storm data. Miller and Burnett fit an exponential distribution to those data; here we show fits for both an exponential and a log-normal distribution.
+In @fig-EmpiricalSurvivalCurves and the following histograms we showed that the cumulative distribution of measured runout lengths in the DOGAMI inventory is highly right (positively) skewed, consistent with what Miller and Burnett [-@miller2008] found with the 1996 storm data. Most debris-flow tracks are relatively short. In the DOGAMI inventory, the median length is 386 meters, but a few are quite long; the maximum is over nine kilometers.
 
 ```{r}
-fit_exp <- flexsurvreg(Surv(Tend,Death)~1, data = tracks, dist = "exponential")
+fit_exp <- flexsurvreg(Surv(Tend,EndPoint)~1, data = end_points, dist = "exponential")
 exp_df <- data.frame(as.data.frame(summary(fit_exp))$time, as.data.frame(summary(fit_exp))$est)
 exp_df$model <- "Exponential"
 names(exp_df) <- c("Length", "Surv", "Model")
-fit_lognorm <- flexsurvreg(Surv(Tend,Death)~1, data = tracks, dist = "lognormal")
+
+fit_lognorm <- flexsurvreg(Surv(Tend,EndPoint)~1, data = end_points, dist = "lognormal")
 lognorm_df <- data.frame(as.data.frame(summary(fit_lognorm))$time, as.data.frame(summary(fit_lognorm))$est)
 lognorm_df$model <- "Log Normal"
 names(lognorm_df) <- c("Length", "Surv", "Model")
-plot_df <- rbind(exp_df, lognorm_df)
 
-ggplot(data = tracks, aes(x = Tend, y = 1 - ..y.., fill = "DOGAMI")) + labs(fill="Data") +
-  stat_ecdf(geom = "point", shape = 21, size = 4, alpha = 0.5, pad = FALSE, color="black") +
+fit_weibull <- flexsurvreg(Surv(Tend,EndPoint)~1, data = end_points, dist = "weibull")
+weibull_df <- data.frame(as.data.frame(summary(fit_weibull))$time, as.data.frame(summary(fit_weibull))$est)
+weibull_df$model <- "Weibull"
+names(weibull_df) <- c("Length", "Surv", "Model")
+plot_df <- rbind(exp_df, weibull_df, lognorm_df)
+
+ggplot(data = end_points, aes(x = Tend, y = 1 - ..y.., fill = "DOGAMI")) + labs(fill="Data") +
+  stat_ecdf(geom = "point", shape = 21, size = 5, alpha = 0.5, pad = FALSE, color="black") +
   coord_cartesian(xlim = c(0,2000)) +
   labs(title = "Survival Curve", subtitle = "Both censored and uncensored tracks", x = "Debris-Flow Track Length (m)", y = "Proportion Less Than") +
-  geom_line(data=plot_df, aes(x = Length, y = Surv, color = Model), linewidth=1.2) +
-  scale_color_manual(values=c("blue", "red4"))
+  geom_line(data=plot_df, aes(x = Length, y = Surv, color = Model, size = Model)) +
+  scale_color_manual(values=c("purple", "red4", "orange")) + 
+  scale_size_manual(values = c("Exponential" = 2, "Log Normal" = 2, "Weibull" = 2))
 ```
 
-The log normal distribution is clearly a better fit.
-hazard
-The empirical hazard rate increases rapidly up to about 200m and then decreases. I cannot come up with a physical explanation. Here's how an exponential distribution fits:
+Recall that the shape of the survival curve reflects the hazard rate (@eq-HazRate, @eq-CumHaz, and @eq-SurvCumH), which in turn indicates the probability that a debris flow will continue through the next increment of travel as a function of travel length. If the hazard rate is constant, the survival curve follows an exponential distribution. If the hazard rate is monotonically increasing or decreasing, the survival curve will trace a Weibull distribution. A log-normal distribution reflects a hazard rate that first increases, then decreases (or visa versa - a U-shaped hazard rate curve). The hazard-rate curves fit to the different distributions are shown below. The survival curve for the DOGAMI inventory is best fit with a log-normal distribution.
 
 ```{r}
+exp_df2 <- data.frame(as.data.frame(summary(fit_exp, type = "hazard"))$time, as.data.frame(summary(fit_exp, type = "hazard"))$est)
+exp_df2$model <- "Exponential"
+names(exp_df2) <- c("Length", "Haz", "Model")
 
-plot(fit_exp, xlab = "Track Length (m)", ylab = "Probability of Survival", xlim = c(0, 2000))
-plot(fit_exp, xlab = "Track Length (m)", type = "hazard", xlim = c(0, 2000))
+lognorm_df2 <- data.frame(as.data.frame(summary(fit_lognorm, type = "hazard"))$time, as.data.frame(summary(fit_lognorm, type = "hazard"))$est)
+lognorm_df2$model <- "Log Normal"
+names(lognorm_df2) <- c("Length", "Haz", "Model")
+
+weibull_df2 <- data.frame(as.data.frame(summary(fit_weibull, type = "hazard"))$time, as.data.frame(summary(fit_weibull, type = "hazard"))$est)
+weibull_df2$model <- "Weibull"
+names(weibull_df2) <- c("Length", "Haz", "Model")
+plot_df2 <- rbind(exp_df2, weibull_df2, lognorm_df2)
+
+ggplot(data=plot_df2, aes(x=Length, y = Haz, color = Model)) +
+  geom_line(aes(size = Model)) + 
+  coord_cartesian(xlim = c(0, 2000)) +
+  labs(title="Hazard Rate for Parametric Distributions fit to the DOGAMI inventory", x = "Runout Length (m)", y = "Hazard Rate") +
+  scale_color_manual(values=c("purple", "red4", "orange")) + 
+  scale_size_manual(values = c("Exponential" = 1.5, "Log Normal" = 1.5, "Weibull" = 1.5))
+
 ```
 
-Log normal is clearly a better fit. We'll use that for the baseline survival function.
+Coefficents for this log-normal distribution are:
+
+```{r}
+fit_lognorm$coefficients
+```
+
+This provides the baseline hazard rate to use with a relative risk model (@eq-TimeVarh). We now need the covariates and model coefficients to apply with a relative risk model to generate a survival curve for any potential debris-flow track (@eq-S_timeVar). Our look at the distribution of candidate predictors relative to runout length in @sec-DataCovariates suggested that volume ratio, gradient, and tangential curvature vary systematically along runout paths. We use the [coxph](https://rdrr.io/cran/survival/man/survfit.coxph.html) function in the R [survival](https://cran.r-project.org/web/packages/survival/survival.pdf) package to fit distance (time) varying covariate values. We also evaluated the influence of stand age and rock-type class on metrics of model performance. Stand age proved slightly significant; the significance of rock type varied greatly across rock types, with high uncertainty associated with the igneous/metamorphic and unconsolidated classes. This reflects the lack of data for these rock types in calibrating the model for probability of debris-flow scour and deposition, which affects calculation of the volume ratio. The final model included covariates volume ratio, gradient, tangent curvature, and stand age.
+
+```{r}
+fit_cox <- coxph(Surv(Tstart,Tend,Death) ~ log(VolRatio) + Gradient + TanCurv + Age, data = data_file)
+summary(fit_cox)
+
+fit_cox0 <- coxph(Surv(Tstart,Tend,Death) ~ log(VolRatio) + Gradient + TanCurv, data = data_file)
+summary(fit_cox0)
+
+fit_cox1 <- coxph(Surv(Tstart,Tend,Death) ~ log(VolRatio) + Gradient + TanCurv + Age + GeoClass, data = data_file)
+summary(fit_cox1)
+```
+
+```{r}
+fit_cox$coefficients
+```
+
+# Discussion
+
+Development of the orginal set of linked models for debris-flow initiation and runout [@miller2007; @miller2008] was motivated by a need to link processes of sediment and wood flux from hillslopes to channels to better characterize the channel and valley-floor environments affected by these fluxes (see [CLAMS](https://www.fsl.orst.edu/clams/)). Such characterization extends directly to quantitative metrics for evaluating riparian and upslope buffers in timber-land management in the context of changes in sediment and wood flux rates \[@burnett2007\], which is why they proved useful for the PFA. This and a companion document describe our efforts to update these models using data and analysis resources that have become available since development of the original models.
+
+There are other modeling options available. Several process-based and semi-empirical models are applied for debris-flow runout, including the RAMMS [@mikos2021] and Flow-R [@horton2013] models in Europe, the [Laharz and D-Claw](https://www.usgs.gov/programs/VHP/usgs-scientists-model-landslides-lahars-and-debris-flows) models developed by the USGS, and recent development of agent-based models in Canada [@guthrie2021a] and at the University of Washington [@keck2021]. DOGAMI with [Special Paper 53](https://www.oregongeology.org/pubs/sp/SP-53/p-SP-53.htm) provides an ArcGIS toolbox for assessing debris-flow susceptibility, relying in part on extension of the Laharz model for estimating the extent of debris-flow inundation [@reid2016]. All of these are useful approaches for assessing potential for debris-flow runout, but none provide quantitative estimates of runout and delivery probability that can be readily applied at regional extents. It will be instructive to incorporate these various approaches into regional assessments of runout potential; every model has certain strengths and weaknesses and we will obtain better predictions by leveraging the strengths of multiple models, but currently the only functional option I am aware of for quantitative regional analyses is our use of survival analysis as described in Miller and Burnett [-@miller2008] and greatly expanded on here.
+
+An important development for data analysis is the rapidly expanding use of machine learning in the building and evaluation of empirical models. Powerful computers with large memory and storage capacities have made analysis of large datasets commonplace (like those used here; the DEMs contain millions of data points, the traced runout tracks tens of thousands). Machine-learning software, like the [mlr3](https://mlr3.mlr-org.com/) R package used here, automate model runs so that thousands of input options can be explored to examine the sensitivity of model outputs to input parameters, as we used here to look at feature importance. Key aspects of current data-analysis protocols are examination of relationships between input variables and quantification of uncertainty in model outputs.
