@@ -13,6 +13,10 @@ params:
     label: Data Directory
     value: /Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/out/
     input: text
+  dem_dir: 
+    label: Data Directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/
+    input: text
   pred_dir: 
     label: Data Directory
     value: /Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/
@@ -374,7 +378,7 @@ We start with a model that uses gradient, 48-hour partial contributing area, and
 
 ```{r}
 set.seed(12345)
-ls_task$select(c("ln_pca_k1_48", "grad_by_pca", "gradient"))
+ls_task$select(c("ln_pca_k1_48", "mean_curv", "gradient"))
 
 # create a pipeline for data preprocessing
 scale_features <- 
@@ -417,11 +421,12 @@ The predicting directory must have the elevation derivative files for the requir
 pred_dir <- params$pred_dir
 
 # find and load the data files
-topo_files <- c(paste0("GRADIENT,", pred_dir, "Umpqua/basin_1/gradient.flt"))
+topo_files <- c(paste0("GRADIENT,", pred_dir, "Umpqua/basin_1/gradient.flt"), 
+                paste0("MEAN CURVATURE,", pred_dir, "Umpqua/basin_1/mean_curv.flt"))
 topo_rast <- elev_deriv(rasters = topo_files)
 pca_rast <-  contributing_area(raster = paste0(pred_dir, "Umpqua/basin_1/pca_6_1.flt"))
 rasters <- c(topo_rast, pca_rast)
-names(rasters) <- c("gradient", "pca_k1_48")
+names(rasters) <- c("gradient", "mean_curv", "pca_k1_48")
 
 # convert to a data frame and add the feature interactions. 
 pd <- as.data.frame(rasters, xy = TRUE)
@@ -432,11 +437,12 @@ pd$ln_pca_k1_48 <- log(pd$pca_k1_48)
 center_vals <- scale_features$pipeops$scale$state$center
 scale_vals <- scale_features$pipeops$scale$state$scale
 
-pd$grad_by_pca <- (pd$grad_by_pca - center_vals[1]) / scale_vals[1]
-pd$gradient <- (pd$gradient - center_vals[2]) / scale_vals[2]
-pd$ln_pca_k1_48 <- (pd$ln_pca_k1_48 - center_vals[3]) / scale_vals[3]
+# pd$grad_by_pca <- (pd$grad_by_pca - center_vals[1]) / scale_vals[1]
+pd$gradient <- (pd$gradient - center_vals[1]) / scale_vals[1]
+pd$ln_pca_k1_48 <- (pd$ln_pca_k1_48 - center_vals[2]) / scale_vals[2]
+pd$mean_curv <- (pd$mean_curv - center_vals[3]) / scale_vals[3]
 
-pd <- subset(pd, select = c("x", "y", "grad_by_pca", "gradient", "ln_pca_k1_48"))
+pd <- subset(pd, select = c("x", "y", "mean_curv", "gradient", "ln_pca_k1_48"))
 ```
 
 ```{r}
@@ -457,12 +463,14 @@ ggplot(predictions_df) +
   geom_spatvector(data = pts_local)
 ```
 
-### Multiple basin
+### Multiple basins
 
 To generate a success rate curve, we combine multiple basins. The success rate curve is the proportions of landslide predicted over the proportion of the predicted area. A smaller area under the success rate curve indicates that the model was more specific with the areas that it deemed to have a high probability of landslide initiation.
 
 ```{r}
-basin_list <- list.files(dem_dir, "^basin_[0-9]{1,3}\\.flt", recursive = TRUE)
+basin_list <- list.files(params$dem_dir, paste0("^basin_[1-9]{1,3}\\.flt"), recursive = TRUE)
+# basin_list <- list.dirs(pred_dir, recursive = TRUE, full.names = FALSE)
+predict = TRUE
 ```
 
 ```{r}
@@ -480,37 +488,42 @@ pts_prop <- data.frame("x" = 0,
                        "area.cumsum" = 0, 
                        "ls.prop" = 0)
 
-for (basin in basin_list) { 
+if (predict) {
+  for (basin in basin_list) { 
   
   basin <- sub("\\..*","", basin)
   
   tic(msg = paste0("loop for ", basin))
 
   # find and load the data files
-  topo_files <- c(paste0("GRADIENT,", pred_dir, basin, "/gradient.flt"))
+  topo_files <- c(paste0("GRADIENT,", pred_dir, basin, "/gradient.flt"), 
+                paste0("MEAN CURVATURE,", pred_dir, basin, "/mean_curv.flt"))
+  print(topo_files)
   topo_rast <- elev_deriv(rasters = topo_files)
   
   pca_file <- list.files(paste0(pred_dir, basin), "^pca_6_[0-9]{1,3}\\.flt", full.names = TRUE)
-  print(pca_file)
   pca_rast <-  contributing_area(raster = pca_file)
   count <- count + 1
   rasters <- c(topo_rast, pca_rast)
-  names(rasters) <- c("gradient", "pca_k1_48")
+  names(rasters) <- c("gradient", "mean_curv", "pca_k1_48")
   
   predicting_data <- as.data.frame(rasters, xy = TRUE)
   predicting_data$ln_pca_k1_48 <- log(predicting_data$pca_k1_48)
-  predicting_data$grad_by_pca <- predicting_data$gradient * predicting_data$pca_k1_48
+  # predicting_data$grad_by_pca <- predicting_data$gradient * predicting_data$pca_k1_48
   
   pd <- predicting_data
-  pd <- subset(pd, select = c("x", "y", "grad_by_pca", "gradient", "ln_pca_k1_48"))
+  # pd <- subset(pd, select = c("x", "y", "grad_by_pca", "gradient", "ln_pca_k1_48"))
+  pd <- subset(pd, select = c("x", "y", "mean_curv", "gradient", "ln_pca_k1_48"))
+
 
   # manually pre process the data: take the log of the pca and center+scale the data
   center_vals <- scale_features$pipeops$scale$state$center
   scale_vals <- scale_features$pipeops$scale$state$scale
   
-  pd$grad_by_pca <- (pd$grad_by_pca - center_vals[1]) / scale_vals[1]
-  pd$gradient <- (pd$gradient - center_vals[2]) / scale_vals[2]
-  pd$ln_pca_k1_48 <- (pd$ln_pca_k1_48 - center_vals[3]) / scale_vals[3]
+  # pd$grad_by_pca <- (pd$grad_by_pca - center_vals[1]) / scale_vals[1]
+  pd$gradient <- (pd$gradient - center_vals[1]) / scale_vals[1]
+  pd$ln_pca_k1_48 <- (pd$ln_pca_k1_48 - center_vals[2]) / scale_vals[2]
+  pd$mean_curv <- (pd$mean_curv - center_vals[3]) / scale_vals[3]
   
   # predict the basin using scaled and centered data.
   predictions_df <- as.data.table(model$predict_newdata(pd))
@@ -533,7 +546,7 @@ for (basin in basin_list) {
   
   toc()
 }
-
+}
 
 total_area <- max(cumul_prop$area)
 total_prob <- max(cumul_prop$prob)
@@ -546,12 +559,18 @@ pts_prop$area_prop <- dt$area_prop
 ```
 
 ```{r}
-ggplot(cbind(bins, cumul_prop)) + 
+load(paste0(pred_dir, "grad_pca_gbyp.Rdata"))
+success_curve_2 <- cbind(bins, cumul_prop)
+
+ggplot(success_curve) + 
   geom_line(aes(x = area_prop, y = prob_prop), color = "red") + 
   geom_point(aes(x = area_prop, y = prob_prop), color = "red") + 
+  geom_line(data = success_curve_2, aes(x = area_prop, y = prob_prop), color = "blue") + 
+  geom_point(data = success_curve_2, aes(x = area_prop, y = prob_prop), color = "blue") + 
   scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
   scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
   labs(x = "Proportion of area", y = "Proportion of total probability") + 
+  theme(legend.position = "right") + 
   theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", linewidth = 1, color = "black",), 
         panel.border = element_rect(linewidth = 1, color = NA, fill = NA)) 
