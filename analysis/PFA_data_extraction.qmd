@@ -41,7 +41,7 @@ params:
     input: text
   over_sample:
     label: Multiplier for number of nonlandslide sample points relative to landslide points
-    value: 10
+    value: 15
     input: numeric
 ---
 
@@ -745,42 +745,42 @@ for (i in 1:num_files) {
     nonls_2011 <- rbind(nonls_2011, vals)
   }
 # Clean up
-  grad_name <- paste0("gradient_", as.character(i))
-  file_name <- paste0(output_dir, grad_name)
-  unlink(paste0(file_name, ".flt"))
-  unlink(paste0(file_name, ".hdr"))
-  unlink(paste0(file_name, ".prj"))
-  unlink(paste0(file_name, ".log"))
+#  grad_name <- paste0("gradient_", as.character(i))
+#  file_name <- paste0(output_dir, grad_name)
+#  unlink(paste0(file_name, ".flt"))
+#  unlink(paste0(file_name, ".hdr"))
+#  unlink(paste0(file_name, ".prj"))
+#  unlink(paste0(file_name, ".log"))
   
-  tan_name <- paste0("tancurv_", as.character(i))
-  file_name <- paste0(output_dir, tan_name)
-  unlink(paste0(file_name, ".flt")) 
-  unlink(paste0(file_name, ".hdr"))
-  unlink(paste0(file_name, ".prj"))
-  unlink(paste0(file_name, ".log"))
+#  tan_name <- paste0("tancurv_", as.character(i))
+#  file_name <- paste0(output_dir, tan_name)
+#  unlink(paste0(file_name, ".flt")) 
+#  unlink(paste0(file_name, ".hdr"))
+#  unlink(paste0(file_name, ".prj"))
+#  unlink(paste0(file_name, ".log"))
   
-  prof_name <- paste0("profcurv_", as.character(i))
-  file_name <- paste0(output_dir, prof_name)
-  unlink(paste0(file_name, ".flt")) 
-  unlink(paste0(file_name, ".hdr"))
-  unlink(paste0(file_name, ".prj"))
-  unlink(paste0(file_name, ".log"))
+#  prof_name <- paste0("profcurv_", as.character(i))
+#  file_name <- paste0(output_dir, prof_name)
+#  unlink(paste0(file_name, ".flt")) 
+#  unlink(paste0(file_name, ".hdr"))
+#  unlink(paste0(file_name, ".prj"))
+#  unlink(paste0(file_name, ".log"))
   
-  dev_name <- paste0("dev_", as.character(i))
-  file_name <- paste0(output_dir, dev_name)
-  unlink(paste0(file_name, ".flt")) 
-  unlink(paste0(file_name, ".hdr"))
-  unlink(paste0(file_name, ".prj"))
-  unlink(paste0(file_name, ".log")) 
+#  dev_name <- paste0("dev_", as.character(i))
+#  file_name <- paste0(output_dir, dev_name)
+#  unlink(paste0(file_name, ".flt")) 
+#  unlink(paste0(file_name, ".hdr"))
+#  unlink(paste0(file_name, ".prj"))
+#  unlink(paste0(file_name, ".log")) 
     
-  raster_name <- paste0("distTo_", as.character(i))
-  file_name <- paste0(output_dir, raster_name)
-  if (file.exists(paste0(file_name, ".flt"))) {
-    unlink(paste0(file_name, ".flt")) 
-    unlink(paste0(file_name, ".hdr"))
-    unlink(paste0(file_name, ".prj"))
-    unlink(paste0(file_name, ".log"))    
-  }
+#  raster_name <- paste0("distTo_", as.character(i))
+#  file_name <- paste0(output_dir, raster_name)
+#  if (file.exists(paste0(file_name, ".flt"))) {
+#    unlink(paste0(file_name, ".flt")) 
+#    unlink(paste0(file_name, ".hdr"))
+#    unlink(paste0(file_name, ".prj"))
+#    unlink(paste0(file_name, ".log"))    
+#  }
  
 #  file_name <- paste0(output_dir, "accum")
 #  unlink(paste0(file_name, ".flt")) 
@@ -810,12 +810,12 @@ ls_2011$class <- "pos"
 nonls_1996$class <- "neg"
 nonls_2007$class <- "neg"
 nonls_2011$class <- "neg"
-save(ls_1996, file = paste0(output_dir, "ls_1996_April11.Rdata"))
-save(ls_2007, file = paste0(output_dir, "ls_2007_April11.Rdata"))
-save(ls_2011, file = paste0(output_dir, "ls_2011_April11.Rdata"))
-save(nonls_1996, file = paste0(output_dir, "nonls_1996_April11.Rdata"))
-save(nonls_2007, file = paste0(output_dir, "nonls_2007_April11.Rdata"))
-save(nonls_2011, file = paste0(output_dir, "nonls_2011_April11.Rdata"))
+save(ls_1996, file = paste0(output_dir, "ls_1996_15.Rdata"))
+save(ls_2007, file = paste0(output_dir, "ls_2007_15.Rdata"))
+save(ls_2011, file = paste0(output_dir, "ls_2011_15.Rdata"))
+save(nonls_1996, file = paste0(output_dir, "nonls_1996_15.Rdata"))
+save(nonls_2007, file = paste0(output_dir, "nonls_2007_15.Rdata"))
+save(nonls_2011, file = paste0(output_dir, "nonls_2011_15.Rdata"))
 ```
 
 Take a look.
