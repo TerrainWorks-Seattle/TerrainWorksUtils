@@ -1,0 +1,80 @@
+---
+title: "PFA Landslide Initiation"
+author: "Dan Miller and Julia Lober"
+format: 
+  html:
+    toc: true
+    toc-float: true
+    toc-depth: 3
+    number-sections: true
+    code-folding: hide
+    theme: readable
+    code-fold: true
+    code-overflow: scroll
+date: May 18, 2023
+editor: visual
+number-sections: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+# Steep-slopes modeling for the Private Forest Accord
+
+Landslides, debris flows, channels, fish.
+
+Why a model?
+
+Modeling strategies.
+
+What the model must predict.
+
+# Landslide initiation.
+
+Shallow rapid landslides.
+
+## Quantitative measures of susceptibility.
+
+Landslide density; #/area.
+
+Relation to rate, flux.
+
+How to calculate? Census of landslide events within a delineated area.
+
+Relate density to mappable attributes. Miller & Burnett 2007, frequency ratio: for some increment of predictor values, measure area, count landslides. Problems with frequency ratio - not obvious how to use it with more than one or two variables.
+
+Other options. Classification models that provide probability: logistic regression, random forest, ....
+
+These require sampling of nonlandslide points. Model output affected by sampling scheme.
+
+## Predictors
+
+Which attributes? Theory: balance of forces. infinite slope steady state, 3-D, time variable. Key factors: gradient, saturation depth, root reinforcement, soil and substrate geotechnical properties.
+
+What is mappable?
+
+-   Gradient.
+
+-   Contributing area: for a storm of specified duration.
+
+-   Soil depth - curvature + slope.
+
+-   Stand age
+
+-   Distance to road
+
+-   Substrate - rock type.
+
+# Data
+
+## DOGAMI inventory. 
+
+### Sources.
+
+### Mapping protocol.
+
+Serendipitous sample - not a census. Use local sampling strategy: [@zhu2017][@nowickijessee2018a]
+
+Balanced or unbalanced sample.
+
+Plots of landslide density and log(odds) versus predictors.
