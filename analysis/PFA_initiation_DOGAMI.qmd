@@ -67,7 +67,7 @@ What is mappable?
 
 # Data
 
-## DOGAMI inventory. 
+## DOGAMI inventory.
 
 ### Sources.
 
@@ -78,3 +78,24 @@ Serendipitous sample - not a census. Use local sampling strategy: [@zhu2017][@no
 Balanced or unbalanced sample.
 
 Plots of landslide density and log(odds) versus predictors.
+
+```{r}
+
+
+pca48 <- read.csv("c:/work/data/pfa/den_pca48.csv")
+pca48$odds = pca48$density / (1. - pca48$density)
+pca48$log_odds <- log(pca48$odds)
+
+ggplot(data = pca48) +
+  geom_line(aes( x= density), color = "red", linewidth = 2, stat = "ecdf") +
+  geom_line(aes(x = area), color="blue", linewidth = 2, stat="ecdf") +
+  xlim(0,0.2)
+
+```
+
+
+ggplot(data=pca48, aes(x=val, y=log_odds)) + 
+  geom_point(shape = 21, size=2.5, color="black", fill="gray", alpha=0.5) + 
+  stat_smooth(color="black", method = "lm", formula = y~ x + I(x^2)) + 
+  labs(x = "Contributing Area (DEM cells) 48 hr duration", y = "Log odds")
+```
