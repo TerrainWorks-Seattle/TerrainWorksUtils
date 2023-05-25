@@ -1,5 +1,5 @@
 ---
-title: "PFA Landslide Initiation"
+title: "Steep-slopes modeling for the Private Forest Accord"
 author: "Dan Miller and Julia Lober"
 format: 
   html:
@@ -11,7 +11,7 @@ format:
     theme: readable
     code-fold: true
     code-overflow: scroll
-date: May 18, 2023
+date: May 24, 2023
 editor: visual
 number-sections: true
 bibliography: references.bib
@@ -19,15 +19,58 @@ editor_options:
   chunk_output_type: console
 ---
 
-# Steep-slopes modeling for the Private Forest Accord
+```{r load, include = FALSE}
+library(TerrainWorksUtils)
+library(terra)
+library(stringr)
+library(car)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(mlr3verse)
+library(iml)
+library(colorspace)
+```
 
-Landslides, debris flows, channels, fish.
+# Introduction
 
-Why a model?
+This document reports on an update and recalibration of the linked landslide initiation and debris-flow runout models used for the Private Forest Accord ([PFA](https://www.oregon.gov/odf/pages/private-forest-accord.aspx), [@odf2022]) steep-slopes modeling. These models were developed by Kelly Burnett and myself as described in Miller and Burnett [-@miller2007; -@miller2008] with application of the models described in Burnett and Miller [-@burnett2007]. The original models were calibrated using landslide-initiation locations, debris tracks, and "debris-torrent"-impacted channels that were field surveyed for the 1996 Storm Study by the Oregon Department of Forestry (ODF) [@robison1999] and digitized to 10-meter line-trace DEM base maps. Several factors motivate a re-calibration and re-examination of these models.
 
-Modeling strategies.
+-   Recent work by the Oregon Department of Geology and Mineral Resources [Special Paper 53, @burns2022] now provides an inventory of landslide initiation points and debris-flow-runout tracks with a greater geographic and temporal range than available from the 1996 Storm Study,
 
-What the model must predict.
+-   high-resolution DEMs derived from lidar are now available for much of Oregon (<https://www.oregongeology.org/lidar/>), and
+
+-   statistical methods and analysis tools have progressed considerably in the last 15 years.
+
+The Miller-Burnett models identify the channels susceptible to direct impacts from debris flows originating upslope and delineate the source areas for those debris flows. Although the initiation and evolution of a landslide into a debris flow is a continuous process, the models examine landslide initiation and runout separately. This is because initiation and runout involve different sets of physical processes influenced by different sets of environmental factors. An empirical approach is used for both cases, in which statistical models are calibrated using observed landslide initiation sites and debris-flow tracks, but with the choice of predictor variables (also called the independent variables) based on current understanding of the physical processes involved. The models are linked in that the modeled potential for downslope impacts is a function of both initiation probability and runout probability. This document focuses on landslide initiation; a separate document describes the modeling done for debris-flow runout and subsequent analyses that utilize the linked models.
+
+In the realm of forest practices, determination of hazards related to landsliding and debris flows has traditionally relied on field observations and mapping done by experienced professionals. Oregon, for example, provides guidelines for identifying and rating areas susceptible to shallow, rapidly moving landslides ([Forest Practices Technical Note Number 2](https://www.oregon.gov/odf/Documents/workingforests/HighLandslideHazardLocationsTechNote2.pdf) and [Number 6](https://www.oregon.gov/odf/Documents/workingforests/LandslideImpactRatingTechNote6.pdf)). Washington state provides guidance in the Forest Practice Board Manual ([Section 16, Guidelines for Evaluating Potentially Unstable Slopes and Landforms](https://www.dnr.wa.gov/publications/bc_fpb_bmsection16_2022.pdf)). At one point, Lee Benda, I, and several others offered training for field identification and mapping of landslide hazards ([Slope Instability and Forest Land Managers](https://terrainworks.sharefile.com/d-s02d3fbb2b87b4ae687e8d71d0d4ca729)).
+
+So why use a computer model now? Timber-land management seeks to promote both ecologic and economic integrity. Decisions about how to do that in the context of landslides and debris flows invariably involves trade offs between the extent of area protected where harvest restrictions apply and the area available for timber production. A method or model to quantify those trade offs can provide cost-benefit comparisons to inform decision makers. Once those decisions are made, a consistent method for mapping those areas across landslide-prone regions of Oregon is needed so that timber-land managers can incorporate that information into harvest and road-construction planning and anticipate the consequences for field operations. A computer model can provide a quantitative and consistent method for that mapping. The resulting maps are not necessarily better than those provided through manual mapping; indeed, ground-based observations will still be essential for the final determination of landslide-prone zones because many factors that influence landslide potential cannot be resolved from the remotely sensed data used by computer models. Several factors, however, render a computer model well suited for this task:
+
+-   Manual mapping is subject to the experience and biases of the mapper, so different mappers produce slightly different maps. A computer model can provide a consistent result.
+
+-   Manual mapping requires experienced professionals and takes considerable time and effort. A computer model can provide results for the entire state in a matter of hours. However, development of the model takes considerable time, effort, and expertise.
+
+-   A computer model can incorporate information that is unavailable or difficult to measure through field observations alone. This includes such things as the upslope area contributing shallow subsurface flow for storms of variable duration or the cumulative length of scour zones along all potential upslope debris-flow corridors.
+
+-   A computer model can be designed to make quantitative predictions of probability. Traditional field mapping may offer estimates of high, medium, and low potential, but cannot provide measures of probability. Comparisons of the costs and benefits of different options requires quantitative estimates of the consequences associated with those options, which requires quantitative estimates of the probability of the different potential consequences.
+
+So what model to use? Our choice of model is guided by the information it must provide. For the PFA, interest was in a model that could show were debris flows that can carry sediment and wood to fish-bearing streams originate, that could identify the nonfish channels traversed by those debris flows, and that could rank those source areas and traversal corridors in terms of the frequency of occurrence and the quantity of sediment and wood potentially carried to fish-bearing streams. These modeling targets were in large part based on the analyses that Kelly Burnett and I originally developed [@miller2007, @miller2008] and applied [@burnett22007] for the Coastal Analysis and Modeling Study ([CLAMS](https://www.fsl.orst.edu/clams/)). As mentioned above, we now seek to update and recalibrate these models.
+
+These models are empirical, in that they seek statistical relationships between observed landslide initiation locations and debris-flow corridors with topographic, geologic, and land-cover attributes. Given the range over which the models must be applied, we use attributes that can be mapped remotely. Modeling strategies span a range from purely physically based (or process-based) models; those based solely on physical explanations of the phenomena modeled (landslide initiation and debris-flow runout), to purely empirical models, based solely on observed associations (locations of landslide initiation sites and channels traversed by debris flows with topographic, geologic, and land-cover attributes). In practice, physical models tend to include empirical components, and likewise empirical models may include and be guided by the underlying physical theory we use to explain what we see. That is true here; we use the conceptual physics of soil failure to guide our choice of topographic, geologic, and land-cover attributes to compare with landslide and debris-flow locations.
+
+There are physically based models that could be applied here. SHALSTAB [@montgomery1994a; @dietrich2001a], for example, could be used for landslide initiation and a model like [D-Claw](https://dlgeorge.github.io/project/dclaw-project) could be used for runout [see also @iverson2014a]. There are several reasons we chose an empirical approach.
+
+-    With a physically based model, we need to know the physics of what is occurring. There may be things occurring that we do not know about and are, therefore, not included in a physically based model.
+
+-   Physically based models incorporate simplifications and abstractions of the actual phenomena. This is intrinsic in development of mathematical descriptions of physical phenomena. SHALSTAB, for example, assumes steady-state rainfall onto a planar slope with uniform soil depth; simplifications of actual time-varying rainfall onto slopes with a great deal of topographic convergence and divergence and variable soil depths. This simplification allows for a concise mathematical description of soil failure with which predictions of where landslides are likely to occur can be made, but it will also result in inaccuracies in those predictions.
+
+-   Physically based models require details about topographic and geotechnical properties for which we have no information, such as spatial variations in soil depth and texture. Application of these models then requires assumptions about these properties, which will again result in inaccuracies in model predictions.
+
+For these reasons, physically based models are often used to test and improve our understanding of the physics involved. Errors in predictions point to missing components in the model, or over simplification, or incorrect assumptions. Physically based models are also useful for anticipating the influence of different components in the model. For example, SHALSTAB shows how changes in rainfall intensity might alter the spatial extent over which soil failures are likely to occur. To make such predictions with an empirical model would require observations of landslide locations over a range of different storm intensities; data not typically available.
+
+Our decision to use empirical models is based primarily on the third factor above. To calculate probability of initiation and runout extent would require information about spatial variations in soil depth and geotechnical properties we do not have. With empirical models, the influence of these factors is incorporated into the correlations with topographic, geologic, and land-cover attributes that we can measure. We do, however, use the physical theory of soil failure to guide our choice of attributes to examine.
 
 # Landslide initiation.
 
@@ -80,22 +123,158 @@ Balanced or unbalanced sample.
 Plots of landslide density and log(odds) versus predictors.
 
 ```{r}
+grad <- read.csv("c:/work/data/pfa/den_gradient.csv")
+n <- nrow(grad)
+grad$propArea <- grad$sumArea / grad$sumArea[[n]]
+grad$propLS <- grad$sumLS / grad$sumLS[[n]]
 
-
-pca48 <- read.csv("c:/work/data/pfa/den_pca48.csv")
-pca48$odds = pca48$density / (1. - pca48$density)
-pca48$log_odds <- log(pca48$odds)
-
-ggplot(data = pca48) +
-  geom_line(aes( x= density), color = "red", linewidth = 2, stat = "ecdf") +
-  geom_line(aes(x = area), color="blue", linewidth = 2, stat="ecdf") +
-  xlim(0,0.2)
-
+coef <- grad$sumLS[[n]] / grad$sumArea[[n]]
+ggplot(data = grad, aes(x = val, y = sumLS)) +
+       theme_bw() +
+       geom_line(color = "black", linewidth = 0.5) +
+       geom_point(aes(color = val), shape = 16, size = 4) +
+       geom_line(aes(x = val, y = sumArea*coef), color = "black", linewidth = 0.5) +
+       geom_point(aes(x = val, y = sumArea*coef, color = val), shape = 17, size = 3) +
+       scale_y_continuous(name = "Landslides", sec.axis = sec_axis(~./coef, name = "Area (sq km)")) +
+       scale_color_continuous_sequential(palette = "Viridis") +
+       labs(title = "Cumulative distributions",
+            subtitle = "Basin area and number of landslides vs gradient",  
+            x = "Gradient",
+            y = "Proportion",
+            color = "Gradient") +
+       annotate("text", x = .3, y = 450, label = "Area") +
+       annotate("point", shape = 2, size = 3, x = .45, y = 450) +
+       annotate("text", x = .3, y = 430, label = "Landslides") +
+       annotate("point", shape = 1, size = 4, x = .45, y = 430)
 ```
 
+```{r}
+ggplot(data = grad, aes(x = sumArea, y = sumLS, color = val)) +
+        theme_bw() +
+        geom_line(color = "black", size = 0.5) +
+        geom_point(shape = 16, size = 3) +
+        scale_color_continuous_sequential(palette = "Viridis") +
+        labs(title = "Cumulative Number of Landslides vs Cumulative Area",
+             subtitle = "Ordered by Increasing Gradient",
+             x = "Area (sq km)", 
+             y = "Number of Landslides",
+             color = "Gradient")
+```
+
+```{r}
+ggplot(data = grad, aes(x = val, y = density)) +
+  geom_point(fill = "gray", color = "black", shape = 21, size = 3, alpha = 0.5) +
+  labs(title = "Landslide Density vs Gradient", 
+       x = "Gradient",
+       y = "Landslide Density (#/cell)",
+       fill = "Gradient")
+```
+
+```{r}
+ggplot(data=grad, aes(x=val, y=log_odds)) + 
+  geom_point(shape = 21, size=2.5, color="black", fill="gray", alpha=0.5) + 
+  stat_smooth(color="black", method = "lm", formula = y~ x + I(x^2)) + 
+  stat_smooth(color="red", method = "lm", formula = y ~ x) +
+  labs(title = "Log(odds) vs Gradient",
+       subtitle = "Exhibits a nonlinear relationship",
+       x = "Gradient", 
+       y = "Log(odds) of an initiation point within a DEM cell") +
+  annotate("segment", x=0.34, xend=0.5, y=-8, yend = -8, color = "red", linewidth=1.3) +
+  annotate("text", x=0.6, y=-8, label="Linear") +
+  annotate("segment", x = 0.34, xend = 0.5, y = -8.25, yend = -8.25, color = "black", linewidth = 1.3) +
+  annotate("text", x = 0.62, y = -8.25, label = "Quadratic" )
+```
+
+```{r}
+pca48 <- read.csv("c:/work/data/pfa/den_pca48.csv")
 
 ggplot(data=pca48, aes(x=val, y=log_odds)) + 
   geom_point(shape = 21, size=2.5, color="black", fill="gray", alpha=0.5) + 
+  ylim(-13.5,-5.5) +
   stat_smooth(color="black", method = "lm", formula = y~ x + I(x^2)) + 
-  labs(x = "Contributing Area (DEM cells) 48 hr duration", y = "Log odds")
+  stat_smooth(color="red", method = "lm", formula = y ~ x) +
+  labs(title = "Log(odds) vs Contributing Area",
+       subtitle = "Also nonlinear",
+       x = "Contributing Area (DEM cells) 48 hr duration", 
+       y = "Log(odds) of an initiation point within a DEM cell") +
+  annotate("segment", x=5, xend=10, y=-6.5, yend = -6.5, color = "red", linewidth=1.3) +
+  annotate("text", x=13, y=-6.5, label="Linear") +
+  annotate("segment", x = 5, xend = 10, y = -6.8, yend = -6.8, color = "black", linewidth = 1.3) +
+  annotate("text", x = 13, y = -6.8, label = "Quadratic" )
+```
+
+```{r}
+tancurv <- read.csv("c:/work/data/pfa/den_tancurv.csv")
+
+ggplot(data=tancurv, aes(x=val, y=log_odds)) + 
+  geom_point(shape = 21, size=2.5, color="black", fill="gray", alpha=0.5) + 
+  ylim(-13, -5) +
+  stat_smooth(color="black", method = "lm", formula = y~ x + I(x^2)) + 
+  stat_smooth(color="red", method = "lm", formula = y ~ x) +
+  labs(title = "Log(odds) vs Tangential curvature",
+       subtitle = "Also nonlinear",
+       x = "Tangential Curvature", 
+       y = "Log(odds) of an initiation point within a DEM cell") +
+  annotate("segment", x=-0.07, xend=-0.03, y=-6.5, yend = -6.5, color = "red", linewidth=1.3) +
+  annotate("text", x=-0.01, y=-6.5, label="Linear") +
+  annotate("segment", x = -0.07, xend = -0.03, y = -6.8, yend = -6.8, color = "black", linewidth = 1.3) +
+  annotate("text", x = -0.01, y = -6.8, label = "Quadratic" )
+```
+
+```{r}
+n <- nrow(pca48)
+pca48$propArea <- pca48$sumArea / pca48$sumArea[[n]]
+pca48$propLS <- pca48$sumLS / pca48$sumLS[[n]]
+
+coef <- pca48$sumLS[[n]] / pca48$sumArea[[n]]
+ggplot(data = pca48, aes(x = val, y = sumLS)) +
+       theme_bw() +
+       geom_line(color = "black", linewidth = 0.5) +
+       geom_point(aes(color = val), shape = 16, size = 4) +
+       geom_line(aes(x = val, y = sumArea*coef), color = "black", linewidth = 0.5) +
+       geom_point(aes(x = val, y = sumArea*coef, color = val), shape = 17, size = 3) +
+       scale_y_continuous(name = "Landslides", sec.axis = sec_axis(~./coef, name = "Area (sq km)")) +
+       scale_color_continuous_sequential(palette = "Viridis") +
+       labs(title = "Cumulative distributions:\nproportion of area and landslides vs contributing area",  
+            x = "Contributing Area (DEM cells, 48-hour duration)",
+            y = "Proportion",
+            color = "Contributing\nArea") +
+       annotate("text", x = 5, y = 450, label = "Area") +
+       annotate("point", shape = 2, size = 3, x = 10, y = 450) +
+       annotate("text", x = 5, y = 430, label = "Landslides") +
+       annotate("point", x = 10, y = 430, shape = 1, size = 4)
+```
+
+```{r}
+ggplot(data = pca48, aes(x = sumArea, y = sumLS, color = val)) +
+        theme_bw() +
+        geom_line(color = "black", size = 0.5) +
+        geom_point(shape = 16, size = 3) +
+        scale_color_continuous_sequential(palette = "Viridis") +
+        labs(title = "Cumulative Number of Landslides vs Cumulative Area",
+             subtitle = "Ordered by Contributing Area",
+             x = "Area (sq km)", 
+             y = "Number of Landslides",
+             color = "Contributing\nArea")
+```
+
+```{r}
+ggplot(data = pca48, aes(x = val, y = )) +
+  geom_point(aes(x = val, y = density), fill = "gray", color = "black", shape = 21, size = 3, alpha = 0.5) +
+  labs(title = "Landslide Density vs Contributing Area", 
+       x = "Contributing Area in cells, 48-hour duration",
+       y = "Landslide Density (#/cell)",
+       fill = "Contributing\nArea")
+```
+
+```{r}
+ggplot(data=pca48, aes(x=val, y=log_odds)) + 
+  geom_point(shape = 21, size=2.5, color="black", fill="gray", alpha=0.5) + 
+  ylim(-13.5,-5.5) +
+  stat_smooth(color="black", method = "lm", formula = y~ x + I(x^2)) + 
+  stat_smooth(color="red", method = "lm", formula = y ~ x) +
+  labs(title = "Log(odds) vs Contributing Area",
+       subtitle = "Exhibits a nonlinear relationship",
+       x = "Contributing Area (DEM cells) 48 hr duration", 
+       y = "Log(odds) of an initiation point within a DEM cell")
 ```
