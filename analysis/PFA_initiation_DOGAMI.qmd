@@ -30,11 +30,14 @@ library(dplyr)
 library(mlr3verse)
 library(iml)
 library(colorspace)
+library(RColorBrewer)
 ```
 
 # Introduction
 
-This document reports on an update and recalibration of the linked landslide initiation and debris-flow runout models used for the Private Forest Accord ([PFA](https://www.oregon.gov/odf/pages/private-forest-accord.aspx), [@odf2022]) steep-slopes modeling. These models were developed by Kelly Burnett and myself as described in Miller and Burnett [-@miller2007; -@miller2008] with application of the models described in Burnett and Miller [-@burnett2007]. The original models were calibrated using landslide-initiation locations, debris tracks, and "debris-torrent"-impacted channels that were field surveyed for the 1996 Storm Study by the Oregon Department of Forestry (ODF) [@robison1999] and digitized to 10-meter line-trace DEM base maps. Several factors motivate a re-calibration and re-examination of these models.
+In steep-land regions of Oregon, landsliding of shallow soils that subsequently evolve into a debris flow are a primary process by which sediment and wood is carried from hillslopes to valley floors and stream channels [@Swanson1982; @benda1997; @reeves2003a]. The deposits formed by these events profoundly influence valley floor and channel morphology [@benda1990a; @bigelow2007]. At any single failure site, the frequency of such events is rare, with recurrence intervals spanning thousands of years [@benda1987]. There are many such sites, however, so when integrated over a channel network, these landslides and debris flows are important drivers of the disturbance regime that acts, in part, to set the spatial and temporal distribution of habitat types across a basin [@bendaEtal1998; @rieman2006a]. A goal of forest management is, therefore, to avoid doing things that will change that disturbance regime [@penaluna2018a]. This is reflected in the Private Forest Accord's approach to timber harvest on steep slopes [Chapter 3 and Appendix B, @odf2022], for which harvest prescriptions apply to the source areas and traversal corridors of debris flows that might travel to fish-bearing streams. These zones are ranked by the frequency of debris-flow delivery to fish-bearing streams, so that prescriptions can target those zones where timber harvest would likely have the greatest influence on the frequency and magnitude of sediment and wood fluxes to those streams.
+
+These source areas and transport corridors are identified for the PFA using models of landslide initiation and debris-flow runout developed by Kelly Burnett and myself with the Coastal Analysis and Modeling Study ([CLAMS](https://www.fsl.orst.edu/clams/)) as described in Miller and Burnett [-@miller2007; -@miller2008], with application of the models described in Burnett and Miller [-@burnett2007]. The original models were calibrated using landslide-initiation locations, debris tracks, and "debris-torrent"-impacted channels that were field surveyed for the 1996 Storm Study by the Oregon Department of Forestry (ODF) [@robison1999] and digitized to 10-meter line-trace DEM base maps. Several factors motivate a re-calibration and re-examination of these models.
 
 -   Recent work by the Oregon Department of Geology and Mineral Resources [Special Paper 53, @burns2022] now provides an inventory of landslide initiation points and debris-flow-runout tracks with a greater geographic and temporal range than available from the 1996 Storm Study,
 
@@ -42,7 +45,7 @@ This document reports on an update and recalibration of the linked landslide ini
 
 -   statistical methods and analysis tools have progressed considerably in the last 15 years.
 
-The Miller-Burnett models identify the channels susceptible to direct impacts from debris flows originating upslope and delineate the source areas for those debris flows. Although the initiation and evolution of a landslide into a debris flow is a continuous process, the models examine landslide initiation and runout separately. This is because initiation and runout involve different sets of physical processes influenced by different sets of environmental factors. An empirical approach is used for both cases, in which statistical models are calibrated using observed landslide initiation sites and debris-flow tracks, but with the choice of predictor variables (also called the independent variables) based on current understanding of the physical processes involved. The models are linked in that the modeled potential for downslope impacts is a function of both initiation probability and runout probability. This document focuses on landslide initiation; a separate document describes the modeling done for debris-flow runout and subsequent analyses that utilize the linked models.
+The Miller-Burnett models identify the channels susceptible to direct impacts from debris flows originating upslope and delineate the source areas for those debris flows. Although the initiation and evolution of a landslide into a debris flow is a continuous process, the models examine landslide initiation and runout separately. This is because initiation and runout involve different sets of physical processes influenced by different sets of environmental factors. An empirical approach is used for both cases, in which statistical models are calibrated using observed landslide initiation sites and debris-flow tracks, but with the choice of explanatory variables (also called the independent variables or predictors) based on current understanding of the physical processes involved. The models are linked in that the modeled potential for downslope impacts is a function of both initiation probability and runout probability. This document focuses on landslide initiation; a separate document describes the modeling done for debris-flow runout and subsequent analyses that utilize the linked models.
 
 In the realm of forest practices, determination of hazards related to landsliding and debris flows has traditionally relied on field observations and mapping done by experienced professionals. Oregon, for example, provides guidelines for identifying and rating areas susceptible to shallow, rapidly moving landslides ([Forest Practices Technical Note Number 2](https://www.oregon.gov/odf/Documents/workingforests/HighLandslideHazardLocationsTechNote2.pdf) and [Number 6](https://www.oregon.gov/odf/Documents/workingforests/LandslideImpactRatingTechNote6.pdf)). Washington state provides guidance in the Forest Practice Board Manual ([Section 16, Guidelines for Evaluating Potentially Unstable Slopes and Landforms](https://www.dnr.wa.gov/publications/bc_fpb_bmsection16_2022.pdf)). At one point, Lee Benda, I, and several others offered training for field identification and mapping of landslide hazards ([Slope Instability and Forest Land Managers](https://terrainworks.sharefile.com/d-s02d3fbb2b87b4ae687e8d71d0d4ca729)).
 
@@ -56,25 +59,21 @@ So why use a computer model now? Timber-land management seeks to promote both ec
 
 -   A computer model can be designed to make quantitative predictions of probability. Traditional field mapping may offer estimates of high, medium, and low potential, but cannot provide measures of probability. Comparisons of the costs and benefits of different options requires quantitative estimates of the consequences associated with those options, which requires quantitative estimates of the probability of the different potential consequences.
 
-So what model to use? Our choice of model is guided by the information it must provide. For the PFA, interest was in a model that could show were debris flows that can carry sediment and wood to fish-bearing streams originate, that could identify the nonfish channels traversed by those debris flows, and that could rank those source areas and traversal corridors in terms of the frequency of occurrence and the quantity of sediment and wood potentially carried to fish-bearing streams. These modeling targets were in large part based on the analyses that Kelly Burnett and I originally developed [@miller2007, @miller2008] and applied [@burnett22007] for the Coastal Analysis and Modeling Study ([CLAMS](https://www.fsl.orst.edu/clams/)). As mentioned above, we now seek to update and recalibrate these models.
-
 These models are empirical, in that they seek statistical relationships between observed landslide initiation locations and debris-flow corridors with topographic, geologic, and land-cover attributes. Given the range over which the models must be applied, we use attributes that can be mapped remotely. Modeling strategies span a range from purely physically based (or process-based) models; those based solely on physical explanations of the phenomena modeled (landslide initiation and debris-flow runout), to purely empirical models, based solely on observed associations (locations of landslide initiation sites and channels traversed by debris flows with topographic, geologic, and land-cover attributes). In practice, physical models tend to include empirical components, and likewise empirical models may include and be guided by the underlying physical theory we use to explain what we see. That is true here; we use the conceptual physics of soil failure to guide our choice of topographic, geologic, and land-cover attributes to compare with landslide and debris-flow locations.
 
 There are physically based models that could be applied here. SHALSTAB [@montgomery1994a; @dietrich2001a], for example, could be used for landslide initiation and a model like [D-Claw](https://dlgeorge.github.io/project/dclaw-project) could be used for runout [see also @iverson2014a]. There are several reasons we chose an empirical approach.
 
--    With a physically based model, we need to know the physics of what is occurring. There may be things occurring that we do not know about and are, therefore, not included in a physically based model.
+-   With a physically based model, we need to know the physics of what is occurring. There may be things occurring that we do not know about and would not, therefore, not included in a physically based model.
 
 -   Physically based models incorporate simplifications and abstractions of the actual phenomena. This is intrinsic in development of mathematical descriptions of physical phenomena. SHALSTAB, for example, assumes steady-state rainfall onto a planar slope with uniform soil depth; simplifications of actual time-varying rainfall onto slopes with a great deal of topographic convergence and divergence and variable soil depths. This simplification allows for a concise mathematical description of soil failure with which predictions of where landslides are likely to occur can be made, but it will also result in inaccuracies in those predictions.
 
--   Physically based models require details about topographic and geotechnical properties for which we have no information, such as spatial variations in soil depth and texture. Application of these models then requires assumptions about these properties, which will again result in inaccuracies in model predictions.
+-   Physically based models require quantitative details about environmental attributes for which we have no information, such as spatial variations in soil depth and texture and the time series of rainfall. Application of these models then requires assumptions about these attributes, which will again result in inaccuracies in model predictions.
 
-For these reasons, physically based models are often used to test and improve our understanding of the physics involved. Errors in predictions point to missing components in the model, or over simplification, or incorrect assumptions. Physically based models are also useful for anticipating the influence of different components in the model. For example, SHALSTAB shows how changes in rainfall intensity might alter the spatial extent over which soil failures are likely to occur. To make such predictions with an empirical model would require observations of landslide locations over a range of different storm intensities; data not typically available.
+For these reasons, physically based models are often used to test and improve our understanding of the physics involved. Errors in predictions point to missing components in the model, or over simplification, or incorrect assumptions. Physically based models are also useful for anticipating the influence of different components in the model. For example, SHALSTAB has been used to show how loss of root strength associated with timber harvest might affect landslide potential [@montgomery1998]. To evaluate effects of root strength with an empirical model would require extensive observations of landslide locations under different forest stand conditions. To determine the confidence to place in predictions of a physically based model would, however, require the same data. We need some measure of reality to compare to model predictions, without which we have no idea how much confidence to place in those predictions. Current analysis protocols for empirical models now include explicit measures with which to gauge the confidence to place in model predictions.
 
-Our decision to use empirical models is based primarily on the third factor above. To calculate probability of initiation and runout extent would require information about spatial variations in soil depth and geotechnical properties we do not have. With empirical models, the influence of these factors is incorporated into the correlations with topographic, geologic, and land-cover attributes that we can measure. We do, however, use the physical theory of soil failure to guide our choice of attributes to examine.
+Physically based and empirical models are not mutually exclusive. We incorporate elements of both in this analysis. We use the conceptual models on which physical models are built to guide our choice of explanatory variables to examine and we incorporate predictions of a simple physically based model for water flux through hillslope soils as an explanatory variable.
 
 # Landslide initiation.
-
-Shallow rapid landslides.
 
 ## Quantitative measures of susceptibility.
 
@@ -151,7 +150,7 @@ ggplot(data = grad, aes(x = val, y = sumLS)) +
 ```{r}
 ggplot(data = grad, aes(x = sumArea, y = sumLS, color = val)) +
         theme_bw() +
-        geom_line(color = "black", size = 0.5) +
+        geom_line(color = "black", linewidth = 0.5) +
         geom_point(shape = 16, size = 3) +
         scale_color_continuous_sequential(palette = "Viridis") +
         labs(title = "Cumulative Number of Landslides vs Cumulative Area",
@@ -277,4 +276,60 @@ ggplot(data=pca48, aes(x=val, y=log_odds)) +
        subtitle = "Exhibits a nonlinear relationship",
        x = "Contributing Area (DEM cells) 48 hr duration", 
        y = "Log(odds) of an initiation point within a DEM cell")
+```
+
+```{r}
+# 2d plots
+areaxy <- read.csv("c:/work/data/pfa/denGradPCA10_area0.csv")
+lsxy <- read.csv("c:/work/data/pfa/denGradPCA10_ls0.csv")
+denxyz <- read.csv("c:/work/data/pfa/denGradPCA10_den.csv")
+areaplot <- ggplot(areaxy, aes(x,y)) +
+  geom_bin2d(bins=500) + 
+  xlim(0,1.3) + 
+  ylim(0,60)
+```
+
+```{r}
+areaplot + scale_fill_distiller(palette="Spectral") + 
+  geom_point(data=lsxy, aes(x,y,color="black"), size=1) + 
+  geom_density2d(data=lsxy, aes(x,y), color="black") + 
+  theme_bw() + 
+  labs(x = "Gradient (rise/run)", y = "48-hr Contributing Area (DEM cells)", fill = "DEM-cell\ncount") +
+  scale_color_identity(name="",guide="legend",labels="DOGAMI\nInitiation\nPoint")
+```
+
+```{r}
+# 2d plots
+areaxy <- read.csv("c:/work/data/pfa/denGradtan10a_area0.csv")
+lsxy <- read.csv("c:/work/data/pfa/denGradtan10a_ls0.csv")
+denxyz <- read.csv("c:/work/data/pfa/denGradtan10a_den.csv")
+areaplot <- ggplot(areaxy, aes(x,y)) +
+  geom_bin2d(bins=500) +
+  xlim(0.2, 1.3) +
+  ylim(-0.2, 0.2)
+```
+
+```{r}
+areaplot + scale_fill_distiller(palette="Spectral") + 
+  geom_point(data=lsxy, aes(x,y,color="black"), size=1) + 
+  geom_density2d(data=lsxy, aes(x,y), color="black") + 
+  theme_bw() + 
+  labs(x = "Gradient (rise/run)", y = "Tangential Curvature", fill = "DEM-cell\ncount") +
+  scale_color_identity(name="",guide="legend",labels="DOGAMI\nInitiation\nPoint")
+```
+
+```{r}
+denxyz <- read.csv("c:/work/data/pfa/denGradtan10a_den.csv")
+ggplot(denxyz, aes(x,y)) + 
+  geom_tile(aes(x,y,z=z,fill=z)) +
+  geom_point(data=lsxy, aes(x,y)) +
+  xlim(0.2, 1.3) +
+  ylim(-0.2,0.2) +
+  scale_fill_distiller(palette="Spectral") +
+  labs(x="Gradient (rise/run)", y="Tangential Curvature")
+  
+```
+
+```{r}
+areaden <- ggplot(areaxy, aes(x,y)) + stat_density_2d(aes(fill = after_stat(density)), geom = "raster", contour = FALSE)
 ```
