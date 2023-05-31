@@ -41,7 +41,7 @@ params:
     input: text
   over_sample:
     label: Multiplier for number of nonlandslide sample points relative to landslide points
-    value: 10
+    value: 200
     input: numeric
 ---
 
@@ -524,6 +524,10 @@ for (i in 1:num_files) {
                            w = mask,
                            fun = max)
   
+  raster_name <- paste0("accumMax_", as.character(i), ".flt")
+  file_name <- paste0(output_dir, raster_name)
+  writeRaster(accumMax,file_name)
+  
   covariates <- c(covariates, accumMax)
                   
   names(covariates[[6]]) <- "total_accum"
@@ -810,12 +814,12 @@ ls_2011$class <- "pos"
 nonls_1996$class <- "neg"
 nonls_2007$class <- "neg"
 nonls_2011$class <- "neg"
-save(ls_1996, file = paste0(output_dir, "ls_1996_10.Rdata"))
-save(ls_2007, file = paste0(output_dir, "ls_2007_10.Rdata"))
-save(ls_2011, file = paste0(output_dir, "ls_2011_10.Rdata"))
-save(nonls_1996, file = paste0(output_dir, "nonls_1996_10.Rdata"))
-save(nonls_2007, file = paste0(output_dir, "nonls_2007_10.Rdata"))
-save(nonls_2011, file = paste0(output_dir, "nonls_2011_10.Rdata"))
+save(ls_1996, file = paste0(output_dir, "ls_1996_200.Rdata"))
+save(ls_2007, file = paste0(output_dir, "ls_2007_200.Rdata"))
+save(ls_2011, file = paste0(output_dir, "ls_2011_200.Rdata"))
+save(nonls_1996, file = paste0(output_dir, "nonls_1996_200.Rdata"))
+save(nonls_2007, file = paste0(output_dir, "nonls_2007_200.Rdata"))
+save(nonls_2011, file = paste0(output_dir, "nonls_2011_200.Rdata"))
 ```
 
 Take a look.
