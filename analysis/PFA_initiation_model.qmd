@@ -47,6 +47,7 @@ library(mlr3viz)
 library(mlr3fselect)
 library(mlr3filters)
 library(mlr3pipelines)
+library(iml)
 
 # Packages for model-building
 library(glmnet)
@@ -409,6 +410,40 @@ Our final model is trained on all of the data, to maximize the use of our landsl
 ```{r}
 ls_model$train(ls_task_eng)
 ls_model$model
+```
+
+### Feature Importance
+
+```{r}
+# set up the data frame
+
+# define a machine-learning task
+task <- as_task_classif_st(
+  x = sample_pnts[, training_cols], 
+  id = "landslide_initiation",
+  target = "class", 
+  positive = "pos", 
+  coordinate_names = c("x", "y"), 
+  crs = "epsg:26910"
+)
+
+# define the model to apply
+log_reg <- lrn("classif.log_reg", 
+                predict_type = "prob")
+log_reg$train(task) # train (calibrate) the model on the entire data set
+
+# set up a data frame with just the features
+x = sample_pnts[, training_cols]
+
+# create a new instance of an iml Predictor object for this model
+model = iml::Predictor$new(log_reg, data = x, y = sample_pnts$class)
+
+# Calculate importance for all features
+importance = iml::FeatureImp$new(model, loss = "ce") # "ce" is a measure of classification error
+num_features = c("Gradient", "Tan_Curv", "Norm_Curv", "age", "geo")
+importance$plot(features = num_features) + 
+  labs(title = "Permutation Feature Importance", 
+       subtitle = "For predicting landslide initiation")
 ```
 
 ## Predicting

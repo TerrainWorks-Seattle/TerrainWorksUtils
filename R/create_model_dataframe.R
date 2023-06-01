@@ -1,4 +1,5 @@
 # define where to find the data and load it.
+folder <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/out/"
 folder <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/out/"
 load(paste0(folder, "ls_1996.Rdata"))
 load(paste0(folder, "ls_2007.Rdata"))

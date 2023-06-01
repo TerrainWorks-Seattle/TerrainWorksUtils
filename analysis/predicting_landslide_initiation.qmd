@@ -33,7 +33,7 @@ We start by predicting on 1 small basin as part of 1 of the watershed designatio
 
 ```{r}
 dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
-dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+# dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
 dem <- terra::rast(paste0(dir, "Umpqua/basin_1.flt"))
 pts <- terra::vect(paste0(dir, "all_initiation_points.shp"))
 
@@ -61,10 +61,10 @@ We need to calculate the partial contributing area and mean curvature using the 
 The model is trained on all of the available inventory points and stored in "logreg_learner". This happens in the comparing_landslide_models.qmd file.
 
 ```{r}
-calculate <- FALSE
+calculate <- TRUE
 
 scratch <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/"
-scratch <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/scratch/"
+# scratch <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/scratch/"
 
 rasters <- c(paste0("GRADIENT,", scratch, "gradient"),
              paste0("MEAN CURVATURE,", scratch, "mean_curv"))
@@ -329,30 +329,14 @@ I think this will be one large for loop that iterates once per basin. I may brea
 
 ```{r}
 # replace these with the respective file paths to your DEMs
-basin_list = c("Umpqua/basin_1", 
-               "Umpqua/basin_2",
-               "Umpqua/basin_3",
-               "Umpqua/basin_4",
-               "Umpqua/basin_5",
-               "Umpqua/basin_6",
-               "Umpqua/basin_7",
-               "Umpqua/basin_8",
-               "Umpqua/basin_9",
-               "Umpqua/basin_10",
-               "Umpqua/basin_11",
-               "Umpqua/basin_12",
-               "Umpqua/basin_13",
-               "Umpqua/basin_14",
-               "Umpqua/basin_15",
-               "Umpqua/basin_16",
-               "Umpqua/basin_17")
+dem_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+dir = "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+# dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/predicting_input/"
+# dem_dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
 
-basin_list <- list.files(dem_dir, paste0("^basin_[0-9]{1,3}\\.flt"), recursive = TRUE)
+calculate <- FALSE
 
-# basin_list = c(paste0(dir, "Umpqua/basin_1/"),
-#                paste0(dir, "Umpqua/basin_2/"))
-               # paste0(dir, "Umpqua/basin_3/"),
-               # paste0(dir, "Umpqua/basin_4/"))
+basin_list <- list.files(dem_dir, paste0("^basin_[0-9]{1,4}\\.flt"), recursive = TRUE)
 ```
 
 #### For calculating elevation derivatives:
@@ -360,21 +344,17 @@ basin_list <- list.files(dem_dir, paste0("^basin_[0-9]{1,3}\\.flt"), recursive =
 This code only needs to be run once. Eventually, I will remove it from this document.
 
 ```{r}
-dem_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
-dir = "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
-dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/predicting_input/"
-dem_dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
 
 if (calculate) {
   for (basin in basin_list) {
     
     # create directories for basins and sub-basins if needed. 
-    if (!dir.exists(paste0(dir, sub("/.*","", basin)))) {
+  #  if (!dir.exists(paste0(dir, sub("/.*","", basin)))) {
       dir.create(paste0(dir, sub("/.*","", basin)))
-    }
-    if (!dir.exists(paste0(dir, sub("\\..*","", basin)))) {
+  #  }
+ #   if (!dir.exists(paste0(dir, sub("\\..*","", basin)))) {
       dir.create(paste0(dir, sub("\\..*","", basin)))
-    }
+ #   }
     
   # define the elevation derivatives that we want to be calculated
   rasters <- c(paste0("GRADIENT,", dir, sub("\\..*","", basin), "/gradient"),
@@ -415,6 +395,22 @@ for (basin in basin_list) {
 }
 ```
 
+A loop to figure out which basins are missing from the basin_list. These basins were included in the partial contributing area files that I got from Dan but for some reason are not included in the original input file for generating the training data that I downloaded. It looks like it is the McKenzie basin that is missing.
+
+```{r}
+for (line in input_order$list) {
+  ans <- regexpr("/[A-Za-z]{5,30}/[A-Za-z]?basin_[0-9]{1,3}", line)
+  basin <- substr(line, ans[1] + 1, ans[1] + attr(ans, "match.length") - 1)
+
+  # find the row number where the basin name matches
+  found <- which(grepl(basin, basin_list,  ignore.case = TRUE), arr.ind = FALSE)
+  if (length(found) == 0) {
+    print(basin)
+  }
+
+}
+```
+
 A note: this code assumes we already have a trained model to use for predictions. The learner we are using here comes from the code above. I am timing each iteration of the loop to get an idea of how long it will take to run. So far, we are hovering around 50 seconds for one basin.
 
 TODO: figure out how to crop the points and add the observed landslides to a data frame to compare. This was relatively simple above, so shouldn't be too hard to figure out.
@@ -448,7 +444,10 @@ for (basin in basin_list) {
   topo_files <- c(paste0("GRADIENT,", dir, basin, "/gradient.flt"),
                 paste0("MEAN CURVATURE,", dir, basin, "/mean_curv.flt"))
   topo_rast <- elev_deriv(rasters = topo_files)
-  pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_", count, ".flt"))
+  print(basin)
+  # print(count)
+  num <- which(grepl(sub("\\..*","", basin), input_order$list,  ignore.case = TRUE))
+  pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_", num, ".flt"))
   count <- count + 1
   rasters <- c(topo_rast, pca_rast)
   

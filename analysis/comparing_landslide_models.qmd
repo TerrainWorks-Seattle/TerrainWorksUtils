@@ -40,7 +40,7 @@ library(tidyterra)
 source("../R/create_model_dataframe.R")
 sample_pnts <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
 sample_pnts$geo <- as.factor(sample_pnts$geo)
-sample_pnts <- subset(sample_pnts, select = -c(year))
+# sample_pnts <- subset(sample_pnts, select = -c(year))
 
 sample_pnts$gradient_sq <- sample_pnts$gradient ^ 2
 sample_pnts$grad_by_pca <- sample_pnts$gradient * sample_pnts$pca_k1_48
@@ -95,6 +95,8 @@ There are several steps we need to work through:
 
 ```{r}
 set.seed(12345)
+sample_pnts <- subset(sample_pnts, select = -c(year))
+
 landslide_task <- as_task_classif_st(x = sample_pnts, 
                                     id = "landslide_initiation", 
                                     target = "class", 
@@ -205,7 +207,7 @@ target <- ti(
 
 tuner <- tnr("random_search")
 
-tuner$optimize(target)
+# tuner$optimize(target)
 ```
 
 ```{r}
@@ -251,7 +253,7 @@ target <- ti(
 
 tuner <- tnr("grid_search", resolution = 10, batch_size = 100)
 
-tuner$optimize(target)
+# tuner$optimize(target)
 ```
 
 This tuning process takes an average of 2 minutes \* number of evals to run. I have run it twice so far, and save the results in data files to minimize the number of times we want to re-run the code.
@@ -259,9 +261,9 @@ This tuning process takes an average of 2 minutes \* number of evals to run. I h
 Overall, the results have shown AUC values between 0.82 and 0.86 for all configurations of models. The logistic regression model with the forward feature selection performed significantly better than the logistic regression without feature selection, and slightly (though not significantly) better than the random forest models. However, logistic regression is much faster to train, especially when using a forward feature selection algorithm that involves training so many models.
 
 ```{r}
-load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.13.pipelinetuneresult.Rdata")
+# load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.13.pipelinetuneresult.Rdata")
 load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.14.pipelinetuneresult.Rdata")
-load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.14.rf_fs_mtry.Rdata")
+# load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.14.rf_fs_mtry.Rdata")
 ```
 
 ```{r}
@@ -282,13 +284,33 @@ Based on the results above, we will work with a logistic regression model and us
 Our pipeline includes a scaling step, to even out the influence of each predictor, and an encoding step, to translate the geology predictor from a factor to a one-hot strategy that is treated more logically by a numerical model.
 
 ```{r}
+logreg_learner <- lrn("classif.log_reg", 
+                      predict_type = "prob")
+
+spat_resamp <- rsmp("repeated_spcv_coords", 
+                    folds = 5, 
+                    repeats = 2)
+
+logreg_fselect <- auto_fselector(
+  fs("sequential"),
+  learner = logreg_learner,
+  resampling = spat_resamp,
+  measure = msr("classif.bbrier"))
+
+landslide_task_noage <- as_task_classif_st(x = subset(sample_pnts, select = -c(age, dist_to_road)), 
+                                    id = "landslide_initiation", 
+                                    target = "class", 
+                                    positive = "pos", 
+                                    coordinate_names = c("x", "y"), 
+                                    crs = "epsg:26910")
+
 
 pl_fselect <- 
   po("scale") %>>% 
   po("encode") %>>%
   po("learner", logreg_fselect)
 
-pl_fselect$train(landslide_task)
+pl_fselect$train(landslide_task_noage)
 #pl_lrn$graph$pipeops$classif.log_reg.fselector$learner
 
 ```
@@ -299,6 +321,7 @@ Then, we look at the aggregate AUC measure for all 50\*8 models that were traine
 
 ```{r}
 feature_set <- c("age", "dist_to_road", "mean_curv", "pca_k1_48")
+# feature_set <- c("mean_curv", "pca_k1_48")
 landslide_task$select(feature_set)
 
 pl_feature_eng <- 
@@ -324,10 +347,9 @@ Our final step is to train a model using all of the data. While this is generall
 
 TODO: look up coefficient interpretation. Does a bigger coefficient mean that the variable has a bigger influence? I think yes, if the data are scaled first.
 
-Now that I am using the scaled version of the data, I agree. The pca value has the largest coefficient, and is consistently the variable that is chosen first during the feature selection, indicating that it is a highly explanatory variable for our dataset. Mean curvature is next, which
+Now that I am using the scaled version of the data, I agree. The pca value has the largest coefficient, and is consistently the variable that is chosen first during the feature selection, indicating that it is a highly explanatory variable for our dataset.
 
 ```{r}
 logreg_learner$train(landslide_task_eng)
-
 logreg_learner$model
 ```
