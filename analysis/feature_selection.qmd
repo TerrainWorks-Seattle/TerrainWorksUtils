@@ -1,0 +1,228 @@
+---
+title: "Landslide initiation feature selection"
+author: Julia Lober
+format: html
+editor: visual
+---
+
+```{r load, include = FALSE}
+library(mlr3)
+library(mlr3spatial)
+library(mlr3spatiotempcv)
+library(mlr3learners)
+library(mlr3tuning)
+library(mlr3viz)
+library(mlr3fselect)
+library(mlr3filters)
+library(mlr3verse)
+```
+
+## Feature selection for landslide points
+
+This document explores the impact of each predictor on a logistic regression model. We will look at a couple of different ways to do feature selection, and see if they offer consistent results or different options each time.
+
+```{r}
+source("../R/create_model_dataframe.R")
+sample_pnts <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
+```
+
+```{r}
+names(sample_pnts)
+```
+
+```{r}
+task_orig <- as_task_classif_st(x = sample_pnts, 
+                          id = "landslide_initiation", 
+                          target = "class", 
+                          positive = "pos", 
+                          coordinate_names = c("x", "y"), 
+                          crs = "epsg:26910")
+```
+
+We'll also look at adding a few manual predictors that might help us develop the relationship that we observe, or expect to observe based on our understanding of the physical processes.
+
+```{r}
+sample_pnts_ext <- sample_pnts
+sample_pnts_ext$gradient_sq <- sample_pnts$gradient ^ 2
+sample_pnts_ext$grad_by_pca <- sample_pnts$gradient * sample_pnts$pca_k1_48
+
+task_ext <- as_task_classif_st(x = sample_pnts_ext, 
+                          id = "landslide_initiation_ext", 
+                          target = "class", 
+                          positive = "pos", 
+                          coordinate_names = c("x", "y"), 
+                          crs = "epsg:26910")
+```
+
+## Filtering
+
+Lets look at a few filtering methods. These calculate some measure of correlation between the target variable and the predictors, then assigns a threshold which must be met in order to be included in the final model.
+
+The benefit of these methods are a simpler method that does not involve building a bunch of models to test the impact of different features. The downside is that it is possible that the filter does not truly reflect the impact on the final model.
+
+```{r}
+task <- task_ext
+```
+
+```{r}
+info_filter = flt("information_gain")
+info_filter$calculate(task)
+
+res_info <- as.data.table(info_filter)
+res_info$rank <- 1:length(res_info$feature)
+```
+
+```{r}
+anova_filter = flt("anova")
+anova_filter$calculate(task)
+
+res_anova <- as.data.table(anova_filter)
+res_anova$rank <- 1:length(res_anova$feature)
+```
+
+```{r}
+auc_filter = flt("auc")
+auc_filter$calculate(task)
+
+res_auc <- as.data.table(auc_filter)
+res_auc$rank <- 1:length(res_auc$feature)
+```
+
+```{r}
+cmim_filter = flt("cmim")
+cmim_filter$calculate(task)
+
+res_cmim <- as.data.table(cmim_filter)
+res_cmim$rank <- 1:length(res_cmim$feature)
+```
+
+```{r}
+mim_filter = flt("mim")
+mim_filter$calculate(task)
+
+res_mim <- as.data.table(mim_filter)
+res_mim$rank <- 1:length(res_mim$feature)
+```
+
+#### Compare the filters.
+
+```{r}
+results <- merge(res_auc, res_anova, by = "feature", suffixes = c(".auc", ".anova"))
+results <- merge(results, res_info, by = "feature", suffixes = c("", ".info"))
+results <- merge(results, res_cmim, by = "feature", suffixes = c("", ".cmim"))
+results <- merge(results, res_mim, by = "feature", suffixes = c("", ".mim"))
+results$total <- rowSums(cbind(results$rank.auc, results$rank.anova, results$rank, results$rank.cmim, results$rank.mim))
+
+barplot(height = results$total, names = results$feature, las = 2)
+
+```
+
+## Basic forward feature selection
+
+This method tests the model created adding one feature each time until the model performance is no longer improving. We can use a variety of
+
+```{r}
+lgr::get_logger("mlr3")$set_threshold("warn")
+set.seed(12345)
+instance = fselect(
+  fselector = fs("sequential"),
+  task =  task,
+  learner = lrn("classif.log_reg", predict_type = "prob"),
+  resampling = rsmp("repeated_spcv_coords", 
+                         folds = 5, 
+                         repeats = 3),
+  measure = msr("classif.auc")
+)
+```
+
+```{r}
+dt <- as.data.table(instance$archive)
+dt[batch_nr == 1, 1:14]
+
+```
+
+The result we have here is likely a light over-estimation of modeling performance. The best way to assess performance is to do nested resampling - an outer resampling strategy that reserves a test set for estimating model performance, and an inner resampling strategy that is used for the feature selection process (or, hyperparameter tuning). I do implement this below.
+
+```{r}
+instance$result
+instance$result_feature_set
+```
+
+We can also use the feature selector as an auto_fselector, which inherits from the learner class and can be treated as such. This allows us to put it in a benchmark function and compare it to other learners.
+
+```{r}
+fs_learner = auto_fselector(
+  fselector = fs("sequential"),
+  learner = lrn("classif.log_reg", predict_type = "prob"),
+  resampling = rsmp("repeated_spcv_coords", 
+                         folds = 5, 
+                         repeats = 2),
+  measure = msr("classif.auc")
+)
+
+# Tried, did not improve training time (by much) and performed slightly worse. 
+fs_learner_rand = auto_fselector(
+  fselector = fs("random_search"),
+  learner = lrn("classif.log_reg", predict_type = "prob"),
+  resampling = rsmp("repeated_spcv_coords", 
+                         folds = 5, 
+                         repeats = 2),
+  measure = msr("classif.auc")
+)
+```
+
+```{r}
+lgr::get_logger("mlr3")$set_threshold("error")
+bm_grid <- benchmark_grid(
+  task = task, 
+  learner = list(fs_learner, lrn("classif.log_reg", predict_type = "prob")), 
+  resampling = rsmp("spcv_coords", folds = 3)
+)
+
+bm <- benchmark(bm_grid)
+```
+
+It seems that there is not really any significant improvement of the feature-selected model over the normal model.
+
+```{r}
+aggr = bm$aggregate(msrs(c("classif.auc", "time_train")))
+as.data.frame(aggr)[, c("learner_id", "classif.auc", "time_train")]
+autoplot(bm, measure = msr("classif.auc"))
+```
+
+```{r}
+rf_learner = auto_fselector(
+  fselector = fs("sequential"),
+  learner = lrn("classif.ranger", predict_type = "prob"),
+  resampling = rsmp("repeated_spcv_coords", 
+                         folds = 5, 
+                         repeats = 2),
+  measure = msr("classif.auc")
+)
+
+outer_resample <- rsmp("repeated_spcv_coords", folds = 5, repeats = 5)
+rr <- resample(task, rf_learner, outer_resample, store_models = TRUE)
+```
+
+```{r}
+rr2 <- resample(task, lrn("classif.ranger", predict_type = "prob"), outer_resample, store_models = TRUE)
+
+rr2$score(measures = msr("classif.auc"))[, "classif.auc"]
+```
+
+Lets try using the Aikake Information Criterion for the forward feature selection.
+
+ERROR: this always results in an error that says there is no model stored in classif.log_reg(). I don't think that it is worth the time to try to figure this error out.
+
+```{r}
+# lgr::get_logger("mlr3")$set_threshold("debug")
+# aic_select = fselect(
+#   fselector = fs("sequential"),
+#   task =  task,
+#   learner = lrn("classif.log_reg", predict_type = "prob"),
+#   resampling = rsmp("repeated_spcv_coords",
+#                          folds = 3,
+#                          repeats = 1),
+#   measure = msr("aic")
+# )
+```

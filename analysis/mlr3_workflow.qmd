@@ -1,0 +1,200 @@
+---
+title: "mlr3 Workflow"
+author: "Julia Lober"
+format: html
+editor: visual
+params:
+  data_dir:
+    label: Data Directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/
+    input: text
+  training_data:
+    label: Training data .Rdata file
+    value:  sample_wilson.Rdata
+    input: text
+  points:
+    label: Training data points
+    value:  DeanCr/DeanCr_Initiation_Points.shp
+    input: text
+  dem:
+    label: Training data dem
+    value:  DeanCr/elev_deancr.flt
+    input: text
+---
+
+```{r setup}
+#| echo: false
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  error = FALSE
+)
+```
+
+```{r}
+#| echo: false
+# load(paste0(params$data_dir, params$training_data))
+# pnts <- vect(paste0(params$data_dir, params$points))
+# dem <- rast(paste0(params$data_dir, params$dem))
+source("../R/create_model_dataframe.R")
+sample_pnts <- training_data
+```
+
+## Workflow for the mlr3 package
+
+This is a document where I work out how to use the `mlr3` package. This package ecosystem is more modern and agile than the `caret` package, although because it is newer it has a smaller user base and a little bit less online resources.
+
+```{r load, include = FALSE}
+library(mlr3)
+library(mlr3spatial)
+library(mlr3spatiotempcv)
+library(mlr3learners)
+library(mlr3tuning)
+library(mlr3viz)
+
+# Packages for model-building
+library(glmnet)
+library(ranger)
+```
+
+Major points for the `mlr3` package include the different nomenclature. The data used to train a model is referred to a `task` and the model being trained is referred to as a `learner`.
+
+This is a general workflow for any type of model. Another major difference between `mlr3` and `caret` is the names of the model types. The `mlr3learners` package provides the following model types.
+
+```{r}
+mlr_learners
+```
+
+## Step 1. Creating a task and a learner
+
+Our task leaves out the `id` column in the sample_pnts data frame, as it will not be relevant information for the model! Specifying the target says what we want the learner to predict - for us, this is the `class` which is positive for landslide initiation points.
+
+```{r}
+task <- as_task_classif(x = sample_pnts[, 2:10], id = "landslide_init", target = "class")
+head(task)
+```
+
+The learner is created based on what type of model we want to train. See above for a list of learners that are available (and keep in mind that you could load `mlr3extralearners` for an even bigger selection). We are interested in classification learners, since the input is categorized into two different classes.
+
+`classif.glmnet` is a linear regression strategy for classification problems. Notably, `lambda` is a hyperparameter that cannot be automatically optimized. A bandaid solution was to specify a value in the creation of the learner, which silences a warning at prediction time. I am currently reading about `mlr3tuning` and how to create a wrapper tuner object that allows manual specifications for hyperparameter optimization (HPO).
+
+```{r}
+learner <- lrn("classif.log_reg", 
+               predict_type = "prob")
+print(learner)
+```
+
+As an experiment, we could train and predict using all of the data. This is bad practice in machine learning but can be an interesting baseline and will help me figure out the syntax.
+
+```{r}
+learner$train(task)
+print(learner$model)
+```
+
+```{r}
+predicted <- learner$predict(task)
+
+```
+
+```{r}
+tsk_predict = as_task_unsupervised(dem)
+
+# plan("multisession") # optional parallelization
+pred = predict_spatial(tsk_predict, learner, format = "terra")
+class(pred)
+```
+
+Next, we can take a general look at some performance measures.
+
+```{r}
+head(as.data.table(mlr_measures))
+```
+
+Print some of these metrics.
+
+`classif.acc` is the accuracy of the model and `classif.ce` is the error. These should always be inverses of each other.
+
+`classif.auc` is the area under the ROC curve. Since we are interested more in the probability of a yes (landslide initiation) than simply classification into binary classes, this measure is a bit more useful.
+
+```{r}
+scores <- predicted$score(msrs(c("classif.acc", "classif.ce", "classif.auc")))
+print(scores)
+
+conf_matrix <- predicted$confusion
+print(conf_matrix)
+```
+
+Resampling:
+
+```{r}
+resampling <- rsmp("cv", folds = 5)
+
+learner_2 <- lrn("classif.ranger", 
+                 predict_type = "prob")
+learner_3 <- lrn("classif.featureless", 
+                 predict_type = "prob")
+
+bench <- benchmark_grid(task = task, 
+                        learner = c(learner, learner_2, learner_3),  
+                        resampling = resampling)
+
+mark <- benchmark(bench)
+
+```
+
+```{r}
+autoplot(mark, measure = msr("classif.acc"))
+```
+
+```{r}
+autoplot(mark, type = "roc")
+```
+
+## Step 2. Tune and resample
+
+In order to train this model with some hyperparameter tuning, we need to go back and specify which hyperparameters need to be tuned in the learner.
+
+```{r}
+learner <- lrn("classif.glmnet", 
+               alpha = to_tune(1e-5, 1),
+               lambda = 0.1,
+               # s = to_tune(1e-5, 1e5),
+               predict_type = "prob")
+
+tuner = tnr("grid_search", resolution = 5, batch_size = 5)
+
+resampling <- rsmp("cv", folds = 5)
+
+learner_at = auto_tuner(
+  method = tnr("grid_search", resolution = 5, batch_size = 5),
+  learner = learner,
+  resampling = resampling,
+  measure = msr("classif.auc"),
+)
+print(learner_at)
+```
+
+```{r}
+learner_at$train(task)
+```
+
+```{r}
+predicted <- learner_at$predict(task)
+print(predicted$score(msrs(c("classif.auc", "classif.acc"))))
+print(predicted$confusion)
+```
+
+## Step 3. Comparing spatiotemporal cross-validation vs normal cross-validation.
+
+For any machine learning workflow, you want to including a resampling method that will train models on a couple different subsets of data as training and testing sets to reduce the role of chance and produce a more robust basis for evaluating the model's performance.
+
+I need data with x and y coordinates attached to do this. This is currently my standstill.
+
+```{r}
+plot(dem)
+points(pnts)
+```
+
+```{r}
+
+```

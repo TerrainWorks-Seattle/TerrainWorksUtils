@@ -1,0 +1,230 @@
+---
+title: "Spatial CV vs traditional CV"
+author: "Julia Lober"
+format: html
+editor: visual
+params:
+  data_dir:
+    label: Data Directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/
+    input: text
+  training_data:
+    label: Training data .Rdata file
+    value: sample_wilson.Rdata
+    input: text
+  points:
+    label: Training data points
+    value: DeanCr/DeanCr_Initiation_Points.shp
+    input: text
+  dem:
+    label: Training data dem
+    value: DeanCr/elev_deancr.flt
+    input: text
+---
+
+```{r}
+#| echo: false
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  error = FALSE
+)
+```
+
+```{r}
+#| echo: false
+# load(paste0(params$data_dir, params$training_data))
+# pnts <- terra::vect(paste0(params$data_dir, params$points))
+# dem <- terra::rast(paste0(params$data_dir, params$dem))
+source("../R/create_model_dataframe.R")
+sample_pnts <- training_data
+```
+
+```{r load, include = FALSE}
+library(mlr3)
+library(mlr3spatial)
+library(mlr3spatiotempcv)
+library(mlr3learners)
+library(mlr3tuning)
+library(mlr3viz)
+# Packages for models - change these based on what type of model you build
+library(glmnet)
+library(ranger)
+```
+
+## Evaluate Spatial CV Methods vs Normal CV
+
+Data is loaded. First we need to look at the points on a map.
+
+TODO: figure out how to add a map background to the
+
+```{r}
+# orig_p <- par(mar = c(5, 5, 0, 5))
+points <- as.data.frame(cbind(sample_pnts[, "x"], y = sample_pnts[, "y"]))
+points$yr <- sample_pnts$year
+points$class <- sample_pnts$class
+terra::crs(points) <- "epsg:26910"
+points <- project(points, "epsg:4326")
+
+ggplot() + 
+  geom_polygon(data = oregon, mapping = aes(x = long, y = lat),
+               color = "white", fill = "white") +
+  geom_spatvector(data = points[points$class == "pos", ],
+                  mapping = aes(shape = as.factor(points[points$class == "pos", ]$yr)),
+                  show.legend = TRUE, size = 1, color = "red", alpha = 0.5) +
+  geom_spatvector(data = points[points$class == "neg", ],
+                  mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
+                  show.legend = TRUE, size = 1 , color = "black", alpha = 0.5) +
+  scale_shape_manual(values = c(3, 1, 17)) + 
+  labs(x = "Longitude", y = "Latitude", shape = "Study points")
+
+# par(orig_p)
+
+```
+
+We want to train a logistic regression learner based on the landslide data points loaded into the data frame sample_pnts.
+
+```{r}
+task <- as_task_classif_st(x = sample_pnts[!(is.na(sample_pnts$dist_to_road)), 2:14], 
+                          id = "landslide_init", 
+                          target = "class", 
+                          positive = "pos", 
+                          coordinate_names = c("x", "y"), 
+                          crs = 2992)
+
+learner <- lrn("classif.log_reg", 
+               predict_type = "prob")
+```
+
+```{r}
+#| echo: false
+head(sample_pnts)
+```
+
+### Non-spatial cross validation
+
+Non-spatial cross validation randomly selects points to split the training data into training and testing sets. The concern we have with this method is that in some cases, it will end up overestimating the performance of the model or underestimating error. We want to approximate model performance as closely as possible in order to assess how much confidence we can put in it.
+
+```{r}
+set.seed(12345)
+rsmp_nonsp <- rsmp("cv", 
+                  folds = 5)
+
+autoplot(rsmp_nonsp, task, fold_id = c(1:5)) 
+```
+
+### K-means clustering spatial cross-validation 
+
+We can start running a cluster-based spatial CV method. This method does not consider the temporal distribution of the points, but uses a k-means clustering algorithm to split the data into the defined number of regions based on their x-y coordinates. This is one of the more straight-forward methods of spatial cross-validation: divide our data into groupings that are all near each other.
+
+> Nevertheless, despite the random selection of initial cluster centers, repeated partitionings may in some cases be nearly identical. Also, k-means clustering may be less suitable for data sets with pre-existing clusters of points and/or with isolated, distant sample locations. When distinct clusters of points are present, as in multi-level sampling, it may be better to define clusters using a factor variable. ([mlr3spatiotempcv reference](https://arxiv.org/pdf/2110.12674.pdf))
+
+```{r}
+set.seed(12345)
+rsmp_clus <- rsmp("spcv_coords", 
+                  folds = 5)
+
+# rr_sp = resample(task = task, 
+#                  learner = learner,
+#                  resampling = resampling_sp)
+
+autoplot(rsmp_clus, task, fold_id = c(1:5)) 
+  # ggplot2::scale_x_continuous(breaks = seq(124.50, 124.62, 0.04)) *
+  # ggplot2::scale_y_continuous(breaks = seq(55.38, 55.48, 0.03)) 
+```
+
+### Block spatial cross-validation
+
+This is the block method. Equal-sized blocks are created and then grouped to create the number of splits. The more columns/rows are created, the closer this method would get to a non-spatial cross validation method, so this is an important factor for this method.
+
+This method is probably not as well suited to non-rectangular study areas.
+
+```{r}
+set.seed(12345)
+rsmp_block <- rsmp("spcv_block", 
+                  folds = 5, 
+                  cols = 4,
+                  rows = 4)
+
+autoplot(rsmp_block, task, fold_id = c(1:5), size = 1, show_blocks = TRUE)
+```
+
+### Temporal cross-validation
+
+Another concept for resampling is to design a strategy that is tailored to our specific dataset. We could do this to varying level of degrees, based on the predictors that are included in our data.
+
+One option is to simply divide the dataset into the three natural temporal divisions that we observe: (roughly) 1996, 2007, and 2011. First, we define the year column as a factor variable, then pass it to custom_cv as the split determination variable. However, this method produces drastically uneven folds - we have 213 observations from 1996, 137 from 2007, and only 47 from 2011.
+
+```{r}
+set.seed(12345)
+yr_splits <- as.factor(sample_pnts[!(is.na(sample_pnts$dist_to_road)),]$year)
+
+rsmp_temp <- rsmp("custom_cv")
+rsmp_temp$instantiate(task, f = yr_splits)
+
+autoplot(rsmp_temp, task, fold_id = c(1:3))
+```
+
+Another proposal was to divide by both time and lithology. For example:
+
+> Train on 1996 sedimentary + volcaniclastic, 
+>
+> test on 1996 other rock types, 2007 sedimentary+volcaniclastic, 2007 other rock types, 2011 sed+volcaniclastic, 2011 other rock types.
+
+This method is based in our physical understanding of how landslides occur, and will help to decide how much we can extrapolate a model that is built using a certain subset of landslides to other lithologies.
+
+```{r}
+set.seed(12345)
+yr_lith <- ((sample_pnts[!(is.na(sample_pnts$dist_to_road)),]$year) * sample_pnts[!(is.na(sample_pnts$dist_to_road)),]$geo)
+yr_lith_splits <- as.factor(yr_lith)
+
+rsmp_templith <- rsmp("custom_cv")
+rsmp_templith$instantiate(task, f = yr_lith_splits)
+
+autoplot(rsmp_templith, task, fold_id = c(1:11))
+```
+
+I am going to ignore the leave-one-out methods for now since we don't have many data points, and so leaving any of them out would likely have a big impact on the results that we observe (I would expect it to report lower performance than we actually observe).
+
+Other otions we have are ("method ="):
+
+1.  "sptcv_cstf" - leave-location-out, leave-time-out, or leave-location-time-out methods. Control which method is being used by parameters "time =" and "space =". I believe this is the only way to do temporal cross-validation (aside from "custom_cv").
+
+## Evaluating the performance of each method. 
+
+Now we need to get the performance metric calculated using each resampling method, so that we can compare them. This step is likely to take a bit of time.
+
+```{r}
+methods = c(rsmp_block, rsmp_clus, rsmp_nonsp, rsmp_temp, rsmp_templith)
+times = list()
+model_perf = list()
+
+for (method in methods) {
+  build_time <- system.time(model <- resample(task= task, 
+                                              learner = learner, 
+                                              resampling = method))
+  times <- append(times, build_time["elapsed"])
+  model_perf <- append(model_perf, model$aggregate(measures = msr("classif.auc")))
+}
+  
+```
+
+```{r}
+method_names = c("rsmp_block", "rsmp_clus", "rsmp_nonsp", "rsmp_temp", "rsmp_templith")
+
+to_plot <- c(model_perf[1]$classif.auc, 
+             model_perf[2]$classif.auc, 
+             model_perf[3]$classif.auc, 
+             model_perf[4]$classif.auc,
+             model_perf[5]$classif.auc)
+to_plot <- as.data.frame(to_plot)
+to_plot$names <- method_names[1:5]
+
+ggplot(to_plot, aes(x = names, y = to_plot)) + 
+  geom_bar(stat = "identity") + 
+  coord_cartesian(ylim=c(0.8,1)) + 
+  labs(y = "Area under the ROC curve", x = "Resampling method")
+  # scale_y_continuous(limits = c(0.5, 1))
+```
+
+Based on literature, lets go with the clustering resampling method.

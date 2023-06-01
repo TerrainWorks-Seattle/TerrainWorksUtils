@@ -1,0 +1,534 @@
+---
+title: "Predicting landslide initiation"
+author: Julia Lober
+format: html
+editor: visual
+---
+
+```{r load, include = FALSE}
+# for spatial data
+library(terra)
+
+# for modeling
+library(mlr3)
+library(mlr3spatial)
+library(mlr3spatiotempcv)
+library(mlr3pipelines)
+library(mlr3learners)
+
+# for visualizations
+library(ggplot2)
+library(tidyterra)
+library(viridis)
+
+# basics
+library(data.table)
+library(tictoc)
+library(TerrainWorksUtils)
+```
+
+## Predicting landslide initiation
+
+We start by predicting on 1 small basin as part of 1 of the watershed designations of DOGAMI in Oregon. Find the data wherever it is located on your computer.
+
+```{r}
+dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+# dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+dem <- terra::rast(paste0(dir, "Umpqua/basin_1.flt"))
+pts <- terra::vect(paste0(dir, "all_initiation_points.shp"))
+
+pts_local <- crop(pts, dem)
+
+plot(dem)
+plot(pts_local, 
+     add = TRUE)
+```
+
+### Calculating the predictors
+
+The predictors chosen by our model are:
+
+1.  Partial contributing area with a hydraulic conductivity of 1 and storm duration of 48 hours.
+
+2.  Mean curvature
+
+3.  Distance to road
+
+4.  Stand age
+
+We need to calculate the partial contributing area and mean curvature using the executables included in this package. There is also a function for calculating the distance to a road, and the stand age can be collected from available data.
+
+The model is trained on all of the available inventory points and stored in "logreg_learner". This happens in the comparing_landslide_models.qmd file.
+
+```{r}
+calculate <- TRUE
+
+scratch <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/scratch/"
+# scratch <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/scratch/"
+
+rasters <- c(paste0("GRADIENT,", scratch, "gradient"),
+             paste0("MEAN CURVATURE,", scratch, "mean_curv"))
+
+length_scale <- 15
+
+if (calculate) {
+  rasters <- elev_deriv(rasters = rasters,
+                  length_scale = length_scale,
+                  dem = paste0(dir, "Umpqua/basin_1.flt"),
+                scratch_dir = scratch)
+}
+```
+
+Now, calculate partial contributing area. The 48-hour duration was the best across all of the model investigating, so we only need to calculate that one.
+
+```{r}
+if (calculate) {
+  rasters <- c(rasters, contributing_area(raster = paste0(scratch, "pca_k1_d48"),
+                    dem = paste0(dir, "Umpqua/basin_1.flt"), 
+                    length_scale = 15, 
+                    k = 1, 
+                    d = 48, 
+                    scratch_dir = scratch))
+}
+
+```
+
+Now that the scripts have been run, we can assemble the data from files (and never run the 2 hour script again).
+
+```{r}
+scratch <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/scratch/"
+
+topo_files <- c(paste0("GRADIENT,", scratch, "gradient.flt"),
+                paste0("MEAN CURVATURE,", scratch, "mean_curv.flt"))
+
+topo_rast <- elev_deriv(rasters = topo_files)
+pca_rast <-  contributing_area(raster = paste0(scratch, "pca_k1_d48.flt"))
+
+rasters <- c(topo_rast, pca_rast)
+```
+
+### Success rate curves
+
+To evaluate the model using proportions, we use a success rate curve. The curve has the proportion of the total area on the x-axis, with the proportion of landslides on the y-axis. To generate this curve, we train a model on the sample points, then predict the entire DEM. The sampling to generate training points and model decisions have been made in a different document: we use a logistic regression learner trained on the mean curvature, log value of partial contributing area with a duration of 48 hours, and gradient.
+
+```{r}
+folder <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/out/"
+load(paste0(folder, "ls_1996.Rdata"))
+load(paste0(folder, "ls_2007.Rdata"))
+load(paste0(folder, "ls_2011.Rdata"))
+load(paste0(folder, "nonls_1996.Rdata"))
+load(paste0(folder, "nonls_2007.Rdata"))
+load(paste0(folder, "nonls_2011.Rdata"))
+
+training_data <- rbind(ls_1996,
+                       ls_2007,
+                       ls_2011,
+                       nonls_1996,
+                       nonls_2007,
+                       nonls_2011)
+
+train_subset <- subset(training_data, select = c("gradient", "mean_curv", "pca_k1_48", "class", "x", "y"))
+train_subset$pca_k1_48 <- log(train_subset$pca_k1_48, base = 2)
+train_subset$class <- as.factor(train_subset$class)
+```
+
+```{r}
+set.seed(12345)
+# train_subset <- subset(train_subset, select = c("mean_curv", "pca_k1_48", "class", "x", "y"))
+landslide_task <- as_task_classif_st(x = train_subset, 
+                                    id = "landslide_initiation", 
+                                    target = "class", 
+                                    positive = "pos", 
+                                    coordinate_names = c("x", "y"), 
+                                    crs = "epsg:26910")
+
+pl_feature_eng <- 
+  po("scale") %>>% 
+  po("encode") 
+
+pl_feature_eng$train(landslide_task)
+landslide_task_eng <- pl_feature_eng$predict(landslide_task)$encode.output
+
+logreg_learner <- lrn("classif.log_reg", 
+                      predict_type = "prob")
+
+logreg_learner$train(landslide_task_eng)
+logreg_learner$model
+```
+
+As a brief sanity check, we will compare a version of the model that sub-samples the negative points to create an even balance between the two classes as input. I am curious to see how these compare in a final output model.
+
+```{r}
+source("../R/create_model_dataframe.R")
+training_data <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
+
+landslide_task_subsamp <- as_task_classif_st(x = subset(training_data, select = c("gradient", "mean_curv", "pca_k1_48", "class", "x", "y")), 
+                                    id = "landslide_initiation", 
+                                    target = "class", 
+                                    positive = "pos", 
+                                    coordinate_names = c("x", "y"), 
+                                    crs = "epsg:26910")
+
+pl_feature_eng$train(landslide_task_subsamp)
+task_subsamp <- pl_feature_eng$predict(landslide_task_subsamp)$encode.output
+
+logreg_learner2 <- lrn("classif.log_reg", 
+                      predict_type = "prob")
+
+logreg_learner2$train(task_subsamp)
+logreg_learner2$model
+```
+
+Now, we are ready to predict the basin area. We need to extract the all the data points from the DEM and make sure the names match what is expected by the model (gradient, mean_curv, and pca_k1_48).
+
+```{r}
+names(rasters) <- c("gradient", "mean_curv", "pca_k1_48")
+predicting_data <- as.data.frame(rasters, xy = TRUE)
+```
+
+The mlr3 package support spatial prediction with the predict_spatial function. This function accepts new data in raster format and outputs a raster, but I can't figure out if the function will support a probability output instead of a binary class output.
+
+```{r}
+predictions <- predict_spatial(rasters, logreg_learner)
+```
+
+```{r}
+plot(predictions)
+```
+
+Note that this classifies most of the area as positive while only the river areas and hilltops are marked as negative. This indicates that a low threshold was chosen for class assignment when we compare to the probability map produced below.
+
+For now, I'll try predicting on a data frame. The downside of this strategy is the extra time needed to convert the DEM to a data frame, and the lack of space optimization that the spatial_predict function allows.
+
+```{r}
+pd <- predicting_data
+pd$pca_k1_48 <- log(predicting_data$pca_k1_48, base = 2)
+
+# manually pre process the data: take the log of the pca and center+scale the data
+center_vals <- pl_feature_eng$pipeops$scale$state$center
+scale_vals <- pl_feature_eng$pipeops$scale$state$scale
+
+pd$gradient <- (pd$gradient - center_vals[1]) / scale_vals[1]
+pd$mean_curv <- (pd$mean_curv - center_vals[2]) / scale_vals[2]
+pd$pca_k1_48 <- (pd$pca_k1_48 - center_vals[3]) / scale_vals[3]
+
+# predict the basin using scaled and centered data.
+predictions_df <- logreg_learner$predict_newdata(pd)
+```
+
+Convert the predictions outputted to a data table, then add the columns with useful information like the predictors and (x,y) coordinates.
+
+```{r}
+predictions_dt <- as.data.table(predictions_df)
+predictions_dt <- cbind(predictions_dt, predicting_data)
+names(predictions_dt)
+```
+
+We also convert it to a raster format for future use.
+
+```{r}
+prob_rast <- (rast(subset(predictions_dt, select = c("x", "y", "prob.pos")))) 
+```
+
+```{r}
+ggplot(predictions_dt) + 
+  geom_tile(aes(x = x, y = y, fill = prob.pos)) + 
+  scale_fill_viridis(option = "A", direction = -1) + 
+  geom_spatvector(data = pts_local)
+```
+
+### Success rate curve
+
+Our goal when looking at model performance will be to consider an analysis using proportions.
+
+To calculate the success rate curve, we first calculate the proportion of the area that falls up to a given probability value and the proportion of the total probability that falls up to a given probability value for each DEM cell. The steps for this calculation will be spelled out in the code below.
+
+```{r}
+proportions <- subset(predictions_dt, select = c("x", "y", "prob.pos"))
+setorder(proportions, cols = "prob.pos") 
+
+# calculate the proportion of total landslide probability for each DEM cell
+proportions$prob.cumsum <- cumsum(proportions$prob.pos)
+prob_sum <- max(proportions$prob.cumsum)
+proportions$prob.prop <- proportions$prob.cumsum / prob_sum
+
+# calculate the proportion of total area for each DEM cell
+proportions$area.cumsum <- seq(1, length(proportions$x))
+area_sum <- max(proportions$area.cumsum)
+proportions$area.prop <- proportions$area.cumsum / area_sum
+
+setattr(proportions, "sorted", "prob.pos")
+```
+
+First, I calculated cumulative sums for each row. Now, we define some much larger interval for binning this data, which will allow much easier plotting. Between 0 and the maximum value for probability, we look at 100 values of the predicted probability. We extract the nearest row for each of these values from the proportions data table, and now have all of the information we need for plotting.
+
+```{r}
+bins <- as.data.table(seq(0, max(proportions$prob.pos), length.out = 500))
+names(bins) <- c("probability") 
+
+# match these probability bins with nearest rows in the proportions data table
+binned_prop <- proportions[J(bins$probability), roll = "nearest"]
+```
+
+That one line of code should have created a new data frame with 100 rows and the nearest row from each of the cumulative sums above. Now we need the observed landslide data.
+
+```{r}
+# extract the probability values for the test points
+pts_prob <- extract(prob_rast, pts_local, xy = TRUE)
+pts_prob <- pts_prob[!is.na(pts_prob$prob.pos), ]
+setorder(pts_prob, cols = "prob.pos") 
+
+total_pts <- length(pts_prob$ID)
+
+# get the cumulative area (already calculated) and calculate the cumulative landslides
+pts_cumul <- proportions[J(pts_prob$prob.pos), roll = "nearest"]
+pts_cumul$ls.prop = seq(1, length(pts_cumul$x)) / total_pts
+
+# add the origin and a point at (1, 1) to make the graphs prettier
+pts_cumul <- rbind(0, pts_cumul, fill = TRUE)
+pts_cumul[1] <- 0
+pts_cumul <- rbind(pts_cumul, 0, fill = TRUE)
+pts_cumul[length(pts_cumul$x)] <- 1
+```
+
+The first plot that we look at shows the cumulative proportions of area, modeled landslides, and observed landslides at each probability mark. Ideally, we would want the modeled landslide curve to match up with the observed landslide curve. Since we are looking at a single basin right now, there is probably not enough information to really evaluate this correlation.
+
+```{r}
+ggplot(cbind(bins, binned_prop)) + 
+  geom_line(aes(x = probability, y = prob.prop), color = "red") + 
+  geom_point(aes(x = probability, y = prob.prop), color = "red") + 
+  geom_line(aes(x = probability, y = area.prop), color = "lightblue") +
+  geom_point(aes(x = probability, y = area.prop), color = "lightblue") + 
+  geom_line(data = pts_cumul, aes(x = prob.pos, y = ls.prop)) + 
+  geom_point(data = pts_cumul, aes(x = prob.pos, y = ls.prop))
+```
+
+The main curve that we want to use to compare models is the success rate curve, or the proportion of the modeled landslides plotted against the proportion of area. Each point along the curve comes from one of the probability bins. One thing that this curve tells us is how specific the model is with the areas that it feels are landslide-prone.
+
+```{r}
+ggplot(cbind(bins, binned_prop)) + 
+  geom_line(aes(x = area.prop, y = prob.prop), color = "red") + 
+  geom_point(aes(x = area.prop, y = prob.prop), color = "red") + 
+  geom_line(data = pts_cumul, aes(x = area.prop, y = ls.prop), color = "black") + 
+  geom_point(data = pts_cumul, aes(x = area.prop, y = ls.prop), color = "black")
+```
+
+## Combining multiple basins
+
+Really, we want to be able to generate this curve over many different basins. We start this process by assuming that you have already generated all of the elevation derivative and partial contributing area files that are needed for the model to predict on the basin (and that you know where the files are). This part of the program will use that information to predict the probability of initiation for each basin, then combines these into one success rate curve.
+
+Since each basin will have millions of DEM cells, we have to sub-sample the cumulative values down to a number of data points that is reasonable to manage. We already do this for plotting; for combining multiple DEMs, we will just need to make sure to use consistent probability values for sub-sampling, and then the cumulative values will be averaged based on how many DEM cells the cumulative proportion was calculated from. TODO: figure out the exact formulas for calculating these weighted averages.
+
+Updated average = ( (Past average \* past \# cells) + new value ) / new cell total
+
+OR -- we just sum the cumulative sums and the total number of cells/cumulative probability and then take the averages at the end, once the totals can actually be calculated. This is probably the simpler option and I will go this route unless for some reason this ends up not working.
+
+Finding the observed landslide information will probably be easier - we will want to keep track of which points are located within each DEM, mark those points, and then the final step will be the same calculations as above. Since there is a maximum of about 400 points, we don't need to worry about data size as much.
+
+I think this will be one large for loop that iterates once per basin. I may break it out into a function, or maybe break out the inside of the for loop into a function? I'll start without the function and change it later if needed, though.
+
+```{r}
+# replace these with the respective file paths to your DEMs
+dem_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+dir = "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+# dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/predicting_input/"
+# dem_dir <- "//Mac/Home/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+
+calculate <- FALSE
+
+basin_list <- list.files(dem_dir, paste0("^basin_[0-9]{1,4}\\.flt"), recursive = TRUE)
+```
+
+#### For calculating elevation derivatives:
+
+This code only needs to be run once. Eventually, I will remove it from this document.
+
+```{r}
+
+if (calculate) {
+  for (basin in basin_list) {
+    
+    # create directories for basins and sub-basins if needed. 
+  #  if (!dir.exists(paste0(dir, sub("/.*","", basin)))) {
+      dir.create(paste0(dir, sub("/.*","", basin)))
+  #  }
+ #   if (!dir.exists(paste0(dir, sub("\\..*","", basin)))) {
+      dir.create(paste0(dir, sub("\\..*","", basin)))
+ #   }
+    
+  # define the elevation derivatives that we want to be calculated
+  rasters <- c(paste0("GRADIENT,", dir, sub("\\..*","", basin), "/gradient"),
+               paste0("MEAN CURVATURE,", dir, sub("\\..*","", basin), "/mean_curv"))
+  
+  print(rasters)
+  
+  length_scale <- 15
+  
+  rasters <- elev_deriv(rasters = rasters,
+                  length_scale = length_scale,
+                  dem = paste0(dem_dir, basin),
+                  scratch_dir = paste0(dir, sub("\\..*","", basin)))
+}
+}
+
+```
+
+Short utility script for copying the partial contributing area files downloaded from sharefile into the folders structure that will be easy for me to use. I have the basins listed in a different order, so I have to inspect the input file for the correct number suffix that will correspond to the correct pca file.
+
+```{r}
+dem_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/downloaded_3.6/in/"
+dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+pca_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/pca/"
+
+# the pca files are given numbered in the order that they appear in this input file
+input_order <- read.delim("/Users/julialober/Documents/input_list.txt")
+names(input_order) <- c("list")
+
+for (basin in basin_list) {
+  target_dir <- paste0(dir, sub("\\..*","", basin), "/")
+  
+  # find the row number where the basin name matches
+  num <- which(grepl(sub("\\..*","", basin), input_order$list,  ignore.case = TRUE))
+  
+  target_files <- list.files(pca_dir, paste0("^pca_6_", num, "\\."), full.names = TRUE)
+  file.copy(target_files, target_dir)
+}
+```
+
+A loop to figure out which basins are missing from the basin_list. These basins were included in the partial contributing area files that I got from Dan but for some reason are not included in the original input file for generating the training data that I downloaded. It looks like it is the McKenzie basin that is missing.
+
+```{r}
+for (line in input_order$list) {
+  ans <- regexpr("/[A-Za-z]{5,30}/[A-Za-z]?basin_[0-9]{1,3}", line)
+  basin <- substr(line, ans[1] + 1, ans[1] + attr(ans, "match.length") - 1)
+
+  # find the row number where the basin name matches
+  found <- which(grepl(basin, basin_list,  ignore.case = TRUE), arr.ind = FALSE)
+  if (length(found) == 0) {
+    print(basin)
+  }
+
+}
+```
+
+A note: this code assumes we already have a trained model to use for predictions. The learner we are using here comes from the code above. I am timing each iteration of the loop to get an idea of how long it will take to run. So far, we are hovering around 50 seconds for one basin.
+
+TODO: figure out how to crop the points and add the observed landslides to a data frame to compare. This was relatively simple above, so shouldn't be too hard to figure out.
+
+```{r}
+dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/"
+
+model <- logreg_learner
+bins <- as.data.table(seq(0, max(proportions$prob.pos), length.out = 500))
+names(bins) <- c("probability") 
+
+count <- 1
+
+cumul_prop <- data.frame("area" = rep(0, 500), 
+                         "prob" = rep(0, 500))
+
+pts_prop <- data.frame("x" = 0, 
+                       "y" = 0,
+                       "prob.pos" = 0, 
+                       "prob.cumsum" = 0, 
+                       "area.cumsum" = 0, 
+                       "ls.prop" = 0)
+
+for (basin in basin_list) { 
+  
+  basin <- sub("\\..*","", basin)
+  
+  tic(msg = paste0("loop for ", basin))
+
+  # find and load the data files
+  topo_files <- c(paste0("GRADIENT,", dir, basin, "/gradient.flt"),
+                paste0("MEAN CURVATURE,", dir, basin, "/mean_curv.flt"))
+  topo_rast <- elev_deriv(rasters = topo_files)
+  print(basin)
+  # print(count)
+  num <- which(grepl(sub("\\..*","", basin), input_order$list,  ignore.case = TRUE))
+  pca_rast <-  contributing_area(raster = paste0(dir, basin, "/pca_6_", num, ".flt"))
+  count <- count + 1
+  rasters <- c(topo_rast, pca_rast)
+  
+  names(rasters) <- c("gradient", "mean_curv", "pca_k1_48")
+  predicting_data <- as.data.frame(rasters, xy = TRUE)
+  
+  pd <- predicting_data
+  pd$pca_k1_48 <- log(predicting_data$pca_k1_48, base = 2)
+  
+  # manually pre process the data: take the log of the pca and center+scale the data
+  center_vals <- pl_feature_eng$pipeops$scale$state$center
+  scale_vals <- pl_feature_eng$pipeops$scale$state$scale
+  
+  pd$gradient <- (pd$gradient - center_vals[1]) / scale_vals[1]
+  pd$mean_curv <- (pd$mean_curv - center_vals[2]) / scale_vals[2]
+  pd$pca_k1_48 <- (pd$pca_k1_48 - center_vals[3]) / scale_vals[3]
+  
+  # predict the basin using scaled and centered data.
+  predictions_df <- as.data.table(logreg_learner$predict_newdata(pd))
+  predictions_df <- cbind(predictions_df, predicting_data)
+  
+  # head(predictions_df)
+  
+  proportions <- as.data.table(subset(predictions_df, select = c("x", "y", "prob.pos")))
+  setorder(proportions, cols = "prob.pos") 
+  
+  # calculate the cumulative sums of area and probabilities
+  proportions$prob.cumsum <- cumsum(proportions$prob.pos)
+  prob_sum <- max(proportions$prob.cumsum)
+  proportions$area.cumsum <- seq(1, length(proportions$x))
+  area_sum <- max(proportions$area.cumsum)
+
+  setattr(proportions, "sorted", "prob.pos")
+  
+  binned_prop <- proportions[J(bins$probability), roll = "nearest"]
+  cumul_prop$area <- cumul_prop$area + binned_prop$area.cumsum
+  cumul_prop$prob <- cumul_prop$prob + binned_prop$prob.cumsum
+  
+  pts_local <- crop(pts, rasters)
+  # extract the probability values for the test points
+  pts_prob <- extract(prob_rast, pts_local, xy = TRUE)
+  pts_prob <- pts_prob[!is.na(pts_prob$prob.pos), ]
+  setorder(pts_prob, "prob.pos")
+  
+  total_pts <- length((pts_prob$prob.pos))
+
+  # get the cumulative area (already calculated) and calculate the cumulative landslides
+  pts_cumul <- proportions[J(pts_prob$prob.pos), roll = "nearest"]
+  pts_cumul$ls.prop = seq(1, length(pts_cumul$x)) / total_pts
+
+  pts_prop <- rbind(pts_prop, pts_cumul)
+  
+  toc()
+}
+
+
+total_area <- max(cumul_prop$area)
+total_prob <- max(cumul_prop$prob)
+
+cumul_prop$area_prop <- cumul_prop$area / total_area
+cumul_prop$prob_prop <- cumul_prop$prob / total_prob
+
+dt <- cbind(bins, cumul_prop)[J(pts_prop$prob.pos), roll = "nearest", on = "probability"]
+pts_prop$area_prop <- dt$area_prop
+
+```
+
+With basins combined, we see a slightly different shape in the curves. The proportions of area and probability jump up greatly at smaller probabilities.
+
+```{r}
+ggplot(cbind(bins, cumul_prop)) + 
+  geom_line(aes(x = probability, y = prob_prop), color = "red") + 
+  geom_point(aes(x = probability, y = prob_prop), color = "red") + 
+  geom_line(aes(x = probability, y = area_prop), color = "lightblue") +
+  geom_point(aes(x = probability, y = area_prop), color = "lightblue") + 
+  geom_line(data = pts_prop, aes(x = prob.pos, y = ls.prop)) + 
+  geom_point(data = pts_prop, aes(x = prob.pos, y = ls.prop))
+```
+
+```{r}
+ggplot(cbind(bins, cumul_prop)) + 
+  geom_line(aes(x = area_prop, y = prob_prop), color = "red") + 
+  geom_point(aes(x = area_prop, y = prob_prop), color = "red")  
+```

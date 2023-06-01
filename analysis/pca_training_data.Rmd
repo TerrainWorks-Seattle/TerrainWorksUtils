@@ -1,0 +1,76 @@
+---
+title: "Principal component analysis on landslide training data"
+author: Julia Lober
+output:
+  html_notebook:
+    df_print: paged
+  html_document: 
+    toc: true
+params:
+  data_dir:
+    label: Data Directory
+    value: //Mac/Home/Documents/terrainworks/code/sandbox/data/
+    input: text
+  training_data:
+    label: Training data .Rdata file
+    value:  /sample_umpqua.Rdata
+    input: text
+editor_options:
+  chunk_output_type: inline
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  error = FALSE
+)
+```
+
+# Principal component analysis
+A principal component analysis (PCA) allows us to reduce the dimensionality of data and visualize the variation in a dataset. It is usually an exploratory analysis rather than a key part of a quantitative analysis. Here, we do it to see where different covariates might be correlated and how the initiation points vs. non-inititation points are reflected in the overall variability. 
+
+```{r}
+
+load(paste0(params$data_dir, params$training_data))
+
+pc <- prcomp(sample_pnts[,2:7],
+             center = TRUE,
+             scale. = TRUE)
+
+p <- plot(pc$x[sample_pnts$class == "neg",], pch = 19, 
+          main = "Principal Components Analysis", font.main = 4)
+points(pc$x[sample_pnts$class == "pos",], col = "red", pch = 19)
+
+legend("topright", 
+       legend = c("Negative points", "Landslide initiation points"), 
+       pch = 19, 
+       col = c("black", "red"),
+       bty= "n")
+
+l.x <- cbind(pc$rotation[,1]) * 2
+l.y <- cbind(pc$rotation[,2]) * 2
+arrows(x0=0, x1=l.x, y0=0, y1=l.y, col="darkgreen", length=0.15, lwd=3)
+text(l.x, l.y, labels=rownames(l.x) , col="darkgreen", pos=c(3, 1, 3, 1), offset=1, cex=1.2)
+
+
+
+```
+
+The first two principal components are the ones that explain the most amount of variability in the data. This should be the axis across which we see the data as separated as it gets. We hope to see some separation of the different categories we are interested (in this case, landslide initiation points and negative points), indicating that the covariates we are looking at can explain the differences between these classes. 
+
+For the example Umpqua dataset, there is a slight trend toward landslide initiation points being on the left side of the plot, but lots of overlap/noise in the plots still. 
+
+```{r}
+preset <- par(mfrow = c(1, 2))
+
+barplot(pc$rotation[,1], main="PC 1 Loadings Plot", las=2,
+        ylim = c(-1, 1))
+barplot(pc$rotation[,2], main="PC 2 Loadings Plot", las=2,
+        ylim = c(-1, 1))
+
+par(preset)
+
+```
+Looking at the loadings of each covariate on the principal components, we can try to grasp what each of the dimensions is trying to capture. For example, the first principal component is mostly from the partial contributing area calculations, while the second component is by far most affected by gradient. 

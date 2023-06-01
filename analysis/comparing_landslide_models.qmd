@@ -1,0 +1,355 @@
+---
+title: "Modeling Landslide Initiation"
+autho: Julia Lober
+format: html
+editor: visual
+---
+
+```{r setup}
+#| echo: false
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  error = FALSE
+)
+```
+
+```{r load, include = FALSE}
+library(mlr3)
+library(mlr3spatial)
+library(mlr3spatiotempcv)
+library(mlr3learners)
+library(mlr3tuning)
+library(mlr3viz)
+library(mlr3fselect)
+library(mlr3filters)
+library(mlr3pipelines)
+
+# Packages for model-building
+library(glmnet)
+library(ranger)
+
+# Packages for other things
+library(terra)
+library(ggplot2)
+library(maps)
+library(tidyterra)
+```
+
+```{r}
+source("../R/create_model_dataframe.R")
+sample_pnts <- training_data[!(is.na(training_data$dist_to_road)), 2:length(training_data)]
+sample_pnts$geo <- as.factor(sample_pnts$geo)
+# sample_pnts <- subset(sample_pnts, select = -c(year))
+
+sample_pnts$gradient_sq <- sample_pnts$gradient ^ 2
+sample_pnts$grad_by_pca <- sample_pnts$gradient * sample_pnts$pca_k1_48
+```
+
+## A look at the data.
+
+The first step is to look at the data we are using to built the model. We are working with data files that have been assembled by the PFA_Sampling_Multiple_DEMs documents included in this package. This package produces .Rdata files that contain data frames of landslide points divided by the approximate year in which they occurred and non-landslide points sampled from the surrounding area divided in the same way.
+
+The data frames contain a variety of predictors selected based on the physical parameters that we know control landslides. These predictors have various sources of data which will be explained later.
+
+```{r}
+#| echo: false
+head(sample_pnts)
+```
+
+```{r}
+#| echo: false
+points <- vect(cbind(sample_pnts[, "x"], y = sample_pnts[, "y"]))
+points$yr <- sample_pnts$year
+points$class <- sample_pnts$class
+crs(points) <- "epsg:26910"
+points <- project(points, "epsg:4326")
+
+load("/Users/julialober/Documents/terrainworks/code/sandbox/data/oregon_map.Rdata")
+
+ggplot() + 
+  geom_polygon(data = oregon, mapping = aes(x = long, y = lat),
+               color = "white", fill = "white") +
+  # geom_spatvector(data = points[points$class == "neg", ],
+  #                 mapping = aes(shape = as.factor(points[points$class == "neg", ]$yr)),
+  #                 show.legend = TRUE, size = 1 , color = "black", alpha = 1) +
+  geom_spatvector(data = points[points$class == "pos", ],
+                  mapping = aes(shape = as.factor(points[points$class == "pos", ]$yr)),
+                  show.legend = TRUE, size = 1, color = "red", alpha = 0.4) +
+  scale_shape_manual(values = c(3, 1, 17), labels = c("1996 (213)", "2007 (137)", "2011 (47)")) + 
+  labs(x = "Longitude", y = "Latitude", shape = "Study points (count)")
+```
+
+Note that the landslide initiation points tend to come in clusters and the years 1996 and 2007 have much many more points located than 2011. Negative landslide points are randomly selected within a buffer area near the points. There are other documents that explain the steps and decisions to assemble this data set, so I will not go into it any further.
+
+## Defining the modeling task and learner
+
+For `mlr3`, we need to define the task, the type of model (called a learner), and the resampling method that we want to use. The task is our landslide initiation data set and the learner (for now) is a logistic regression model. If we want to add a different type of model, this will be done in a different document.
+
+There are several steps we need to work through:
+
+1.  Feature selection - Many options exist for feature selection methods that vary slightly in the way that they attribute value to different predictors and iterate through subsets. We explore a small selection in the feature_selection.qmd document, select a basic method from there.
+2.  Tuning hyperparameters - This step is only necessary if we decide to use a model that has hyperparameters, like a random forest model. Otherwise, we will ignore it.
+3.  Estimating performance - Here, we use a spatial cross-validation resampling method to assess the model performance while minimizing bias. By using spatial cross-validation, we keep testing and training sets closer to independent inputs, which should give us a more realistic guess of how accurate the model will on new data.
+4.  Generating a proportion raster - Once we have the best model option as assessed from the previous steps, we can input all of the DEMs to produce a probability raster, which we will then convert to a proportion raster.
+
+```{r}
+set.seed(12345)
+sample_pnts <- subset(sample_pnts, select = -c(year))
+
+landslide_task <- as_task_classif_st(x = sample_pnts, 
+                                    id = "landslide_initiation", 
+                                    target = "class", 
+                                    positive = "pos", 
+                                    coordinate_names = c("x", "y"), 
+                                    crs = "epsg:26910")
+
+logreg_learner <- lrn("classif.log_reg", 
+                      predict_type = "prob")
+
+rf_learner <- lrn("classif.ranger", 
+                  predict_type = "prob")
+
+spat_resamp <- rsmp("repeated_spcv_coords", 
+                    folds = 5, 
+                    repeats = 2)
+```
+
+We will design a pipeline to compare the different models.
+
+```{r}
+#| echo: false
+autoplot(spat_resamp, 
+         landslide_task, 
+         fold_id = c(1:4))
+```
+
+### 1. Feature selection
+
+The rule in machine learning is to create the best model possible with the fewest features needed. This not only makes the model quicker to train, but also makes it easier to predict (smaller data inputs) and also reduces the risk of over-fitting.
+
+```{r}
+logreg_fselect <- auto_fselector(
+  fs("sequential"),
+  learner = logreg_learner,
+  resampling = spat_resamp,
+  measure = msr("classif.auc"))
+  
+rf_fselect <- auto_fselector(
+  fs("sequential"),
+  learner = rf_learner,
+  resampling = spat_resamp,
+  measure = msr("classif.auc"))
+```
+
+## Make a pipeline
+
+```{r}
+
+pipe <- 
+  po("encode") %>>%
+  ppl("branch", list(
+                  "anova" = po("filter", filter = flt("anova")),
+                  "nothing" = po("nop")), prefix_branchops = "filt") %>>%
+  ppl("branch", list(
+                  "lr" = logreg_learner, 
+                  "rf" = rf_learner, 
+                  "lr_fs" = logreg_fselect, 
+                  "rf_fs" = rf_fselect))
+
+pipe$plot(html = FALSE)
+```
+
+Now, we can define the parameters over which to evaluate the models and tune it. I use a random search to start just gathering an idea of the best ranges of parameters. Since we are comparing a handful of different modeling techniques, one of the major parameters to tune will be the model type, called "branch.selection" in the parameter set.
+
+I ran this initially with a filtering method as an option, but found the no matter the filtering, the forward feature selection works better. It is possible that combining filtering and forward feature would reduce run-time, but since we only have about 15 features to evaluate, I don't believe that the time save will be substantial enough for the possible performance trade-off.
+
+```{r}
+param_set <- ParamSet$new(list(
+  ParamDbl$new("anova.filter.frac", lower = 0.3, upper = 1),
+  ParamFct$new("filtbranch.selection", levels = c("anova", "nothing")),
+  ParamInt$new("classif.ranger.mtry", lower = 1L, upper = 11L),
+  ParamFct$new("branch.selection", levels = c("lr", "rf", "lr_fs", "rf_fs"))
+))
+
+target <- ti(
+  task = landslide_task, 
+  learner = as_learner(pipe), 
+  resampling = rsmp("spcv_coords", folds = 3), 
+  measures = msr("classif.auc"), 
+  terminator = trm("evals", n_evals = 20), 
+  search_space = param_set
+  
+)
+
+tuner <- tnr("random_search")
+
+# tuner$optimize(target)
+```
+
+```{r}
+param_set <- ParamSet$new(list(
+  ParamDbl$new("anova.filter.frac", lower = 0.3, upper = 0.3),
+  ParamFct$new("filtbranch.selection", levels = c("nothing")),
+  ParamInt$new("classif.ranger.mtry", lower = 1L, upper = 11L),
+  ParamFct$new("branch.selection", levels = c("lr", "rf", "lr_fs"))
+))
+
+target <- ti(
+  task = landslide_task, 
+  learner = as_learner(pipe), 
+  resampling = rsmp("spcv_coords", folds = 3), 
+  measures = msr("classif.auc"), 
+  terminator = trm("evals", n_evals = 20), 
+  search_space = param_set
+  
+)
+
+tuner <- tnr("random_search")
+
+# tuner$optimize(target)
+```
+
+```{r}
+param_set <- ParamSet$new(list(
+  ParamDbl$new("anova.filter.frac", lower = 0.3, upper = 0.3),
+  ParamFct$new("filtbranch.selection", levels = c("nothing")),
+  ParamInt$new("classif.ranger.mtry", lower = 1L, upper = 5L),
+  ParamFct$new("branch.selection", levels = c("rf_fs"))
+))
+
+target <- ti(
+  task = landslide_task, 
+  learner = as_learner(pipe), 
+  resampling = rsmp("spcv_coords", folds = 3), 
+  measures = msr("classif.auc"), 
+  terminator = trm("none"), 
+  search_space = param_set
+  
+)
+
+tuner <- tnr("grid_search", resolution = 5, batch_size = 400)
+
+# tuner$optimize(target)
+```
+
+```{r}
+param_set <- ParamSet$new(list(
+  ParamDbl$new("anova.filter.frac", lower = 0.3, upper = 0.3),
+  ParamFct$new("filtbranch.selection", levels = c("nothing")),
+  ParamInt$new("classif.ranger.mtry", lower = 1L, upper = 10L),
+  ParamFct$new("branch.selection", levels = c("rf"))
+))
+
+target <- ti(
+  task = landslide_task, 
+  learner = as_learner(pipe), 
+  resampling = rsmp("spcv_coords", folds = 3), 
+  measures = msr("classif.auc"), 
+  terminator = trm("none"), 
+  search_space = param_set
+  
+)
+
+tuner <- tnr("grid_search", resolution = 10, batch_size = 100)
+
+# tuner$optimize(target)
+```
+
+This tuning process takes an average of 2 minutes \* number of evals to run. I have run it twice so far, and save the results in data files to minimize the number of times we want to re-run the code.
+
+Overall, the results have shown AUC values between 0.82 and 0.86 for all configurations of models. The logistic regression model with the forward feature selection performed significantly better than the logistic regression without feature selection, and slightly (though not significantly) better than the random forest models. However, logistic regression is much faster to train, especially when using a forward feature selection algorithm that involves training so many models.
+
+```{r}
+# load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.13.pipelinetuneresult.Rdata")
+load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.14.pipelinetuneresult.Rdata")
+# load("/Users/julialober/Documents/terrainworks/code/sandbox/data/3.14.rf_fs_mtry.Rdata")
+```
+
+```{r}
+#| echo: false
+to_plot <- cbind(as.data.frame(target_archive$classif.auc), (as.data.frame(target_archive$branch.selection)))
+names(to_plot) <- c("auc", "model_type")
+to_plot$model_type <- as.factor(to_plot$model_type)
+
+ggplot(to_plot, aes(x = model_type, y = auc)) + 
+  geom_boxplot(aes(col = model_type)) + 
+  geom_jitter(aes(col = model_type), position = position_jitter(0.2)) 
+```
+
+## Logistic regression model
+
+Based on the results above, we will work with a logistic regression model and use forward feature selection to select the subset of features that provide the most amount of information.
+
+Our pipeline includes a scaling step, to even out the influence of each predictor, and an encoding step, to translate the geology predictor from a factor to a one-hot strategy that is treated more logically by a numerical model.
+
+```{r}
+logreg_learner <- lrn("classif.log_reg", 
+                      predict_type = "prob")
+
+spat_resamp <- rsmp("repeated_spcv_coords", 
+                    folds = 5, 
+                    repeats = 2)
+
+logreg_fselect <- auto_fselector(
+  fs("sequential"),
+  learner = logreg_learner,
+  resampling = spat_resamp,
+  measure = msr("classif.bbrier"))
+
+landslide_task_noage <- as_task_classif_st(x = subset(sample_pnts, select = -c(age, dist_to_road)), 
+                                    id = "landslide_initiation", 
+                                    target = "class", 
+                                    positive = "pos", 
+                                    coordinate_names = c("x", "y"), 
+                                    crs = "epsg:26910")
+
+
+pl_fselect <- 
+  po("scale") %>>% 
+  po("encode") %>>%
+  po("learner", logreg_fselect)
+
+pl_fselect$train(landslide_task_noage)
+#pl_lrn$graph$pipeops$classif.log_reg.fselector$learner
+
+```
+
+Now that we know the best set of features, we can train a model with the resampling method to get a more exact estimate of how well the final model will actually perform. To do this, we use a k-means clustering based spatial resampling method, with 8 folds (7 for training, 1 for testing) and 50 repeats, to get a measure of performance that we can be relatively confident in.
+
+Then, we look at the aggregate AUC measure for all 50\*8 models that were trained (400 models total).
+
+```{r}
+feature_set <- c("age", "dist_to_road", "mean_curv", "pca_k1_48")
+# feature_set <- c("mean_curv", "pca_k1_48")
+landslide_task$select(feature_set)
+
+pl_feature_eng <- 
+  po("scale") %>>% 
+  po("encode") 
+
+pl_feature_eng$train(landslide_task)
+landslide_task_eng <- pl_feature_eng$predict(landslide_task)$encode.output
+
+model <- mlr3::resample(
+  task = landslide_task_eng, 
+  learner = logreg_learner, 
+  resampling = rsmp("repeated_spcv_coords", 
+                    folds = 8, 
+                    repeats = 50)
+)
+
+model$aggregate(msr("classif.auc"))
+
+```
+
+Our final step is to train a model using all of the data. While this is generally frowned upon in machine learning, our inventory produces a relatively small data set for this project and we want to leverage all of the data available.
+
+TODO: look up coefficient interpretation. Does a bigger coefficient mean that the variable has a bigger influence? I think yes, if the data are scaled first.
+
+Now that I am using the scaled version of the data, I agree. The pca value has the largest coefficient, and is consistently the variable that is chosen first during the feature selection, indicating that it is a highly explanatory variable for our dataset.
+
+```{r}
+logreg_learner$train(landslide_task_eng)
+logreg_learner$model
+```

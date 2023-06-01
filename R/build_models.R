@@ -33,7 +33,8 @@
 #' @return Nothing
 #' @export
 #'
-build_k_fold_rf_model <- function(data,
+build_k_fold_model <- function(data,
+                                  type,
                                   seed = NULL,
                                   ctrl_method = "repeatedcv",
                                   folds = 5,
@@ -42,6 +43,10 @@ build_k_fold_rf_model <- function(data,
 
   if (is.null(data)) {
     stop("Must provide data.")
+  }
+
+  if (!type %in% c("rf", "glm")) {
+    stop("Must specify model type. Current options are: rf, glm")
   }
 
   if (!is.data.frame(data) | is.null(data$class)) {
@@ -68,7 +73,7 @@ build_k_fold_rf_model <- function(data,
                                      data = data,
                                      preProcess = preprocess,
                                      trControl = ctrl,
-                                     method = "rf",
+                                     method = type,
                                      metric = "AUC"))
 
   print(model)
@@ -78,7 +83,6 @@ build_k_fold_rf_model <- function(data,
 
   return(model)
 }
-
 
 
 #' @title Build Random Forest Model
