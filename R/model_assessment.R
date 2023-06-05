@@ -19,7 +19,7 @@
 #'
 #' @return A tibble with the success rate curve.
 #' @export
-#'
+#' @importFrom data.table data.table
 success_rate_curve <- function(data,
                                plot = TRUE,
                                prob_col = "prob.pos",
@@ -27,10 +27,13 @@ success_rate_curve <- function(data,
 
   # Check parameters ----------------------------------------------
 
-  if (is.null(data$prob_col)) {
-    stop("Check that prob_col exists in data.")
+  if (is.null(data)) {
+    stop("No data supplied.")
   }
-  if (!is.bool(plot)) {
+  if (is.null(data[[prob_col]])) {
+    stop("prob_col must exist in data.")
+  }
+  if (!is.logical(plot)) {
     stop("Plot variable must be TRUE/FALSE.")
   }
 
@@ -61,18 +64,20 @@ success_rate_curve <- function(data,
   # Bin data ------------------------------------------------------
 
   if (!is.null(bins) && is.vector(bins)) {
-    props_binned <- props_table[J(bins), roll = "nearest"]
+    props_binned <- props_table[data.table(bins), roll = "nearest"]
     to_return <- as_tibble(props_binned)
   }
 
   # Plot curve ----------------------------------------------------
 
-  ggplot(to_return, aes(x = area_prop, y = prob_prop)) +
-    geom_line() +
-    geom_point() +
-    labs(title = "Success rate curve",
-         x = "Proportion of area",
-         y = "Proportion of predicted landslides")
+  if (plot) {
+    ggplot(to_return, aes(x = area_prop, y = prob_prop)) +
+      geom_line() +
+      geom_point() +
+      labs(title = "Success rate curve",
+           x = "Proportion of area",
+           y = "Proportion of predicted landslides")
+  }
 
   return(to_return)
 }
