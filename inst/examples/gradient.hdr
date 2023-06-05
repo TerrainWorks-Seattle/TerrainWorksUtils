@@ -1,0 +1,15 @@
+ NCOLS     1236
+ NROWS     1181
+ XLLCORNER 441536.000932590
+ YLLCORNER 4883915.205638600
+ CELLSIZE          2.000000000
+ NODATA_VALUE  -9999.0
+ BYTEORDER     LSBFIRST
+ 
+ #_FILE_TYPE R4
+ #_BIT_DEPTH 32
+ 
+ #  Created on: May 15, 2023
+ #  Created by: MakeGrids
+ #     Version: 1.0.9
+ # Compiled on: January 7, 2023

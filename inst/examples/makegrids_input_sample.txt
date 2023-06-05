@@ -1,0 +1,11 @@
+# Input file for makeGrids
+# Creating by input_file_utils.R
+# On 2022-10-19 10:57:24
+DEM: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\examples\elev_scottsburg
+SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\TerrainWorksUtils\inst\scratch
+LENGTH SCALE: 15
+GRID: GRADIENT, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/grad.flt
+GRID: PLAN CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/plan.flt
+GRID: PROFILE CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/prof.flt
+GRID: NORMAL SLOPE CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/norm.flt
+GRID: TANGENTIAL CURVATURE, OUTPUT FILE = \\Mac/Home/Documents/terrainworks/code/TerrainWorksUtils/inst/scratch/tan.flt
