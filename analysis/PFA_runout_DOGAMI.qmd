@@ -2,11 +2,11 @@
 title: "PFA Debris-Flow Runout Analysis"
 author: "Dan Miller"
 format:
-  docx:
-    toc: true
-    number-sections: true
-    highlight-style: github
-    echo: false
+#  docx:
+#    toc: true
+#    number-sections: true
+#    highlight-style: github
+#    echo: false
   html:
     toc: true
     toc-float: true
@@ -88,7 +88,7 @@ The Miller-Burnett models identify the channels susceptible to direct impacts fr
 
 Numerous studies have examined controls on debris-flow runout. Some specific to the Pacific Northwest include Benda and Cundy [-@benda1990]; Hofmeister et al. [-@hofmeister2002]; Fannin and Rollerson [-@fannin1993]; Robison et al. [-@robison1999]; May [-@may2002]; Lancaster et al. [-@lancaster2003]; Miller and Burnett [-@miller2008]; Guthrie et al. [-@guthrie2010]; Coe [-@coe2011], and Reid et al. [-@reid2016]. These and other studies consistently point to several factors that influence runout lengths:
 
--   "channel gradient and confinement,
+-   channel gradient and confinement,
 
 -   abrupt changes in flow direction at channel junctions,
 
