@@ -1,6 +1,6 @@
 test_that("elev_deriv: build input file, all derivatives", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
 
   rasters_input <- c(paste0("GRADIENT,", scratch_dir, "/grad"),
@@ -32,7 +32,7 @@ test_that("elev_deriv: build input file, all derivatives", {
 
 test_that("elev_deriv: build input file, 1 derivative", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
 
 
@@ -53,7 +53,7 @@ test_that("elev_deriv: build input file, 1 derivative", {
 
 test_that("elev_deriv: length scale too small (<= 0)", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
 
 
@@ -138,7 +138,7 @@ test_that("elev_deriv: non-existent, empty, or bad input file", {
 
 test_that("elev_deriv: non-existent scratch dir", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
 
   rasters_input <- c(paste0("GRADIENT,", scratch_dir, "/grad"))
@@ -153,7 +153,7 @@ test_that("elev_deriv: non-existent scratch dir", {
 
 test_that("elev_deriv: no derivatives given", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
 
   rasters_input <- list()
@@ -191,7 +191,7 @@ test_that("elev_deriv: read existing rasters", {
 test_that("contributing_area: build input file", {
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
 
   out_raster <- contributing_area(raster = paste0(scratch_dir,"/pca.flt"),
                                   dem = dem_path,
@@ -269,7 +269,7 @@ test_that("contributing_area: nonexistent, empty, and bad format input", {
 
 test_that("contributing_area: out of bounds length_scale, k, d", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
 
 
@@ -340,7 +340,7 @@ test_that("contributing_area: out of bounds length_scale, k, d", {
 
 test_that("contributing_area: bad dem, no scratch directory", {
   data_path <- system.file("examples", package = "TerrainWorksUtils")
-  dem_path <- paste0(data_path, "\\elev_scottsburg.flt")
+  dem_path <- paste0(data_path, "\\elevation.flt")
   scratch_dir <- system.file("scratch", package = "TerrainWorksUtils")
 
   raster_input <- c(paste0(scratch_dir, "/pca.flt"))
