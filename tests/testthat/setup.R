@@ -31,5 +31,5 @@ names(vars_raster) <- c("elevation", "random", "inverse")
 
 # For testing model assessment -----------------------------------------
 
-load(system.file("examples/model_output_gradcurvpca.Rdata", package = "TerrainWorksUtils"))
+# load(system.file("examples/model_output_gradcurvpca.Rdata", package = "TerrainWorksUtils"))
 
