@@ -199,7 +199,7 @@ srcurve_combine <- function(...,
 #' @export
 #'
 srcurve_auc <- function(curve,
-                        integral_type = "left") {
+                        integral_type = "trap") {
 
   # Check parameters ----------------------------------------------------------
 
