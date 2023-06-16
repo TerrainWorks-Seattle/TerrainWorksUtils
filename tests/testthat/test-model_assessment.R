@@ -175,11 +175,19 @@ test_that("srcurve combining two dems", {
   half2_curve <- srcurve(half2, plot = FALSE, bins = b)
   full_curve <- srcurve(predictions, plot = FALSE, bins = b)
 
-  comb_curve <- srcurve_combine(half1_curve, half2_curve, plot = FALSE)
+  comb_curve <- srcurve_combine(half1_curve, half2_curve, plot = TRUE)
 
   # allow for some rounding error, but otherwise the curves should be the same
   expect_true(all((full_curve[["prob_prop"]] - comb_curve[["prob_prop"]]) < 0.001))
   expect_true(all((full_curve[["area_prop"]] - comb_curve[["area_prop"]]) < 0.001))
+
+  expect_lt(srcurve_auc(full_curve) - srcurve_auc(comb_curve), 0.001)
+  expect_lt(srcurve_auc(full_curve) - mean(srcurve_auc(half1_curve),
+                                           srcurve_auc(half2_curve)),
+               0.001)
+  expect_lt(srcurve_auc(comb_curve) - mean(srcurve_auc(half1_curve),
+                                           srcurve_auc(half2_curve)),
+            0.001)
 
 })
 
@@ -202,5 +210,13 @@ test_that("srcurve combining two dems, uneven split", {
   # allow for some rounding error, but otherwise the curves should be the same
   expect_true(all((full_curve[["prob_prop"]] - comb_curve[["prob_prop"]]) < 0.001))
   expect_true(all((full_curve[["area_prop"]] - comb_curve[["area_prop"]]) < 0.001))
+
+  expect_lt(srcurve_auc(full_curve) - srcurve_auc(comb_curve), 0.001)
+  expect_lt(srcurve_auc(full_curve) - mean(srcurve_auc(half1_curve),
+                                           srcurve_auc(half2_curve)),
+            0.001)
+  expect_lt(srcurve_auc(comb_curve) - mean(srcurve_auc(half1_curve),
+                                           srcurve_auc(half2_curve)),
+            0.001)
 
 })
