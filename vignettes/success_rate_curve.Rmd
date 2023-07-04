@@ -1,0 +1,46 @@
+---
+title: "Success Rate Curves"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Success Rate Curve}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+```
+
+TerrainWorks has developed a few ways of evaluating models 
+
+## Training data, etc. 
+
+## The Success Rate Curve
+
+We show how to generate the success rate curve using the function included in the package. 
+Show what the output looks like. 
+Show a graph of the success rate curve. 
+
+Include an explanation and some references to the success rate curve in the literature. 
+
+
+## The Suislaw Basin
+
+[A map showing the basin and its predicted probabilities with one model, then another model.]
+
+## The Prediction Rate Curve
+
+Using the function to generate a prediction rate curve with predicted probabilities for the entire region. 
+
+## Combining curves
+
+Treat the Suislaw basin as two separate curves for this example. 
+
+## Including it in the workflow 
