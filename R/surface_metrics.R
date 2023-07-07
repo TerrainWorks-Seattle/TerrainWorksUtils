@@ -70,7 +70,8 @@ elev_deriv <- function(input_file = "nofile",
           file_name <- paste0(file_name, ".flt")      # only reads .flt
         }
         if (!file.exists(file_name)) {
-          stop("All given files must exist to run in read mode")
+          message <- paste0(file_name, " does not exist.")
+          stop(message)
         }
         file_list <- c(file_list, file_name)
         type_list <- c(type_list, type_name)
