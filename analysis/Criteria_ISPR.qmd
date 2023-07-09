@@ -1,24 +1,24 @@
 ---
 title: "Appendix A. Analysis Details"
 author: "Dan Miller"
-date: June 26, 2023
-format: 
-  html:
-    toc: true
-    toc-float: true
-    toc-depth: 3
-    number-sections: true
-    code-folding: hide
-    theme: readable
-    code-fold: true
-    code-overflow: scroll
+date: July 7, 2023
 #format: 
-#  docx:
+#  html:
 #    toc: true
-#    toc-title: Contents
+#    toc-float: true
 #    toc-depth: 3
 #    number-sections: true
-#    highlight-style: github
+#    code-folding: hide
+#    theme: readable
+#    code-fold: true
+#    code-overflow: scroll
+format: 
+  docx:
+    toc: true
+    toc-title: Contents
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
 editor: visual
 bibliography: references.bib
 ---
@@ -41,13 +41,13 @@ library(RColorBrewer)
 
 This appendix to the study-design document "Empirical evaluation of shallow landslide susceptibility, frequency, and runout by landform" provides details on statistical and numerical methods that can be applied for the study. The study design was written for the Scientific Advisory Groups and the Cooperative Monitoring, Evaluation, and Research Committee. These groups include members with a broad range of expertise, but many members have little experience with analysis of landslide susceptibility. Hence, we provided abundant back ground and explanatory material and, as the Independent Scientific Panel Review points out, little about specific analysis methods to apply. This appendix seeks to remedy that. We first reiterate what these methods need to provide and then provide examples of how currently available analysis tools can be applied to meet those needs. These are examples, not specified protocols, because the appropriate use of analysis tools is governed by the data being analyzed. We do not yet know what constraints and opportunities data collected for this study will present.
 
-When we wrote the study design, we pointed to specific types of analysis methods, but provided no specific examples. This was, in part, because we did not have any. The literature on landslide susceptibility presents a multitude of options: in a recent literature review on empirical methods for landslide susceptibility, Lima et al. [-@lima2022] examined 2585 publications. Yet, no standard procedure has emerged from all that effort. This lack of standardization likely reflects the diversity of data types available and the diversity of objectives for susceptibility analyses. Despite this wealth of studies, we are not aware of any published examples that closely match the type of analysis required here (of course, we have not reviewed everything that has been published). To restate what was said in Section 1.1, what we need is a methodology with the following two capabilities:
+When we wrote the study design, we pointed to specific types of analysis methods, but provided no specific examples. This was in part because we did not have any. The literature on landslide susceptibility presents a multitude of options: in a recent literature review on empirical methods for landslide susceptibility, Lima et al. [-@lima2022] examined 2585 publications. Yet, no standard procedure has emerged from all that effort. This lack of standardization likely reflects the diversity of data types available and the diversity of objectives for susceptibility analyses. Despite this wealth of studies, we are not aware of any published examples that closely match the type of analysis required here (of course, we have not reviewed everything that has been published). To restate what was said in Section 1.1, what we need is a methodology with the following two capabilities:
 
 1.  Calculate the proportion of all landslides with potential to impact downslope public resources or threaten public safety that originate within some specified portion of a defined study area. This capability would enable ranking of delineated landforms in terms of the proportion of all "delivering" landslides that originate within each landform type. Here, "delivering" refers to those that impact public resources, e.g., stream channels. Note that to calculate proportions across diverse landform types, we must first quantify spatial variability in landslide density. This also enables ranking of landforms in terms of landslide density averaged over landform area. This is a more typical measure of susceptibility, but we expand on that here to look at the spatial density of *delivering* landslides.
 
 2.  Identify those public resources potentially impacted by upslope landslides and rank them by probability of occurrence. This provides a means of explicitly identifying those public resources potentially at risk. This ranking can then be associated with the upslope source areas where the impacting landslides could originate.
 
-To accomplish these requires, for each potential landslide initiation site, calculation of both probability of landslide initiation and probability of runout to all points downslope. Because multiple initiation sites may generate landslides that all cross common points downslope, these probabilities need to be combined to give the probability that any upslope initiation site will generate a landslide that impacts a public resource.
+To meet these capabilities requires, for each potential landslide initiation site, calculation of both probability of landslide initiation and probability of runout to all points downslope. Because multiple initiation sites may generate landslides that all cross common points downslope, these probabilities need to be combined to give the probability that any upslope initiation site will generate a landslide that impacts a public resource.
 
 Work that Kelly Burnett and I (Dan Miller) did with the Coastal Analysis and Modeling Study ([CLAMS](https://www.fsl.orst.edu/clams/)) in the Oregon Coast Range offers a template for such an analysis [@miller2007, @miller2008, @burnett2007]. That work is dated however; data sources and analysis techniques have evolved significantly in the last 15 years. Since our original draft of this study design in January this year (2023), Julia Lober (an intern with my company) and I have worked through an empirical analysis of landslide initiation and runout susceptibility to update and recalibrate the models presented in the papers cited above. This was done for the Oregon Private Forest Accord (PFA) steep-slopes analysis described in Chapter 3 and Appendix B of the [PFA Report](https://www.oregon.gov/odf/aboutodf/documents/2022-odf-private-forest-accord-report.pdf) [@odf2022]. We will use those analyses here as examples of how available data can be used to derive terrain-attribute values and apply statistical methods to generate susceptibility maps. The PFA steep-slopes analysis used the landslide inventory published by the Oregon Department of Geology and Mineral Industries in Special Paper 53 [@burns2022]. This inventory included both initiation points and debris-flow runout tracks.
 
@@ -85,7 +85,7 @@ Soil weight varies with soil depth; field studies find that soil depth varies sy
 
 Another potentially important control on soil depth is the frequency of landsliding. Shallow landslides typically expose the underlying bedrock. If the landslide evolves into a debris flow, soil may be scoured over portions of the downslope debris-flow path. Subsequently, soil and organic debris accumulate in the landslide scar and along the debris-flow corridor [@dietrich1982; @may2003]. Soil depth in these locations is thus a function of the time since the last landslide or debris flow. Landslides can occur at variable locations up or downslope; an upslope-positioned landslide can scour soil along portions of its travel path, thus reducing landslide potential through that downslope zone [@dunne1991]. Any downslope zone may have many potential upslope landslide sources; the frequency with which it is scoured by debris flows is thus a function of the number of upslope sources. Without having run a susceptibility model, we have no measure of upslope landslide potential, but in landslide-prone terrain, the number of potential upslope sources will increase with increasing total drainage area. Thus, total drainage area, measured to the drainage divide, offers another DEM-derived terrain-element to include as a candidate predictor in building an empirical model for landslide initiation.
 
-Physical models to calculate a factor-of-safety for identifying zones prone to landslide initiation require a determination of pore pressures exerted by water flowing through the soil layer. A variety of approximations and assumptions are employed to develop mathematical descriptions of soil water flux. Montgomery and Dietrich [-@montgomery1994a], for example, assume steady-state rainfall with water flow through the soil parallel to the ground surface, which essentially assumes an infinite-duration rainstorm. Wu and Sidle {-@1995\], Iida [-@iida1999], and Borga et al. [-@borga2002] used a kinematic-wave (quasi-steady-state) approximation for the flux of infiltrating rainwater through the soil layer, which accounted for the increasing upslope area contributing shallow groundwater flow to a hillslope location during a rainstorm. Iverson [-@iverson2000] critiqued these approaches and developed a transient pressure response based on approximations of the Richards equation that removed constraints on flow direction. Each additional detail can improve the degree to which a model represents reality, but also adds physical attributes required to apply the model. We lack information to constrain these attributes (soil depth and transmissivity) directly, but we can use a kinematic-wave approach to look at how topography can influence contributing area over time, which serves as a proxy representing saturation depth and pore pressure. To delineate contributing area to a single DEM cell for a specified time duration, we can trace flow upslope using the Darcy velocity $v = K\sin{\theta}$, where $K$ is saturated hydraulic conductivity and $\theta$ is gradient of the ground surface, assuming surface parallel flow. We assume uniform $K$ and, for the examples below, set it to a value of one meter per hour. The value is arbitrary, but one m/hr is representative of many soils [@gupta2021] so that the specified duration has some physical meaning. Flow directions are calculated using D-infinity [@tarboton1997]. Flow is traced DEM grid point to grid point until the transit time, determined from the Darcy velocity, equals the specified duration. Spatial variation in the calculated contributing area may correlate in some way with the spatial variation in soil pore pressures and, consequently, with variation in the spatial density of landslide initiation points. If so, the calculated contributing area might provide an informative predictor for an empirical model. The predicted spatial pattern of contributing-area size varies with the specified duration. Short durations produce a more uniform pattern; as duration increases, the highest values are concentrated in convergent topography, i.e., the axis of hollows, as illustrated in Figure 5 of the study design.
+Physical models to calculate a factor-of-safety for identifying zones prone to landslide initiation require a determination of pore pressures exerted by water flowing through the soil layer. A variety of approximations and assumptions are employed to develop mathematical descriptions of soil water flux. Montgomery and Dietrich [-@montgomery1994a], for example, assume steady-state rainfall with water flow through the soil parallel to the ground surface, which essentially assumes an infinite-duration rainstorm. Wu and Sidle [-@wu1995], Iida [-@iida1999], and Borga et al. [-@borga2002] used a kinematic-wave (quasi-steady-state) approximation for the flux of infiltrating rainwater through the soil layer, which accounted for the increasing upslope area contributing shallow groundwater flow to a hillslope location during a rainstorm. Iverson [-@iverson2000] critiqued these approaches and developed a transient pressure response based on approximations of the Richards equation that removed constraints on flow direction. Each additional detail can improve the degree to which a model represents reality, but also adds physical attributes required to apply the model. We lack information to constrain these attributes (soil depth and transmissivity) directly, but we can use a kinematic-wave approach to look at how topography can influence contributing area over time, which serves as a proxy representing saturation depth and pore pressure. To delineate contributing area to a single DEM cell for a specified time duration, we can trace flow upslope using the Darcy velocity $v = K\sin{\theta}$, where $K$ is saturated hydraulic conductivity and $\theta$ is gradient of the ground surface, assuming surface parallel flow. We assume uniform $K$ and, for the examples below, set it to a value of one meter per hour. The value is arbitrary, but one m/hr is representative of many soils [@gupta2021] so that the specified duration has some physical meaning. Flow directions are calculated using D-infinity [@tarboton1997]. Flow is traced DEM grid point to grid point until the transit time, determined from the Darcy velocity, equals the specified duration. Spatial variation in the calculated contributing area may correlate in some way with the spatial variation in soil pore pressures and, consequently, with variation in the spatial density of landslide initiation points. If so, the calculated contributing area might provide an informative predictor for an empirical model. The predicted spatial pattern of contributing-area size varies with the specified duration. Short durations produce a more uniform pattern; as duration increases, the highest values are concentrated in convergent topography, i.e., the axis of hollows, as illustrated in Figure 5 of the study design.
 
 We have no data with which to measure soil strength directly over regional scales. However, friction angle and cohesion vary with soil texture and mineralogy. These attributes vary depending on the rock types from which a soil originates and with mapped soil types. Landslide density may, therefore, vary with mapped lithology and soil types \[e.g., [@swanson1975a]. Ability to resolve any associations of rock or soil type with landslide density will depend on the rock and soil types included in areas where landslide inventories are made. Geologic mapping covering the entire state is available at a scale of 1:100,000 (<https://www.dnr.wa.gov/programs-and-services/geology/publications-and-data/gis-data-and-databases>). This database is the compilation of many separate geologic mapping studies and aggregates lithologic types across those studies into consistent categories. There are still 184 different lithologic groupings. This project cannot collect landslide inventories with a sufficient number and spatial distribution of landslides to include all of these, so these groupings need to be aggregated to a considerably greater degree. For the PFA analysis, I used five groupings: sedimentary rocks, volcanic rocks, volcaniclastic rocks, igneous+metamorphic rocks, and unconsolidated deposits. What is appropriate for this study will depend on where inventories are collected. [SSURGO](https://catalog.data.gov/dataset/soil-survey-geographic-database-ssurgo) provides soil type mapping at a scale of 1:24,000. The data base includes soil properties that may correlate with landslide potential. Strauch et al. [-@strauch2018a], for example, used reported grain-size distributions to estimate the range of friction angles to associate with different soil types. Effective cohesion from roots likely varies with the age, size, species, stem density, and health of the trees in a forest stand [e.g., @schmidt2001a]. Stand age provides a potential, although incomplete, proxy that has been found to correlate with landslide density [e.g., @miller2007; @turner2010]. Other broad stand characteristics, such as "sparse, open, semi-open, and closed" [@goetz2015a] have also been correlated to landslide density. The [LEMMA](https://lemma.forestry.oregonstate.edu/data) project and [DNR forest inventory](https://data-wadnr.opendata.arcgis.com/) datasets provide GIS data on stand structure and age that can be used for this project. We have not listed specific geologic, soils, or forest-stand attributes to examine. Those choices depend on the range of rock, soil, and forest-stand types available across the areas covered by the inventories collected for the project. We expect that these choices will evolve as different possibilities are explored with the data analyses.
 
@@ -98,7 +98,7 @@ The cumulative area and the cumulative number of landslides can be plotted as a 
 ```{r}
 #| echo: false
 #| label: byGrad
-#| fig-cap: Cumulative area and cumulative number of landslides vs gradient from the PFA analysis.
+#| fig-cap: "Cumulative area and cumulative number of landslides vs gradient from the PFA analysis."
 
 grad <- read.csv("c:/work/data/pfa/den_gradient.csv")
 n <- nrow(grad)
@@ -117,10 +117,10 @@ ggplot(data = grad, aes(x = val, y = sumLS)) +
        labs(x = "Gradient",
             y = "Proportion",
             color = "Gradient") +
-       annotate("text", x = .4, y = 450, label = "Area") +
-       annotate("point", shape = 2, size = 3, x = .55, y = 450) +
+       annotate("text", x = .45, y = 450, label = "Area") +
+       annotate("point", shape = 2, size = 3, x = .6, y = 450) +
        annotate("text", x = .4, y = 430, label = "Landslides") +
-       annotate("point", shape = 1, size = 4, x = .55, y = 430)
+       annotate("point", shape = 1, size = 4, x = .6, y = 430)
 ```
 
 Each point plotted along the curve corresponds to one landslide in the inventory. Taking the area and landslide value at each point, another curve showing the cumulative number of landslides versus area can be plotted:
@@ -128,7 +128,7 @@ Each point plotted along the curve corresponds to one landslide in the inventory
 ```{r}
 #| echo: false
 #| label: ls_area
-#| fig-cap: Cumulative number of landslides vs cumulative area; ordered by increasing gradient.
+#| fig-cap: "Cumulative number of landslides vs cumulative area; ordered by increasing gradient."
 
 ggplot(data = grad, aes(x = sumArea, y = sumLS, color = val)) +
         theme_bw() +
@@ -145,11 +145,11 @@ Landslide density is defined as $\Delta landslides/\Delta area$, so the slope of
 ```{r}
 #| echo: false
 #| label: density
-#| fig-cap: Landslide density vs gradient.
+#| fig-cap: "Landslide density vs gradient."
 
 ggplot(data = grad, aes(x = val, y = density)) +
   geom_point(fill = "gray", color = "black", shape = 21, size = 3, alpha = 0.5) +
-  labs(x = "Gradient tan(Ɵ)",
+  labs(x = "Gradient (rise/run)",
        y = "Landslide Density (#/cell)",
        fill = "Gradient")
 ```
@@ -179,7 +179,7 @@ For a single predictor, $log(odds) = \beta_0 + \beta_1 x$. The density shown in 
 ```{r}
 #| echo: false
 #| label: log_odds
-#| fig-cap: Log(odds) of landslide density versus gradient
+#| fig-cap: "Log(odds) of landslide density versus gradient"
 #| 
 ggplot(data=grad, aes(x=val, y=log_odds)) + 
   geom_point(shape = 21, size=2.5, color="black", fill="gray", alpha=0.5) + 
@@ -218,7 +218,7 @@ p1 <- ggplot(data=tancurv, aes(x=val, y=log_odds)) +
   annotate("segment", x=-0.07, xend=-0.04, y=-6.5, yend = -6.5, color = "red", linewidth=1.3) +
   annotate("text", x=-0.016, y=-6.5, label="Linear") +
   annotate("segment", x = -0.07, xend = -0.04, y = -6.9, yend = -6.9, color = "black", linewidth = 1.3) +
-  annotate("text", x = -0.01, y = -6.9, label = "Quadratic" )
+  annotate("text", x = -0.01, y = -6.9, label = "Quadratic" ) 
 
 pca48 <- read.csv("c:/work/data/pfa/den_pca48.csv")
 
@@ -236,7 +236,7 @@ p2 <- ggplot(data=pca48, aes(x=val, y=log_odds)) +
   annotate("segment", x = 5, xend = 10, y = -6.9, yend = -6.9, color = "black", linewidth = 1.3) +
   annotate("text", x = 14.5, y = -6.9, label = "Quadratic" )
 
-p1 + p2
+p1 | p2
 ```
 
 In the examples above, we looked at how landslide density varies over the range of single predictors. At any predictor value (e.g., at gradient = 0.80), the landslide density indicates the proportion of the area, i.e., the proportion of DEM cells, with gradients within a small increment of that value that include initiation points. We can look at those proportions directly using density plots. These show the proportion of all initiation points and of all non-initiation-point cells within our sample as a function of predictor value.
@@ -363,7 +363,7 @@ To accomplish these tasks, there are five things measures of model performance n
 
 5.  Geomorphic plausability.
 
-Typical measures of model performance include receiver operating characteristic ([ROC](https://en.wikipedia.org/wiki/Receiver_operating_characteristic)) curves and the consequent area under the ROC curve (AUC), the precision recall curve [PRC, @Yardanov2020], and the Brier score, among others. All of these are based on some measure of classification success. Given that for our entire sample, we might expect one out of every 30,000 DEM cells to contain a landslide initiation point and there is complete overlap of the distributions of initiation and non-initiation sites within the predictor data space (because we truncated that space to include only values within the range of mapped landslide initiation points), measures based on classification success may be difficult to interpret. Here is an interpretable alternative that can be used for the measures listed above.
+Typical measures of model performance include receiver operating characteristic ([ROC](https://en.wikipedia.org/wiki/Receiver_operating_characteristic)) curves and the consequent area under the ROC curve (AUC), the precision recall curve [PRC, @Yordanov2020] and the Brier score, among others. All of these are based on some measure of classification success. Given that for our entire sample, we might expect one out of every 30,000 DEM cells to contain a landslide initiation point and there is complete overlap of the distributions of initiation and non-initiation sites within the predictor data space (because we truncated that space to include only values within the range of mapped landslide initiation points), measures based on classification success may be difficult to interpret. Here is an interpretable alternative that can be used for the measures listed above.
 
 The "success-rate" curve was introduced by Chung and Fabbri [-@Chung2003]. To construct a success-rate curve, we rank DEM cells by the modeled probability that they contain a landslide initiation point. We then plot the proportion of mapped landslides versus the proportion of area, ranked by modeled probability. With the calculated probability, we can also plot the proportion of landslides predicted by the model. Classification algorithms preserve the marginal probability of the response (predicted) variable, here landslide density. Integrating density (modeled probability) over area, the same here as summing over DEM cells, gives the number of landslides in the training data. At least it should, if the model is working properly. If the nonlandslide area has been subsampled, which is almost always the case, then the predicted probabilities will be higher than the actual values. This is not a problem, because we plot the *proportion* of modeled landslides, not the number. Within any increment of modeled probability, integrating the modeled probability values over the area included within those values will give the number, translated to proportion by dividing by the total, of landslides observed within that increment. The curve of proportion of landslides versus proportion of area made by summing ranked probability values over all DEM cells should match exactly the curve for the observed landslides. These curves can be used to examine the first three measures listed above.
 
@@ -437,7 +437,7 @@ The fourth model includes both total contributing area and quadratic terms. Each
 ```{r}
 #| echo: false
 #| label: SuccessRateCurves
-#| fig-cap: Success-rate curves for four logistic regression models with different sets of predictors.
+#| fig-cap: "Success-rate curves for four logistic regression models with different sets of predictors."
 data_ga200 <- read.csv("c:/work/data/pfa/fitga_200_obs.csv")
 data_200 <- read.csv("c:/work/data/pfa/fit_200_obs.csv")
 data3_200 <- read.csv("c:/work/data/pfa/fit3_200_obs.csv") 
@@ -477,16 +477,23 @@ data3_200 <- read.csv("c:/work/data/pfa/fit3_200_obs.csv")
 #| fig-cap: Landslide density versus modeled probability, linear model terms.
 p1 <- ggplot(data=data_1, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.001) + ylim(0,0.001)
+  xlim(0,0.001) + ylim(0,0.001) +
+  labs(title="1:1", y="Density") +
+  theme(axis.title.x=element_blank())
 p10 <- ggplot(data=data_10, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.001) + ylim(0,0.001)
+  xlim(0,0.001) + ylim(0,0.001) +
+  labs(title="1:10") +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank())
 p100 <- ggplot(data=data_100, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.001) + ylim(0,0.001)
+  xlim(0,0.001) + ylim(0,0.001) +
+  labs(title="1:100", x="Probability", y="Density")
 p200 <- ggplot(data=data_200, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.001) + ylim(0,0.001)
+  xlim(0,0.001) + ylim(0,0.001) +
+  labs(title="1:200", x="Probability") +
+  theme(axis.title.y=element_blank())
 p1 + p10 + p100 + p200
 ```
 
@@ -496,19 +503,26 @@ For a well performing model, the points should plot along a diagonal line with t
 #| echo: false
 #| warning: false
 #| label: pp_quadratic
-#| fig-cap: Landslide density versus modeled probability, quadratic model terms.
+#| fig-cap: "Landslide density versus modeled probability, quadratic model terms."
 p3_1 <- ggplot(data=data3_1, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.0022) + ylim(0,0.0022)
+  xlim(0,0.0022) + ylim(0,0.0022) +
+  labs(title="1:1", y="Density") +
+  theme(axis.title.x=element_blank())
 p3_10 <- ggplot(data=data3_10, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.0022) + ylim(0,0.0022)
+  xlim(0,0.0022) + ylim(0,0.0022) +
+  labs(title="1:10") +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank())
 p3_100 <- ggplot(data=data3_100, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.0022) + ylim(0,0.0022)
+  xlim(0,0.0022) + ylim(0,0.0022) +
+  labs(title="1:100", x="Probability", y="Density")
 p3_200 <- ggplot(data=data3_200, aes(x=Adjusted.Probability, y=Empirical)) +
   geom_point(shape=21, size=2, color='black') +
-  xlim(0,0.0022) + ylim(0,0.0022)
+  xlim(0,0.0022) + ylim(0,0.0022) +
+  labs(title="1:200", x="Probability") +
+  theme(axis.title.y=element_blank())
 p3_1 + p3_10 + p3_100 + p3_200
 ```
 
@@ -548,81 +562,105 @@ As discussed above, the integral of modeled probability over space, or summed ov
 mod <- read.csv("c:/work/data/pfa/fit_10_mod.csv")
 obs <- read.csv("c:/work/data/pfa/fit_10_obs.csv")
 p1 <- ggplot(data=mod, aes(x=Probability, y=Modeled.LS)) +
+  geom_point(data=obs, aes(x=Probability, y=Prop_LS, color=Prop_LS), size=3, alpha=0.5) +
   geom_line(linewidth=1) +
-  geom_point(data=obs, aes(x=Probability, y=Prop_LS), size=3, alpha=0.075) +
-  labs(x="Modeled Probability", y="Proportion of Modeled Landslides") +
-  scale_y_continuous(n.breaks=6)
+  labs(x="Modeled Probability", y="Proportion of Landslides") +
+  scale_y_continuous(n.breaks=6) +
+  scale_color_gradient2(name="Proportion\nObserved", low = "blue",mid = "yellow", high = "red2", midpoint=0.55)
 prop <- read.csv("c:/work/data/pfa/fit_10_prop.csv")
 prop$dif <- 0.1 - prop$Obs.LS 
 sum1 <- sum(abs(prop$dif))
-p2 <- ggplot(data=prop, aes(x=Prob, y=Obs.LS)) + 
-  geom_bar(stat="identity") +
-  geom_hline(yintercept = 0.1) +
-  labs(x="Modeled Probability, 10% Bins", y = "Proportion of Observed Landslides") +
-  scale_x_continuous(n.breaks=11)
-p1 + p2
+p2 <- ggplot(data=prop, aes(x=Prob, y=Obs.LS, fill=Prob)) + 
+  geom_bar(stat="identity", color="black", alpha=0.7, show.legend=FALSE) +
+  geom_hline(yintercept = 0.1, linewidth=1.5) +
+  labs(x="10% Bins, Low to high probability", y = "Proportion of Observed Landslides") +
+  scale_x_continuous(breaks=c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0), labels=c("1","2","3","4","5","6","7","8","9","10")) +
+  scale_fill_gradient2(name="Proportion", low = "blue", mid = "yellow", high = "red2", midpoint=0.55)
+patchwork <- p1 + p2
+patchwork + plot_annotation(tag_levels = 'A')
 ```
 
-For each DEM cell, there is a one-to-one correspondance between modeled probability and the proportion of modeled and observed landslides. This is translated to a map showing those areas encompassing a given proportion of all landslides as predicted by the model, as shown in @fig-Prop below. ![Modeled proportion of all landslide initiation points](images/prop_3_200.jpg){#fig-Prop fig-align="center" width="7in"}
+For each DEM cell, there is a one-to-one correspondence between modeled probability and the proportion of modeled and observed landslides. This is translated to a map showing those areas encompassing a given proportion of all landslides as predicted by the model, as shown in @fig-Prop below. Over the study area, the area contained within each colored zone is predicted to contain 10% of all observed landslides. (Note that @fig-Prop shows only a small portion of the entire study area).
 
-Over any increment of modeled probability, a good model will predict the same proportion of landslides as observed. Panel B in @fig-Prop_LS shows the proportion of observed landslides laying within each 10% increment of modeled landslide proportions. Where the bars fall below 0.1, the model has over-predicted the proportion of landslides; where the bars fall above 0.1, the model has under-predicted the proportion of observed landslides. The sum of the absolute value of these differences provides a measure of model performance based on its ability to match spatial patterns in observed landslide density.
+![Modeled proportion of all landslide initiation points](images/prop_3_200.jpg){#fig-Prop fig-align="center" width="7in"}
 
-@fig-Prop_LS was based on the linear model with a 1:10 ratio of landslide to nonlandslide points in the training data. @fig-Prop_LS_4 below shows the proportion of observed landslides in each modeled 10% bin for the linear and quadratic models with both 1:10 and 1:100 sample ratios.
+Over any increment of modeled probability, a good model will predict the same proportion of landslides as observed. Panel B in @fig-Prop_LS shows the proportion of observed landslides laying within each 10% increment of modeled landslides over the entire study area used for the DOGAMI inventory. These bins correspond to the 10 rankings in @fig-Prop. Where the bars fall below 0.1, the model has over-predicted the proportion of landslides; where the bars fall above 0.1, the model has under-predicted the proportion of observed landslides. The sum of the absolute value of these differences provides a measure of model performance based on its ability to match spatial patterns in observed landslide density.
+
+@fig-Prop_LS was based on the linear model with a 1:10 ratio of landslide to nonlandslide points in the training data. @fig-Prop_LS_4 below shows the misfit, the modeled minus the observed proportion for each modeled 10% bin for the linear and quadratic models with both 1:10 and 1:100 sample ratios.
 
 ```{r}
 #| echo: false
 #| warning: false
 #| label: Prop_LS_4
-#| fig-cap: Proportion of observed landslides in each 10% bin.
+#| fig-cap: Misfit of modeled landslide proportions within each 10% bin.
 prop <- read.csv("c:/work/data/pfa/fit_10_prop.csv")
 prop$dif <- 0.1 - prop$Obs.LS 
 sum1 <- sum(abs(prop$dif))
-p1 <- ggplot(data=prop, aes(x=Prob, y=dif)) +
-  geom_bar(stat="identity") +
+p1 <- ggplot(data=prop, aes(x=Prob, y=dif, fill=Prob)) +
+  geom_bar(stat="identity", color="black", alpha=0.5, show.legend=FALSE) +
   ylim(-0.15,0.075) +
-  labs(title="Linear, 1:10", y="Proportion of Observed Landslides")
+  labs(title="Linear, 1:10", x="Bin", y="Misfit") +
+  scale_x_continuous(breaks=c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0),
+                     labels=c("1","2","3","4","5","6","7","8","9","10")) +
+  scale_fill_gradient2(name="Proportion", 
+                       low = "blue", mid = "yellow", high = "red2", midpoint=0.55)
+
 prop <- read.csv("c:/work/data/pfa/fit_200_prop.csv")
 prop$dif <- 0.1 - prop$Obs.LS
 sum2 <- sum(abs(prop$dif))
-p2 <- ggplot(data=prop, aes(x=Prob, y=dif)) + 
-  geom_bar(stat="identity") +
+p2 <- ggplot(data=prop, aes(x=Prob, y=dif, fill=Prob)) + 
+  geom_bar(stat="identity", color="black", alpha=0.5, show.legend=FALSE) +
   ylim(-0.15,0.075) +
-  labs(title="Linear, 1:100")
+  labs(title="Linear, 1:100", x="Bin", y="Misfit") +
+  scale_x_continuous(breaks=c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0),
+                     labels=c("1","2","3","4","5","6","7","8","9","10")) +
+  scale_fill_gradient2(name="Proportion", 
+                       low = "blue", mid = "yellow", high = "red2", midpoint=0.55)
+
 prop <- read.csv("c:/work/data/pfa/fit3_10_prop.csv")
 prop$dif <- 0.1 - prop$Obs.LS
 sum3 <- sum(abs(prop$dif))
-p3 <- ggplot(data=prop, aes(x=Prob, y=dif)) + 
-  geom_bar(stat="identity") +
+p3 <- ggplot(data=prop, aes(x=Prob, y=dif, fill=Prob)) + 
+  geom_bar(stat="identity", color="black", alpha=0.5, show.legend=FALSE) +
   ylim(-0.15,0.075) +
-  labs(title="Quadratic, 1:10", x="Modeled Probability 10% Bins", y="Proportion of Observed Landslides")
+  labs(title="Quadratic, 1:10", x="Bin", y="Misfit") +
+  scale_x_continuous(breaks=c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0),
+                     labels=c("1","2","3","4","5","6","7","8","9","10")) +
+  scale_fill_gradient2(name="Proportion", 
+                       low = "blue", mid = "yellow", high = "red2", midpoint=0.55)
+  
 prop <- read.csv("c:/work/data/pfa/fit3_200_prop.csv")
 prop$dif <- 0.1 - prop$Obs.LS
 sum4 <- sum(abs(prop$dif))
-p4 <- ggplot(data=prop, aes(x=Prob, y=dif)) + 
-  geom_bar(stat="identity") +
+p4 <- ggplot(data=prop, aes(x=Prob, y=dif, fill=Prob)) + 
+  geom_bar(stat="identity", color="black", alpha=0.5, show.legend=FALSE) +
   ylim(-0.15,0.075) +
-  labs(title="Quadratic, 1:100", x="Modeled Probability 10% Bins")
+  labs(title="Quadratic, 1:100", x="Bin", y="Misfit") +
+  scale_x_continuous(breaks=c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0),
+                     labels=c("1","2","3","4","5","6","7","8","9","10")) +
+  scale_fill_gradient2(name="Proportion", 
+                       low = "blue", mid = "yellow", high = "red2", midpoint=0.55)  
 (p1 + p2) / (p3 + p4)
 ```
 
 The linear model exhibits systematic differences at both low and high sample ratios. The quadratic model exhibits systematic differences at a low sample ratio, but more random variations at a high sample ratio. These variations may reflect unavoidable noise in the landslide data itself.
 
-The difference sums are listed in @table_dif below:
+The difference sums are listed in @tbl-dif below:
 
 |       | Linear | Quadratic |
 |-------|--------|-----------|
 | 1:10  | 0.506  | 0.347     |
 | 1:100 | 0.465  | 0.156     |
 
-: Summed absolute differences
+: Summed absolute differences {#tbl-dif}
 
-Based on ability of each model to replicate observed spatial variations in landslide density, higher sample ratios perform better and the quadratic model performs better than the linear model.
+Based on ability of each model to replicate observed spatial variations in landslide density. Higher sample ratios perform better and the quadratic model performs better than the linear model.
 
 This gives us two measures of model performance: the success-rate curve, which compares the ability of different models to resolve spatial variability in landslide density, and the proportion differences illustrated above, which compare ability of different models to replicate observed spatial variability in landslide density.
 
 We can compare these density-based measures to a measure based on classification success. The ROC curve plots the True Positive Rate versus the False Positive Rate for a range of threshold values spanning the range of modeled probability. The area under the ROC curve (AUC) is used as a single-valued measure of model performance; a higher AUC value indicates a better-performing model. For a given threshold in modeled probability, the True Positive Rate is the number of correctly classified points (True Positives) divided by the total number of landslide points. The False Positive Rate is the number of nonlandslide points incorrectly classified as landslides divided by the total number of nonlandslide points. To build an ROC curve, the TPR and FPR are calculated over the full range of modeled probabilities and the TPR plotted as a function of the FPR. At a very low threshold probability, all points are classified as landslides and both TPR and FPR equal one. At a very high threshold probability, no points are classified as landslides and TPR and FPR are both equal to zero. A model that is good at correctly classifying points in the training sample will have high TPR values and low FPR values, so the plotted curve will approach the upper left corner of the plot. The area under the ROC curve, referred to as AUC, is then a single-valued measure of model performance: higher AUC values indicate a better-performing model.
 
-For a landslide susceptibility model, there are two factors that hinder use of ROC and AUC: 1) most terrain locations where landslides could occur do not have landslides in the inventory, so the FPR is constrained to a value greater than one no matter how good the model, and 2) ROC should be calculated for the entire DEM, not just the training data, so the FPR becomes a function also of the proportion of DEM area in low and high modeled probability values. Here are ROC curves for the models discussed above:
+For a landslide susceptibility model, there are two factors that hinder use of ROC and AUC: 1) most terrain locations where landslides could occur do not have landslides in the inventory but will have a high modeled probability, so the FPR is large no matter how good the model, and 2) ROC should be calculated for the entire DEM, not just the training data, so the FPR becomes a function also of the proportion of DEM area in low and high modeled probability values. Here are ROC curves for the models discussed above:
 
 ```{r}
 #| echo: false
@@ -645,9 +683,9 @@ AUC for each model is listed below.
 | 1:10  | 0.867  | 0.883     |
 | 1:100 | 0.857  | 0.882     |
 
-: AUC values
+: AUC values {#tbl-AUC}
 
-The AUC values suggest that the quadratic model is slightly better than the linear model, but also indicates that the 1:10 ratio sample is better than the 1:100-ratio sample for the linear model and that the two sample ratios have almost no effect on model results for the quadratic model. These results are misleading; @table-dif clearly shows that, based on modeled ability to replicate observed spatial patterns in landslide density, the quadratic model is better than the linear model and higher sample ratios are better than lower sample ratios. Other measures of model performance have also been used for evaluating models of susceptibility to landslide initiation, such as the precision-recall curve [@Yordanov2020] and the Brier Score [@woodard2023]. Precision is defined as the number of true positives divided by the sum of true positives and false positives. If the model is accurate, this gives the proportion of potential landslide sites where landslides were observed. Even a good model will have a precision that is very small because the number of potential landslide sites is far larger than the number of observed landslides. The Brier Score is defined as
+The AUC values suggest that the quadratic model is slightly better than the linear model, but also indicates that the 1:10 ratio sample is better than the 1:100-ratio sample for the linear model and that the two sample ratios have almost no effect on model results for the quadratic model. These results are misleading; @table-dif clearly shows that, based on modeled ability to replicate observed spatial patterns in landslide density, the quadratic model is better than the linear model and higher sample ratios are better than lower sample ratios. Other measures of model performance have also been used for evaluating models of susceptibility to landslide initiation, such as the precision-recall curve [@Yordanov2020] and the Brier Score [@woodard2023]. Precision is defined as the number of true positives divided by the sum of true positives and false positives. If the model is accurate, this gives the proportion of potential landslide sites where landslides were observed, which is a function of the sequence of storms over the time period sampled by the landslide inventory. Even a good model will have a precision that is very small because the number of potential landslide sites is far larger than the number of observed landslides. The Brier Score is defined as
 
 $$
 B = \frac{1}{N}\sum_{i=1}^N(p_i-o_i)^2 
@@ -657,9 +695,13 @@ where $p_i$ is the modeled probability for the $i^{th}$ DEM cell, $o_i$ is one i
 
 We have looked so far at model performance in terms of the adequacy of the sample and selected predictors at resolving spatial variability in landslide density using logistic regression. A thorough analysis would apply additional algorithms and use the same measures to compare performance across model types. These could include general additive models, random forest, vector machine, and neural networks, among others. Each model type uses different approaches for characterizing the response (landslide density) surface within the data space defined by the chosen predictors. Some algorithms will work better than others. We have described above some methods by which models can be evaluated, but the actual choice of what predictors to try, what models to use, and how to test them will depend on what is found during the process of data collection and analysis.
 
-Ultimately, however, a model must also be judged by the geomorphic plausibility of the results, which requires making maps and comparing model results to the expectations of people with experience in the area. This introduces judgement and a degree of subjectivity, but the entire exercise of data analysis requires judgement and involves subjectivity.
+Ultimately, however, a model must also be judged by the geomorphic plausibility of the results, which requires making maps and comparing model results to the expectations of people with experience in the area. Discrepancies between model predictions and expectations provide opportunities to re-examine the input data in light of those discrepancies. If the data do not support model results, e.g., if high probabilities are modeled for terrain characteristics where no or few landslides exist in the inventory, then the model needs to be modified. If landslides do exist in those locations, then either there are errors in the landslide inventory or expert opinions need to be evaluated.
 
-Cross validation.
+### Confidence
+
+So far we have looked at ways to evaluate goodness of fit: how well a model can reproduce the data it was trained with. We want a model that can accurately reproduce observed spatial distributions of landslide density with which to calculate the proportion of landslides expected within different landform types. We also want to know how much confidence to place in the calculated proportions. This is true both for the study area and time period on which the model was trained and also when a model is extrapolated to predict landslide proportions into the future or for locations outside those covered by the landslide inventory. It is not possible to calculate this confidence directly without additional data, but it is possible to estimate it by looking at how sensitive model predictions are to the input data. This sensitivity can be assessed using cross validation, in which a model is trained using a subset of the data and then tested against the remaining data not in that subset. Subsets may be obtained using a random sample from the inventory, or by dividing the study area into different zones, or by subsetting landslides by date of occurrence. This process can be repeated multiple time using different subsets of the inventory with each iteration. The set of model predictions can then be used to calculate confidence intervals for model predictions, in this case, the modeled probability (landslide density) rasters. Each iteration also provides a measure of model performance, such as the difference sums shown in @tbl-dif above, when a model calibrated to the training subset of the inventory is applied to the remaining test data. The distribution of these performance measures provides an estimate of how poorly the model might perform when applied to new data.
+
+The examples above looked solely at logistic regression. However, each type of model might work well for some cases and not so well for others. It is useful, therefore, to apply more than one model type in an analysis of confidence. I haven't written code for doing all this yet and so have no examples to show. However, similar ideas are explored by Fabbri and Patera [-@fabbri2021a].
 
 ### Temporal Probability
 
@@ -669,7 +711,7 @@ We can, however, see what guidance is offered by other studies. In examining lan
 
 How well these different precipitation data sets resolve spatial variations in storm intensity remains to be determined. There is a large literature on the strengths and weaknesses of different precipitation data sets \[e.g., list some here\]; we listed those we thought most relevant in the study design, but others may also prove useful. The maps of 24-hour intensity, normalized to the 24-hour, 100-year recurrence interval storm, presented by Turner et al. [-@turner2010] for the 2007 storm in southwest Washington provide a baseline to compare against.
 
-## Runout
+## Runout {#sec-Runout}
 
 As described in the study design, this study is focused on shallow landslides, those most likely to be influenced by forest practices. These landslides typically involve failure of soil overlying a more competent substrate. Numerous studies have examined controls on runout extent of shallow landslides, particularly those that evolve into debris flows. Some specific to the Pacific Northwest include Benda and Cundy [-@benda1990]; Hofmeister et al. [-@hofmeister2002]; Fannin and Rollerson [-@fannin1993]; Robison et al. [-@robison1999]; May [-@may2002]; Lancaster et al. [-@lancaster2003]; Miller and Burnett [-@miller2008]; Guthrie et al. [-@guthrie2010]; Coe [-@coe2011], and Reid et al. [-@reid2016]. These and other studies consistently point to several factors that influence runout lengths:
 
@@ -683,17 +725,11 @@ As described in the study design, this study is focused on shallow landslides, t
 
 Empirical models to predict runout length seek to calibrate observed runout lengths to measurements or estimates of these factors. Benda and Cundy [-@benda1990] used channel slope and tributary junction angles. Fannin and Wise [-@fannin2001] use channel gradient and confinement, estimated volume, and changes in flow direction. Miller and Burnett [-@miller2008] used channel gradient and confinement, estimated volume, tributary junction angles, and stand-age brackets (as indicators of tree size and wood availability). Guthrie et al. [-@guthrie2010] used gradient, changes in flow direction, and presence/absence of mature timber. These are all one-dimensional models; they look solely at runout length, not inundation area.
 
-Another class of models seeks to relate simple measures of deposit geometry (length, width, and planimetric area) to potential controlling factors such as volume [, e.g. LAHARZ, @hofmeister2002; @griswald2008; @reid2016],
+Another class of empirical models seeks to relate simple measures of deposit geometry (length, cross-section and planimetric area) to deposit volume and other controlling factors [e.g., LAHARZ, @schilling1998b; @griswald2008; see also review by @mcdougall2017]. Such models have been applied for predicting debris-flow runout extent and inundation area [e.g., @hofmeister2002; @berti2014a; @reid2016].
 
-Other model options include inundation area. LAHARZ uses statistical relationships between deposit volume, cross sectional area, and inundation area.
+Another approach is to iteratively extend a debris-flow downslope from an initiation site, DEM cell by DEM cell, applying mass balance with empirical rules for scour and deposition. These include "random-walk" models [@mergili2019], "agent-based" models [@guthrie2021a], the "ProDF" model [@gorr2022], and the "MassWastingRunout" model newly developed by a member of the Criteria Project team [@keck2021a].
 
-Add references to other models here, including Jeff's.
-
-### Requirements
-
-As described in the study design, we seek a method to estimate probability that a landslide will runout to any point downslope of the initiation site. The model used must be calibrated and applied using available data and must be computationally efficient, because it will be run for every potential initiation point in every area where the model is applied. To calculate probability of runout to points downslope with a model that use debris-flow volume as input (e.g., LAHARZ, D-FLOW, ProDF) will require first determining a probability distribution function for debris-flow volume for each initiation site and then running the models multiple times. This is feasible, but not computationally efficient. The algorithms might be modified so that multiple volumes could be run simultaneously. Cellular or grid-based models offer a potential alternative (Goetz et al., 2021, citations)...
-
-The models listed above estimate debris-flow inundation. We need only runout extent, for which a more computationally efficient one-dimensional model will suffice. We included reference to survival analysis because it is such a one-dimensional model that can be readily calibrated with available open source tools. It is described and illustrated below. It would be informative to compare results of multiple modeling approaches, so we also describe ...The models and analysis methods used are up to the analysts who do the project.
+As described in the study design, we seek a method to estimate probability that a landslide will runout to any point downslope of the initiation site. The model used must be calibrated and applied using available data and must be computationally efficient, because it will be run for every potential initiation point in every area where the model is applied. We need only runout extent, for which a more computationally efficient one-dimensional model will suffice. We included reference to survival analysis because it is such a one-dimensional model that can be readily calibrated with available open source tools. It is described and illustrated below. However, as with initiation, each type of model might work well for some cases and not so well for others. It is useful, therefore, to apply more than one model type for an analysis of runout as well.
 
 ### Survival Analysis
 
@@ -731,7 +767,7 @@ where $\Delta H_0$ is the baseline cumulative hazard function defined in @eq-Cum
 
 $$ S(x|Z(x)) = \exp(-\sum_{i=1}^n \Delta H(x_i|Z(x_i)) , $$ where the $x_i$ are the locations where the covariates $Z(x_i)$ have been measured.
 
-To obtain a baseline cumulative hazard function, we used the "flexSurv" R package to fit a parametric distribution to the debris-flow-track lengths measured from the DOGAMI Special Paper 53 inventory. We then used a variety of digital data products to obtain covariate values at intervals along each inventoried track. Descriptions of these covariates and how they were measured are provided in a following section. Tabulated values for all inventoried tracks were then used with the "survival" R package to obtain coefficient estimates for each covariate.
+For the examples below, the "flexSurv" R package was used to fit a parametric distribution to the debris-flow-track lengths measured from the DOGAMI Special Paper 53 inventory. A variety of digital data products were then used to obtain covariate values at intervals along each inventoried track. Descriptions of these covariates and how they were measured are provided in a following section. Tabulated values for all inventoried tracks were then used with the "survival" R package to obtain coefficient estimates for each covariate.
 
 ### Censored Data {#sec-CensoredData}
 
@@ -747,36 +783,34 @@ The zero subscript indicates that this estimate can be used as the baseline cumu
 
 ### Covariates
 
-Scoured volume, deposited volume as functions of gradient, curvature, stand metrics, geology. Probability of scour, probability of deposition, Multinomial logistic regression.
+The list of observed influences on debris-flow runout length listed at the beginning of @sec-Runout provide a starting point: channel gradient and confinement, abrupt changes in flow direction at channel junctions, the volume of mobilized material, and the size and number of trees encountered and the amount of large wood incorporated into the mobilized material. For the PFA modeling, I found no influence with changes in flow direction at tributary junctions. This may be an idiosyncrasy of the DOGAMI inventory as other studies have found a relationship [e.g., @benda1990; @fannin2001; @miller2008; @guthrie2010]. The volume of mobilized material could not be calculated directly, so an empirical proxy was used instead. Following Miller and Burnett [-@miller2008], the ratio of volume deposited to volume scoured was estimated at increments along all mapped debris-flow tracks. These volumes were calculated by integrating the modeled probability of scour and deposition along each track. Probabilities were based on multinomial logistic regression of field mapped zones of scour, transitional flow, and deposition from the ODF 1996 Storm Study [@robison1999] with gradient and curvature calculated over a 15-m radius from 2-meter lidar-derived DEMs. Estimated stand age at the time of each debris flow was based on data from the LEMMA project and this was used as an indicator of large wood availability.
 
-Survival: ratio volume deposited/volume scoured, Gradient, curvature, stand metrics, geology. coxph
+Values for each of these covariates (gradient, tangential curvature, volume ratio, stand age) were measured at 2-meter increments along each debris-flow track, coincident with the DEM grid. These provided "time-varying" inputs to the "coxph" function from the R "survival" package, with which coefficient values for each covariate were obtained.
 
-### Other options
-
-Jeff's model.
-
-LAHARZ
-
-## Combination of initiation and runout probabilities. Input to OBIA
-
-intro paragraph here
+## Combination of initiation and runout probabilities
 
 Once coefficients $\beta(x)$ have been calibrated for a relative-risk survival model, a survival curve can be calculated along any potential flow path to provide the probability that a debris flow will travel to any downslope point along that path. For any debris-flow initiation site, the probability of runout to any location along the downslope flow path traced on the DEM is determined using @eq-H_timeVar and @eq-S_timeVar. Any potential flow path may have multiple initiation sites that feed into it. Following Miller and Burnett [-@miller2008], the probability $P_{DF}$ that a debris-flow from any upslope initiation site will reach a point $x$ along that path is
 
-$$ P_{DF}(x) = 1 - \prod_{i=1}^n(1-S_iP_{Ii}) $$
+$$ P_{DF}(x) = 1 - \prod_{i=1}^n(1-S_i(x)P_{Ii}) $$ {#eq-MultiS}
 
-where $S_i$ is the survival-curve value at point $x$ (from @eq-S_timeVar) and $P_{Ii}$ the probability of initiation for the $i^{th}$ initiation site, with the product over all $n$ upslope initiation sites. The spatial distribution modeled for $P_I$ is shown in @fig-InitProb below for a small drainage in the Siuslaw basin. To implement calculation of @eq-MultiS over a DEM, surface-flow paths are traced from every DEM grid point with a nonzero initiation probability and @eq-MultiS calculated for every point along the flow path until the survival-curve value goes to zero.
+where $S_i(x)$ is the survival-curve value at point $x$ (from @eq-S_timeVar) and $P_{Ii}$ the probability of initiation for the $i^{th}$ initiation site, with the product over all $n$ upslope initiation sites. The spatial distribution modeled for $P_I$ was shown in @fig-init3_200 for a small drainage in the Siuslaw basin. To implement calculation of @eq-MultiS over a DEM, surface-flow paths are traced from every DEM grid point with a nonzero initiation probability and @eq-MultiS calculated for every point along the flow path until the survival-curve value goes to zero.
 
-The probability that a point in a nonfish channel is traversed by a debris flow that originates upslope and continues flowing downslope to deposit material into a fish-bearing channel is determined in a similar fashion [see @burnett2007]. The travel path from each DEM point with a nonzero probability of initiation is traced downslope until it intersects a fish-bearing channel. Label that intersection location as $x_F$. The probability calculated for that debris flow at that point of intersection is $S_i(x_F)P_{Ii}$, where $S_i(x_F)$ is the survival-curve value at $x_F$ and $P_{Ii}$ is the initiation probability for the $i^{th}$ DEM cell (where the flow path originated). $S_i(x_F)$ gives the probability that a debris flow from the $i^{th}$ DEM cell will travel to a fish-bearing channel. This value can be mapped back to the initiating DEM cell to create a map of delivery probabilities, an example of which is shown in @fig-Deliv below. Note in @fig-Deliv the extent of the debris-flow tracks from the DOGAMI inventory: all originated in areas with a low modeled probability of delivery and none of them extend to the fish-bearing channel.
+The probability that a hillslope point is traversed by a debris flow that originates upslope and continues flowing downslope to deposit material into a stream channel is determined in a similar fashion [see @burnett2007]. The travel path from each DEM point with a nonzero probability of initiation is traced downslope until it intersects a channel. Label that intersection location as $x_c$. The probability calculated for that debris flow at that point of intersection is $S_i(x_c)P_{Ii}$, where $S_i(x_c)$ is the survival-curve value at $x_c$ and $P_{Ii}$ is the initiation probability for the $i^{th}$ DEM cell (where the flow path originated). $S_i(x_c)$ gives the probability that a debris flow from the $i^{th}$ DEM cell will travel to a channel. This value can be mapped back to the initiating DEM cell to create a map of delivery probabilities, an example of which is shown in @fig-Deliv below calculated for delivery to fish-bearing channels for the PFA. Note in @fig-delivery the extent of the debris-flow tracks from the DOGAMI inventory (red lines): all originated in areas with a low modeled probability of delivery and none of them extend to the fish-bearing channel.
 
 ![Modeled probability of delivery to a fish-bearing stream.](images/Delivery.jpg){#fig-delivery fig-align="center" width="7in"}
 
-The quantity $S_i(x_F)P_{Ii}$ gives the probability that a debris flow from the $i^{th}$ DEM cell delivers material to a fish-bearing channel. This value too can be mapped back to the DEM cell where each flow path originates to create a map showing the modeled probability that a debris flow will be initiated and travel to a fish-bearing stream, illustrated in @fig-InitDeliv below.
+The quantity $S_i(x_c)P_{Ii}$ gives the probability that a debris flow from the $i^{th}$ DEM cell delivers material to a stream channel. This value too can be mapped back to the DEM cell where each flow path originates to create a map showing the modeled probability that a debris flow will be initiated and travel to a fish-bearing stream, illustrated in @fig-initDeliv below.
 
 ![Modeled probability of initiation and delivery.](images/init_times_deliv.jpg){#fig-initDeliv fig-align="center" width="7in"}
 
-These values indicate the probability that a DEM cell contains a mapped initiation point for a landslide that ran out to a fish-bearing channel in the landslide inventory used to calibrate the initiation and runout models. Hence, the calculated probability indicates the landslide density and integration of that probability over any specified portion of the study area gives the number of delivering landslides initiated within that area. Dividing that number by the total number of landslides in the inventory gives the proportion of delivering landslides found in that specified area. This is illustrated in figure xx below.
+These values indicate the probability that a DEM cell contains a mapped initiation point for a landslide that ran out to a fish-bearing channel in the landslide inventory used to calibrate the initiation and runout models. Hence, the calculated probability indicates the landslide density and integration of that probability over any specified portion of the study area gives the number of delivering landslides initiated within that area. Dividing that number by the total number of landslides in the inventory gives the proportion of delivering landslides found in that specified area. This is illustrated in @fig-PropDeliv below.
 
-To the extent that the landslide inventory is indicative of future landslide locations, we expect that future landslide occurrences will be proportioned across the landscape the same way. Likewise, to the extent that the landslide inventory and resulting models are indicative of landslide occurrences in other locations, application of the models provides a prediction of how landslides will be proportioned across other regions. These predictions can be tested with new landslide inventories.
+![Proportion of delivering landslide initiation sites](images/PropDeliv.jpg){#fig-PropDeliv fig-align="center" width="7in"}
 
-The modeled probabilities can also be integrated across delineated landform types. This provides a prediction of what proportion of delivering landslides will originate in each landform type. Alternatively, the modeled probabilities and proportions can be used as input to GEOBIA software to delineate new landform boundaries. This is how linked pixel-based models for landslide initiation and runout to a specified downslope location can be used with GEOBIA to estimate the proportion of landslides originating with an existing set of delineated landforms and to potentially specify new criteria for landform identification that better differentiate terrain locations in terms of both the potential for generating landslides that impact downslope resources and that compare landform types in terms of the proportion of delivering landslides they produce.
+@fig-init3_200 and @fig-Prop show the modeled source areas for all landslides; @fig-initDeliv and @fig-PropDeliv show modeled source areas for those landslides that can deliver material directly to fish-bearing streams. These examples show how linking modeled probabilities of initiation and delivery can identify and rank terrain locations in the context of downslope resources potentially impacted by landslides. These locations can be ranked both by the density and proportion of landslides potentially affecting downslope resources. In this example from the PFA modeling, delivery was calculated for fish-bearing streams. To evaluate RILs in Washington, delivery would be calculated to any channel.
+
+Here we have parsed the landscape into zones based on ranked probability of initiation and delivery. The landscape can also be parsed into landform polygons and modeled probability integrated over each polygon to estimate the proportion of landslides originating from each landform type as was shown in Table 3 of the study design. Those modeled proportions can be compared to the observed proportions from the landslide inventory the same as was done above in @fig-Prop_LS_4. These methods thus provide a means for evaluating linked models of initiation and delivery and for making testable predictions of where delivering landslides will originate. Rasters created by these linked models, such as shown in @fig-initDeliv and @fig-PropDeliv, can be used along with other terrain attributes as input to image segmentation programs to generate new landform polygons. This provides a means of evaluating potential changes to RIL criteria.
+
+# Closure
+
+In this appendix, we have provided examples of how some tasks specified in the study design could be implemented. This is an unequal treatment across the set of tasks. We used examples from other ongoing projects and these methods are undergoing active development. We do not, for example, have examples of coregistration of lidar point clouds for lidar differencing or of identification of landslide sites from an elevation difference raster. Nevertheless, we are confident these things can be done or, if they cannot, that we can find alternative methods. Look again at the last paragraph of section 6 in the study design. We know that some of what we propose will probably not work; seeing what does and does not work is how we learn new things and the intent of this project is to learn new things.
