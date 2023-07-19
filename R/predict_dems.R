@@ -1,21 +1,20 @@
 
-# ncol of scale_vals must equal length(elev_fnames). expects a tibble with column names that match the input variable names.
-# if not, tries to infer based on order.
-
-# model must have the function $predict_newdata(). otherwise, no requirements.
-
-# input: predicting_data/
-#     is a folder that contains folders of basin and sub-basins with elevation derivatives
-#     already calculated.
-
-# output: predicted_dems/
-#     is a folder that contains the exact same structure of basins and sub-basins but
-#     with the predicted probabilities saved as .csv files (and maybe also as .flt files
-#     for easy raster reading/mapping)
-#
-#     this output will be used as input for model assessment (like the
-#     success rate curve function)
-
+#' Predict multiple DEMs
+#'
+#' This function uses mapply() and predict_and_save to predict a full list of DEMs.
+#' The predicting directory must contain a folder/file structure that follows the basins in the basin list. Each sub-directory should contain gradient, mean_curv, and pca files.
+#'
+#' Output is written to files in the same file structure.
+#'
+#' @param model A trained model to be used for prediction. Must have function $predict_newdata and $state$train_task$feature_names, as provided by mlr3 models.
+#' @param pred_dir A directory where the basin input data can be found.
+#' @param basin_list A list of basins and sub-basins that correspond to the file structure in pred_dir.
+#' @param out_dir An folder to write output data. If this is not specified, a new folder called \code{"predicting_output/"} will be created in the same parent directory as the predicting input directory.
+#' @param scale_vals A tibble containing values to center and scale the data. These values should match what was used for the training data. It is the users responsibility to make sure they are transforming the data correctly according to their workflow.
+#' @param output The type of file to write the predictions to. The default is a .csv file. Multiple types can be specified.
+#'
+#' @return Nothing
+#' @export
 predict_multiple_dems <- function(model,
                                   pred_dir,
                                   basin_list,
@@ -23,44 +22,16 @@ predict_multiple_dems <- function(model,
                                   scale_vals = NULL,
                                   output = c("csv")) {
 
-  # this function will use the model to predict a list of dems.
-  # each dem should have the associated elevation derivative files within the folder.
-  # the list input should be the name of the folder with the complete filename (i.e., Umpqua/basin1/)
-  # for an example, see /code/sandbox/data/predicting_input.
-
-  # elev fnames should identify all of the filenames necessary.
-  # we call on elev_deriv and contributing_area functions here to read the files and input them into rasters.
-
-  # for (dem in dem_list) {
-  #     dem_rasts <- c(elev_deriv(gradient, mean_curv), contributing_area(pca))
-  #     dem_df <- as.data.frame(dem_rasts, xy = TRUE)
-  #
-  #     dem_df <- center_and_scale(dem_df)
-  #
-  #     dem_pred <- predict_new_data(model, dem_df)
-  #
-  #     save_as(write_to_csv(dem_pred))
-  # }
-
-  # C/P from PFA_initiation_model.qmd
-  # removed the success rate curve part, **started** to edit the code to adjust to parameters.
-
   if (is.null(out_dir)) {
     out_dir <- paste0(dirname(pred_dir), "/predicting_output/")
   }
 
-  mapply(predict_and_save,
-         paste0(pred_dir),
-         paste0(out_dir, basin_list, "/predictions.csv"),
-         MoreArgs = list(model = model,
-                         scale_vals = scale_vals,
-                         transform = make_quadratic_features))
-
-  # predict_and_save(paste0(pred_dir, basin_list),
-  #                  file_out = paste0(out_dir, basin_list, "/predictions.csv"),
-  #                  model = model,
-  #                  scale_vals = scale_vals,
-  #                  transform = make_quadratic_features)
+  out <- mapply(predict_and_save,
+                paste0(pred_dir, basin_list),
+                paste0(out_dir, basin_list, "/predictions.csv"),
+                MoreArgs = list(model = model,
+                                scale_vals = scale_vals,
+                                transform = make_quadratic_features))
 
 }
 
@@ -70,6 +41,8 @@ predict_multiple_dems <- function(model,
 #' This function takes a folder with elevation derivative files for a basin and a model and saves the predictions to a .csv file.
 #' The csv has columns "x" and "y" with coordinates, "prob.pos" with the model output, and all features used in the calculation of the model.
 #'
+#' Called on all the PFA DEMs, this produces
+#'
 #' TODO: add compression option
 #'
 #' @param dir_in A directory which contains the necessary elevation derivative files for prediction.
@@ -78,10 +51,11 @@ predict_multiple_dems <- function(model,
 #' @param scale_vals The centering and scaling values used in training the model. The same values should be used when predicting data. The function expects a tibble with one column per feature and two values per feature. For example, \code{tibble(gradient = c(center_value, scale_value), mean_curv = c(center_value, scale_value))}.
 #' @param transform A function that calculates any transformed columns needed for the model. For example, this package includes a function called "make_quadratic_features" which calculateds squared and interaction terms for all numeric features.
 #'
-#' @return
+#' @return A logical value.
 #' @export
 #'
-#' @examples
+#' @importFrom tictoc tic toc
+#' @importFrom dplyr rename
 predict_and_save <- function(dir_in,
                              file_out,
                              model,
@@ -92,7 +66,7 @@ predict_and_save <- function(dir_in,
   topo_files <- c(paste0("GRADIENT,", dir_in, "/gradient.flt"),
                   paste0("MEAN CURVATURE,", dir_in, "/mean_curv.flt"))
   topo_rast <- elev_deriv(rasters = topo_files)
-  pca_file <- list.files(paste0(dir_in), "^pca_6_[0-9]{1,3}\\.flt", full.names = TRUE)
+  pca_file <- list.files(paste0(dir_in), "^pca.{1,8}\\.flt", full.names = TRUE)
   pca_rast <- contributing_area(raster = pca_file)
 
   # combine into one raster
@@ -126,8 +100,7 @@ predict_and_save <- function(dir_in,
 
   # write to a file
   to_select <- c("row_ids", "x", "y", "prob.pos", model$state$train_task$feature_names)
-  dir.create(dirname(dirname(file_out)), showWarnings = FALSE)
-  dir.create(dirname(file_out), showWarnings = FALSE)
+  dir.create(dirname(file_out), showWarnings = FALSE, recursive = TRUE)
 
   if (!str_ends(file_out, fixed(".csv"))) {
     file_out <- ".csv"
@@ -139,7 +112,7 @@ predict_and_save <- function(dir_in,
 
   toc(quiet = FALSE)
   # print(predictions)
-  return(TRUE)
+  return(predictions)
 
 }
 

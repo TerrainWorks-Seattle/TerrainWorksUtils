@@ -1,0 +1,94 @@
+---
+title: "Predicting New Data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Predicting New Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+params: 
+  input_dir: 
+    label: Predicting directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/
+    input: text
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+
+library(data.table)
+library(tidyverse)
+```
+
+# Predicting new data using a trained model
+
+TerrainWorksUtils contains helper functions designed to simplify the process of applying a model to multiple DEMs, which is useful in managing data sets with a large expanse. 
+
+These functions are designed to work with the type of model produced by mlr3, but really can be used with any model that contains a function called $predict_newdata that accepts new data in the form of a data frame. 
+
+### Define our inputs 
+
+First, we identify the inputs. For this example, a directory with predicting input should be defined as a parameter when stitching this file.
+We choose to put the output in a directory at the same level as the input directory, with the name "pred_output". If this directory does not yet exist, it will be automatically created by the predicting function. 
+
+```{r}
+input_dir <- params$input_dir
+output_dir <- paste0(dirname(input_dir), "/pred_output/")
+
+basin_list <- dirname(list.files(input_dir, 
+                                 paste0("^gradient\\.flt"), 
+                                 recursive = TRUE))
+```
+
+The list of basins is a list of all the sub-directories in the folder, where each sub-directory contains the elevation derivative files for a single DEM. 
+The files in the folder should be named as following: 
+1. gradient.flt
+2. mean_curve.flt
+3. pca[...].flt
+
+The ellipses indicates that the filename can have some other characters after it. 
+An example folder is shown below. 
+
+```{r}
+list.files(paste0(input_dir, basin_list[1]))
+```
+
+### Load a trained model. 
+
+We use a pre-trained model for the example. 
+
+```{r}
+
+# load ls_model object and scale_vals - trained model. 
+load(paste0(dirname(input_dir), "lrmodel_grad_mc_pca.Rdata"))
+
+print(ls_model)
+print(scale_vals)
+
+```
+
+### Now, predict the new data. 
+
+We put the input into the function.
+
+The function reports the full path of the file that was created and how long it took to predict and write the file. 
+The output of this function is minimal - a large matrix object which contains all of the predicted probabilities is created. The main purpose of this function is to create the .csv files that store the predictions. 
+
+This makes it easier to evaluate predictions from different models, without running time-intensive predicting processes multiple times. 
+
+```{r}
+
+out <- predict_multiple_dems(ls_model, 
+                      pred_dir = input_dir, 
+                      basin_list = basin_list[1:5], 
+                      out_dir = output_dir, 
+                      scale_vals = scale_vals)
+
+
+```
+
