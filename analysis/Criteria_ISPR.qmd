@@ -1,24 +1,24 @@
 ---
 title: "Appendix A. Analysis Details"
 #author: "Dan Miller"
-date: July 11, 2023
+date: July 13, 2023
 format: 
-  html:
-    toc: true
-    toc-float: true
-    toc-depth: 3
-    number-sections: true
-    code-folding: hide
-    theme: readable
-    code-fold: true
-    code-overflow: scroll
-#format: 
-#  docx:
-#    toc: true
-#    toc-title: Contents
+#  html:
+#   toc: true
+#    toc-float: true
 #    toc-depth: 3
 #    number-sections: true
-#    highlight-style: github
+#    code-folding: hide
+#    theme: readable
+#    code-fold: true
+#    code-overflow: scroll
+#format: 
+  docx:
+    toc: true
+    toc-title: Contents
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
 editor: visual
 bibliography: references.bib
 ---
@@ -63,17 +63,17 @@ In the study design, we refer to variables that can serve as predictors of lands
 
 The following sections thus address pixel-based analyses. The regular grid of elevation point values from a DEM provides the spatial frame. Rather than "pixel", we will refer to DEM cells. Each square cell is centered over a grid point, or in some GIS implementations such as ArcGIS, a cell spans the area between four grid points.
 
-# Landslide Initiation
+# Landslide Susceptibility
 
-For initiation, we can calculate probability from two perspectives:
+Susceptibility is quantified in terms of probabilities and the proportions calculated from those probabilities. We can calculate probability from two perspectives:
 
--   [Spatial probability]{.underline}; the probability that any DEM cell contains a known landslide initiation site. This probability can be expressed as landslide density, and visa versa.
+-   [Spatial probability]{.underline}; the probability that any DEM cell contains a known landslide initiation site or runout track. This probability can be expressed as landslide density.
 
--   [Temporal and spatial probability]{.underline}; the probability that any cell did or will experience a landslide initiation over some specified interval of time. This probability can be expressed as landslide rate.
+-   [Temporal and spatial probability]{.underline}; the probability that any cell did or will experience a landslide initiation or traversal over some specified interval of time. This probability can be expressed as landslide rate.
 
 Ability to make these calculations depends on the data available. A landslide inventory enables calculation of spatial probability. If the inventory includes all landslides in the study area over a known period of time, then the landslide density (number per unit area) can be divided by that time span to estimate rate [e.g., @upsag2006]. This is a poorly constrained estimate, because rate is a function of the time span involved, or more specifically, of the sequence of storms experienced over that time. If, however, landslide density is related to some measurable characteristic of storms for a site [e.g., @reid2003; @marc2019], then landslide rate can be inferred by convolving the storm-dependent rate with the probability distribution of the storm attributes associated with landslide density [e.g., an attributes such as rainfall intensity @turner2010]. The primary objective of this study is to better constrain spatial probability as a function of measurable landscape attributes, i.e., the terrain elements discussed in the study design. This is what is needed for an assessment of susceptibility and will be examined in the examples to follow. However, recognizing the confounding effects of spatial and temporal variability in storm characteristics on landslide density, we also want to see if we can resolve relationships between some (as now unspecified but to be explored) storm characteristics and landslide density. The availability of gridded precipitation data offers that opportunity and there are examples in the literature to guide initial efforts [e.g., @turner2010; @marc2019; @thomas2023].
 
-## Spatial Probability
+## Spatial Probability of Initiation
 
 ### Terrain Elements as Predictors of Landslide Density
 
@@ -675,15 +675,17 @@ For a landslide susceptibility model, there are two factors that hinder use of R
 
 ```{r}
 #| echo: false
+#| label: fig-ROC_curves
+#| fig-cap: ROC curves 
 roc_10 <- read.csv("c:/work/data/pfa/fit_10_roc.csv")
 roc_100 <- read.csv("c:/work/data/pfa/fit_100_roc.csv")
 roc_3_10 <- read.csv("c:/work/data/pfa/fit3_10_roc.csv")
 roc_3_100 <- read.csv("c:/work/data/pfa/fit3_100_roc.csv")
 ggplot(data=roc_10, aes(x=FPR,y=TPR)) +
-  geom_line(color='blue',linewidth=1) +
-  geom_line(data=roc_100, aes(x=FPR,y=TPR), color='red', linewidth=1) +
-  geom_line(data=roc_3_10, aes(x=FPR,y=TPR), color='purple', linewidth=1) +
-  geom_line(data=roc_3_100, aes(x=FPR,y=TPR), color='black', linewidth=1) +
+  geom_line(aes(color='Linear, 1:10'),linewidth=1) +
+  geom_line(data=roc_100, aes(x=FPR,y=TPR,color='Linear, 1:100'), linewidth=1) +
+  geom_line(data=roc_3_10, aes(x=FPR,y=TPR,color='Quadratic, 1:10'), linewidth=1) +
+  geom_line(data=roc_3_100, aes(x=FPR,y=TPR,color='Quadratic, 1:100'), linewidth=1) +
   labs(title='ROC curves', x='False Positive Rate', y='True Positive Rate')
 ```
 
@@ -714,7 +716,7 @@ So far we have looked at ways to evaluate goodness of fit: how well a model can 
 
 The examples above looked solely at logistic regression. However, each type of model might work well for some cases and not so well for others. It is useful, therefore, to apply more than one model type in an analysis of confidence. I haven't written code for doing all this yet and so have no examples to show. However, similar ideas are explored by Fabbri and Patera [-@fabbri2021a].
 
-### Temporal Probability
+## Temporal Probability
 
 The predictors in the discussion above involved relatively immutable topographic elements of the terrain; the predictors themselves do not change over the time scales of interest here (except for the influence of forest roads). This is not true for other potentially primary controls on landslide location: vegetation cover, antecedent moisture, and storm characteristics. We briefly described issues involved in associating forest cover to landslide density: specifically, that the spatial distribution of forest-cover characteristics (e.g., stand age) needs to be known for the date of each landslide. ISPR reviewers correctly point out that we did not describe how rainfall time series should be characterized. That is because we do not know. There are a variety of gridded precipitation data sets available from which to estimate rainfall, as discussed in the study design. These are derived from a variety of data sources and offer a range of spatial and temporal resolutions and accuracy. The storm characteristics that can be measured are constrained by the resolution and accuracy of the precipitation data.
 
@@ -722,7 +724,7 @@ We can, however, see what guidance is offered by other studies. In examining lan
 
 How well these different precipitation data sets resolve spatial variations in storm intensity remains to be determined. There is a large literature on the strengths and weaknesses of different precipitation data sets [e.g., @thornton2021; @ombadi2021; @molter2021; @rajulapati2020; @li2020]; we listed those we thought most relevant in the study design, but others may also prove useful. The maps of 24-hour intensity, normalized to the 24-hour, 100-year recurrence interval storm, presented by Turner et al. [-@turner2010] for the 2007 storm in southwest Washington provide a baseline to compare against.
 
-## Runout {#sec-Runout}
+# Runout {#sec-Runout}
 
 As described in the study design, this study is focused on shallow landslides, those most likely to be influenced by forest practices. These landslides typically involve failure of soil overlying a more competent substrate. Numerous studies have examined controls on runout extent of shallow landslides, particularly those that evolve into debris flows. Some specific to the Pacific Northwest include Benda and Cundy [-@benda1990]; Hofmeister et al. [-@hofmeister2002]; Fannin and Rollerson [-@fannin1993]; Robison et al. [-@robison1999]; May [-@may2002]; Lancaster et al. [-@lancaster2003]; Miller and Burnett [-@miller2008]; Guthrie et al. [-@guthrie2010]; Coe [-@coe2011], and Reid et al. [-@reid2016]. These and other studies consistently point to several factors that influence runout lengths:
 
@@ -752,7 +754,7 @@ Once MWR is calibrated to an observed-runout dataset, it may work as a predictiv
 
 As described in the study design, we seek a method to estimate probability that a landslide will runout to any point downslope of the initiation site. The model used must be calibrated and applied using available data and must be computationally efficient, because it will be run for every potential initiation point in every area where the model is applied. We need only runout extent, for which a more computationally efficient one-dimensional model will suffice. We included reference to survival analysis because it is such a one-dimensional model that can be readily calibrated with available open source tools. It is described and illustrated below. However, as with initiation, each type of model might work well for some cases and not so well for others. It is useful, therefore, to apply more than one model type for an analysis of runout as well.
 
-### Survival Analysis
+## Survival Analysis
 
 Empirical estimates of probable lifespan for individuals in a population are based on the distribution of lifespans measured for some sample from that population. Effects of factors that might influence lifespan are then evaluated by their effects on the shape of that distribution. Here, "lifespan" refers to the increment of time until some event of interest. In medical applications, this might involve the time that patients remain cancer free following different types of treatment. In engineering applications, this might involve how long until a machine part fails. In social applications, it might involve the length of time that a couple remains married as a function of income. See the introductory article by Emmert-Streib and Dehmer [-@emmert-streib2019] for other examples. A key aspect of survival analysis is the ability to incorporate "censured" data; that is, to use measured time spans for individuals in a sample for which the expected event does not occur prior to the end of the observation period.
 
@@ -808,13 +810,13 @@ The list of observed influences on debris-flow runout length listed at the begin
 
 Values for each of these covariates (gradient, tangential curvature, volume ratio, stand age) were measured at 2-meter increments along each debris-flow track, coincident with the DEM grid. These provided "time-varying" inputs to the "coxph" function from the R "survival" package, with which coefficient values for each covariate were obtained.
 
-## Combination of initiation and runout probabilities
+# Combining initiation and runout probabilities
 
 Once coefficients $\beta(x)$ have been calibrated for a relative-risk survival model, a survival curve can be calculated along any potential flow path to provide the probability that a debris flow will travel to any downslope point along that path. For any debris-flow initiation site, the probability of runout to any location along the downslope flow path traced on the DEM is determined using @eq-H_TimeVar and @eq-S_TimeVar. Any potential flow path may have multiple initiation sites that feed into it. Following Miller and Burnett [-@miller2008], the probability $P_{DF}$ that a debris-flow from any upslope initiation site will reach a point $x$ along that path is
 
 $$ P_{DF}(x) = 1 - \prod_{i=1}^n(1-S_i(x)P_{Ii}) $$ {#eq-MultiS}
 
-where $S_i(x)$ is the survival-curve value at point $x$ (from @eq-S_timeVar) and $P_{Ii}$ the probability of initiation for the $i^{th}$ initiation site, with the product over all $n$ upslope initiation sites. The spatial distribution modeled for $P_I$ was shown in @fig-init3_200 for a small drainage in the Siuslaw basin. To implement calculation of @eq-MultiS over a DEM, surface-flow paths are traced from every DEM grid point with a nonzero initiation probability and @eq-MultiS calculated for every point along the flow path until the survival-curve value goes to zero.
+where $S_i(x)$ is the survival-curve value at point $x$ (from @eq-S_TimeVar) and $P_{Ii}$ the probability of initiation for the $i^{th}$ initiation site, with the product over all $n$ upslope initiation sites. The spatial distribution modeled for $P_I$ was shown in @fig-init3_200 for a small drainage in the Siuslaw basin. To implement calculation of @eq-MultiS over a DEM, surface-flow paths are traced from every DEM grid point with a nonzero initiation probability and @eq-MultiS calculated for every point along the flow path until the survival-curve value goes to zero.
 
 The probability that a hillslope point is traversed by a debris flow that originates upslope and continues flowing downslope to deposit material into a stream channel is determined in a similar fashion [see @burnett2007]. The travel path from each DEM point with a nonzero probability of initiation is traced downslope until it intersects a channel. Label that intersection location as $x_c$. The probability calculated for that debris flow at that point of intersection is $S_i(x_c)P_{Ii}$, where $S_i(x_c)$ is the survival-curve value at $x_c$ and $P_{Ii}$ is the initiation probability for the $i^{th}$ DEM cell (where the flow path originated). $S_i(x_c)$ gives the probability that a debris flow from the $i^{th}$ DEM cell will travel to a channel. This value can be mapped back to the initiating DEM cell to create a map of delivery probabilities, an example of which is shown in @fig-delivery below calculated for delivery to fish-bearing channels for the PFA. Note in @fig-delivery the extent of the debris-flow tracks from the DOGAMI inventory (red lines): all originated in areas with a low modeled probability of delivery and none of them extend to the fish-bearing channel.
 
