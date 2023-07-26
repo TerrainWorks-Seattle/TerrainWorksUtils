@@ -22,7 +22,7 @@
 #' @export
 #' @importFrom data.table data.table
 calc_proportions <- function(data,
-                                  plot = TRUE,
+                                  plot = FALSE,
                                   prob_col = "prob.pos",
                                   bins = NULL) {
 
@@ -96,6 +96,7 @@ calc_proportions <- function(data,
     # print("bins")
     # print(head(bins))
 
+    # use fuzzy join package?
     props_binned <- props[bins, roll = "nearest"] # i think that i need to change this method of joining the datasets.
                                                   # i should try drawing it out and figuring out how it should be joined. what happens
                                                   # when the highest probability is not very high? (such is the case with this data)
@@ -144,14 +145,18 @@ calc_proportions <- function(data,
 #' @return A \code{tibble} with the combined success rate curve.
 #' @export
 combine_proportions <- function(...,
-                                plot = TRUE) {
+                                plot = FALSE) {
 
   # Check parameters ----------------------------------------------
 
   curves <- list(...)
   if (length(curves) == 0) {
     stop("No data provided.")
+  } else if (length(curves) == 1) {
+    curves <- curves[[1]]
   }
+  print("now working with: ")
+  print(curves)
   # DO THESE CHECKS IN THE FOR LOOP BELOW
 
   # first <- curves[[1]]
@@ -169,18 +174,18 @@ combine_proportions <- function(...,
 
   # Combine curves ----------------------------------------------
 
-  if (is.list(curves[1])) {
-    curves <- curves[1]
-  }
+  # if (is.list(curves[1])) {
+  #   curves <- curves[1]
+  # }
 
   if (length(curves) == 1) {
     sum_curve <- curves[[1]]
   } else {
     sum_curve <- tibble(
-      prob = first[["prob"]],
+      prob = curves[[1]][["prob"]],
       prob_cumul = 0,
       area_cumul = 0,
-      .rows = nrow(first)
+      .rows = nrow(curves[[1]])
     )
 
     for (cur in curves) {
@@ -199,6 +204,8 @@ combine_proportions <- function(...,
   # Plot curve ----------------------------------------------------
 
   to_plot <- sum_curve
+
+  print(to_plot)
   if (to_plot[1, "prob_prop"] != 0 && to_plot[1, "area_prop"] != 0) {
     to_plot <- add_row(to_plot, prob_prop = 0, area_prop = 0, .before = 1)
   }
@@ -354,17 +361,25 @@ srcurve2 <- function(landslides,
   curve_obs <- calc_proportions(landslides, bins = b)
   output$observed_prop <- curve_obs$area_prop
 
-  curve_dems <- list()
+  # curve_dems <- list()
 
-  for (dem in dem_list) {
-    dem_pred <- tibble(read.csv(dem))
-    curve_dems <- append(curve_dems, calc_proportions(dem_pred, bins = b))
+  # need to figure this out!!!!
+  # x <- lapply(calculate_proportions(tibble(read.csv(dem)), bins = b))
 
-  }
-  curve_comb <- combine_proportions(curve_dem_list)
+  dem_tibbles <- lapply(lapply(dem_list, read.csv), tibble)
+  curve_dems <- lapply(dem_tibbles, calc_proportions, bins = b)
+
+
+
+  # for (dem in dem_list[2:length(dem_list)]) {
+  #   dem_pred <- tibble(read.csv(dem))
+  #   curve_dems <- append(curve_dems, calc_proportions(dem_pred, bins = b))
+  #   # calc_proportions(dem_pred, bins = b)
+  # }
+  curve_comb <- combine_proportions(curve_dems)
 
   output$modeled_prop <- curve_comb$prob_prop
-  outpu$area_prop <- curve_comb$area_prop
+  output$area_prop <- curve_comb$area_prop
 
   return(output)
 

@@ -1,8 +1,8 @@
 ---
-title: "Success Rate Curves"
+title: "Assessing Models"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Success Rate Curve}
+  %\VignetteIndexEntry{Assessing Models}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -18,17 +18,48 @@ knitr::opts_chunk$set(
 library(TerrainWorksUtils)
 ```
 
-TerrainWorks has developed a few ways of evaluating models 
+# Assessing Models
+
+TerrainWorks uses a few ways of assessing models specific to the problem of landslide susceptibility. 
+Some of these methods exist in the literature, such as the success rate curve, while some created by TerrainWorks. 
+
+We define 5 goals of a measure of model performance: 
+1. How well the sample of nonlandslide points characterizes the joint distributions of predictor values across the entire study area.
+2. How well the chosen model algorithm characterizes the distribution of landslide densities within the data space defined by the predictors.
+3. How well the choice of predictors resolves spatial variations in landslide density.
+4. How sensitive model results are to the predictor values, and
+5. Geomorphic plausability.
 
 ## Training data, etc. 
 
+When assessing models, it is very important to carefully track what data is being used for what type of assessment; thiswill determine the limits on interpretation of any measure. 
+
+Typically, a data set is divided into training and testing datasets (often multiple times, in a cross-validation scheme). Data that the model has *never* seen during the training process can be used to assess predictive performance of a model. For spatiotemporal datasets (as is the case with landslide susceptibility modeling), this split is usually along some spatial or temporal division. Since the model is guaranteed to be applied to data that is outside the temporal scope of the training data, it is often a good idea to look at temporal splits. 
+
 ## The Success Rate Curve
+
+> The “success-rate” curve was introduced by Chung and Fabbri (n.d.). To construct a success-rate curve, we rank DEM cells by the modeled probability that they contain a landslide initiation point. We then plot the proportion of mapped landslides versus the proportion of area, ranked by modeled probability.
 
 We show how to generate the success rate curve using the function included in the package. 
 Show what the output looks like. 
 Show a graph of the success rate curve. 
 
-Include an explanation and some references to the success rate curve in the literature. 
+```{r}
+
+output_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/pred_output/"
+
+dems <- list.files(output_dir, full.names = TRUE,  recursive = TRUE)
+print(dems)
+
+```
+
+```{r}
+
+s <- srcurve2(land_pred, 
+         dem_list  = dems)
+
+```
+
 
 
 ## The Suislaw Basin
