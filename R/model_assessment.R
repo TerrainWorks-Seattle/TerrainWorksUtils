@@ -29,20 +29,23 @@ calc_proportions <- function(data,
   # Check parameters ----------------------------------------------
 
   if (is.null(data)) {
-    stop("No data supplied.")
+    stop("Must supply data")
   }
   if (!(prob_col %in% names(data))) {
-    stop("prob_col must exist in data or an alternate column name must be specified.")
+    msg <- paste0("Can't find column `", prob_col, "` in `data`.")
+    stop(msg)
   }
-  if (!is.numeric(data[[prob_col]])) {
-    stop("Data must be numeric.")
-  }
+  # if (!is.numeric(data[[prob_col]])) {
+  #   stop("`Data` must be numeric.")
+  # }
   if (!is.logical(plot)) {
-    stop("Plot variable must be TRUE/FALSE.")
+    stop("Must specify a logical value for `plot`")
   }
-  if (!is.null(bins) && length(bins) > nrow(data)) {
-    stop("Number of bins is greater than the data provided.")
-  }
+  # if (!is.null(bins) && length(bins) > nrow(data)) {
+  #   stop("Can't extrapolate to that many bins. Number of bins (length = ",
+  #        length(bins), ") is greater than the amount data provided (nrow = ",
+  #        nrow(data), ").")
+  # }
   if (nrow(data) > 100000 && is.null(bins)) {
     warning("You have a lot of data - consider using bins to improve runtime.")
   }
@@ -83,7 +86,7 @@ calc_proportions <- function(data,
 
   # Bin data ------------------------------------------------------
 
-  if (!is.null(bins) && is.vector(bins) && length(bins) <= nrow(props)) {
+  if (!is.null(bins) && is.vector(bins)) {# && length(bins) <= nrow(props)) {
     bins <- data.table(bins)
     # names(bins) <- c("prob")
 
@@ -97,11 +100,15 @@ calc_proportions <- function(data,
     # print(head(bins))
 
     # use fuzzy join package?
-    props_binned <- props[bins, roll = "nearest"] # i think that i need to change this method of joining the datasets.
-                                                  # i should try drawing it out and figuring out how it should be joined. what happens
-                                                  # when the highest probability is not very high? (such is the case with this data)
-
+    props_binned <- props[bins, roll = -.01]
     setorder(props_binned, -"prob")
+
+    setnafill(props_binned, type = "locf")
+    setnafill(props_binned, type= "const", fill = 0)
+
+    # props_binned <- props_binned[[props_binned[["prob"]] > max(props[["prob"]]),
+    #              c("prob_cumul", "area_cumul", "prob_prop", "area_prop")]]
+
     to_return <- as_tibble(props_binned)
 
     # print("props binned")
@@ -114,9 +121,9 @@ calc_proportions <- function(data,
   # Plot curve ----------------------------------------------------
 
   to_plot <- to_return
-  if (to_plot[1, "prob_prop"] != 0 && to_plot[1, "area_prop"] != 0) {
-    to_plot <- add_row(to_plot, prob_prop = 0, area_prop = 0, .before = 1)
-  }
+  # if (to_plot[1, "prob_prop"] != 0 && to_plot[1, "area_prop"] != 0) {
+  #   to_plot <- add_row(to_plot, prob_prop = 0, area_prop = 0, .before = 1)
+  # }
 
   p <- ggplot(to_plot, aes(x = area_prop, y = prob_prop)) +
          geom_line() +
@@ -150,13 +157,15 @@ combine_proportions <- function(...,
   # Check parameters ----------------------------------------------
 
   curves <- list(...)
+  # print(curves)
+
   if (length(curves) == 0) {
     stop("No data provided.")
   } else if (length(curves) == 1) {
     curves <- curves[[1]]
   }
-  print("now working with: ")
-  print(curves)
+  # print("now working with: ")
+  # print(curves)
   # DO THESE CHECKS IN THE FOR LOOP BELOW
 
   # first <- curves[[1]]
@@ -205,14 +214,11 @@ combine_proportions <- function(...,
 
   to_plot <- sum_curve
 
-  print(to_plot)
   if (to_plot[1, "prob_prop"] != 0 && to_plot[1, "area_prop"] != 0) {
     to_plot <- add_row(to_plot, prob_prop = 0, area_prop = 0, .before = 1)
   }
 
   p <- ggplot(to_plot, aes(x = area_prop, y = prob_prop)) +
-        geom_line() +
-        # geom_point() +
         labs(title = "Success rate curve",
              x = "Proportion of area",
              y = "Proportion of predicted landslides")
@@ -222,6 +228,8 @@ combine_proportions <- function(...,
                        data = cur,
                        color = "gray")
   }
+
+  p <- p + geom_line() + geom_point(size = 1)
 
   if (plot) {
     print(p)
@@ -348,7 +356,7 @@ srcurve2 <- function(landslides,
 
   # return output
 
-  b = seq(1, 0, length = 100)
+  b = seq(1, 0, length = 4000)
 
   output <- tibble(
     prob = b,
@@ -361,13 +369,18 @@ srcurve2 <- function(landslides,
   curve_obs <- calc_proportions(landslides, bins = b)
   output$observed_prop <- curve_obs$area_prop
 
+  print("Done with observed landslide curve.")
   # curve_dems <- list()
 
   # need to figure this out!!!!
   # x <- lapply(calculate_proportions(tibble(read.csv(dem)), bins = b))
 
-  dem_tibbles <- lapply(lapply(dem_list, read.csv), tibble)
+  # print("Reading csv predictions. ")
+  # dem_tibbles <- lapply(lapply(dem_list, read.csv), tibble)
+  # print(dem_tibbles)
+  print("Calculating proportions on predictions")
   curve_dems <- lapply(dem_tibbles, calc_proportions, bins = b)
+
 
 
 
@@ -376,7 +389,7 @@ srcurve2 <- function(landslides,
   #   curve_dems <- append(curve_dems, calc_proportions(dem_pred, bins = b))
   #   # calc_proportions(dem_pred, bins = b)
   # }
-  curve_comb <- combine_proportions(curve_dems)
+  curve_comb <- combine_proportions(curve_dems, plot = TRUE)
 
   output$modeled_prop <- curve_comb$prob_prop
   output$area_prop <- curve_comb$area_prop
