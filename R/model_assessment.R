@@ -1,5 +1,5 @@
 
-#' Generate a success rate curve
+#' Calculate proportions
 #'
 #' This code takes a data frame of predicted landslide initiation values and calculates a success rate curve.
 #'
@@ -13,7 +13,7 @@
 #' Prediction rate curves are generated on entire prediction areas - or new data.
 #'
 #'
-#' @param data A data frame (ideally, a tibble) with probabilities, in this case, of landslide initiation.
+#' @param data A data frame (ideally, a tibble) with probabilities, in this case, of landslide initiation. Must be coercible to a data table.
 #' @param plot Change this value to FALSE if you do not want to produce the success rate curve plot.
 #' @param prob_col The name of the column which contains the probabilities.
 #' @param bins A vector with breaks for binning the cumulative probability sums. This is useful when combining multiple success rate curves, which might occur if a larger basin is divided into smaller sub-basin DEMs. If you do not want the curve to be binned, set this argument to NULL.
@@ -21,32 +21,24 @@
 #' @return A \code{tibble} with the success rate curve.
 #' @export
 #' @importFrom data.table data.table
-calc_proportions <- function(data,
+calculate_proportions <- function(data,
                                   plot = FALSE,
                                   prob_col = "prob.pos",
                                   bins = NULL) {
 
   # Check parameters ----------------------------------------------
 
-  if (is.null(data)) {
-    stop("Must supply data")
+  if (is.null(data) | !is.data.frame(data)) {
+    stop("Must supply a data frame.")
   }
   if (!(prob_col %in% names(data))) {
     msg <- paste0("Can't find column `", prob_col, "` in `data`.")
     stop(msg)
   }
-  # if (!is.numeric(data[[prob_col]])) {
-  #   stop("`Data` must be numeric.")
-  # }
   if (!is.logical(plot)) {
-    stop("Must specify a logical value for `plot`")
+    stop("Must specify a logical value for `plot`.")
   }
-  # if (!is.null(bins) && length(bins) > nrow(data)) {
-  #   stop("Can't extrapolate to that many bins. Number of bins (length = ",
-  #        length(bins), ") is greater than the amount data provided (nrow = ",
-  #        nrow(data), ").")
-  # }
-  if (nrow(data) > 100000 && is.null(bins)) {
+  if (nrow(data) > 100000 & is.null(bins)) {
     warning("You have a lot of data - consider using bins to improve runtime.")
   }
 
@@ -56,20 +48,13 @@ calc_proportions <- function(data,
   props <- as.data.table(data[c(prob_col)])
   names(props) <- c("prob")
 
-  # print(head(props))
-
   # sort by probability and combine cells with equal probabilities
-  # setorder(props, cols = "prob", order = -"prob")
   setorder(props, -"prob")
   props <- props[, .N, by = prob]
-
-  # print(head(props))
 
   # calculate the cumulative sums of area and probabilities
   props$prob_cumul <- cumsum(props$prob * props$N)
   props$area_cumul <- cumsum(props$N)
-
-  # print(head(props))
 
   prob_sum <- max(props$prob_cumul)
   area_sum <- max(props$area_cumul)
@@ -77,53 +62,41 @@ calc_proportions <- function(data,
   props$prob_prop <- props$prob_cumul / prob_sum
   props$area_prop <- props$area_cumul / area_sum
 
-  # print("props")
-  # print(head(props))
-
   setattr(props, "sorted", "prob")
 
   to_return <- as_tibble(props)
 
   # Bin data ------------------------------------------------------
 
-  if (!is.null(bins) && is.vector(bins)) {# && length(bins) <= nrow(props)) {
+  if (!is.null(bins)) {
+
+    if (!is.vector(bins)) {
+      stop(paste0("`bins` must be a vector or list."))
+    }
+
+    # prepare for join
     bins <- data.table(bins)
-    # names(bins) <- c("prob")
-
-    setkey(props, prob)
     setkey(bins, bins)
-
+    setkey(props, prob)
     setorder(props, "prob")
-    # print(data.table(bins) %inrange% range(props$prob))
 
-    # print("bins")
-    # print(head(bins))
-
-    # use fuzzy join package?
+    # find the nearest values from proportions within 0.01
     props_binned <- props[bins, roll = -.01]
     setorder(props_binned, -"prob")
 
+    # fill in missing values and values outside the range observed
     setnafill(props_binned, type = "locf")
     setnafill(props_binned, type= "const", fill = 0)
 
-    # props_binned <- props_binned[[props_binned[["prob"]] > max(props[["prob"]]),
-    #              c("prob_cumul", "area_cumul", "prob_prop", "area_prop")]]
-
     to_return <- as_tibble(props_binned)
-
-    # print("props binned")
-    # print(head(props_binned))
-    # print(tail(props_binned))
-
-
   }
 
   # Plot curve ----------------------------------------------------
 
   to_plot <- to_return
-  # if (to_plot[1, "prob_prop"] != 0 && to_plot[1, "area_prop"] != 0) {
-  #   to_plot <- add_row(to_plot, prob_prop = 0, area_prop = 0, .before = 1)
-  # }
+  if (to_plot[1, "prob_prop"] != 0 && to_plot[1, "area_prop"] != 0) {
+    to_plot <- add_row(to_plot, prob_prop = 0, area_prop = 0, .before = 1)
+  }
 
   p <- ggplot(to_plot, aes(x = area_prop, y = prob_prop)) +
          geom_line() +
@@ -139,10 +112,10 @@ calc_proportions <- function(data,
   return(to_return)
 }
 
-#' Combine success rate curves
+#' Combine area and probability proportions
 #'
 #' This function combines success rate curves into one curve. This is a weighted average, since the curves could represent different amounts of data.
-#' The curves should be in the same format as produced by the calc_proportions() function provided in this package and all must be the same length.
+#' The curves should be in the same format as produced by the calculate_proportions() function provided in this package and all must be the same length.
 #'
 #' Calling this function with one curve returns the same curve with nothing changed.
 #'
@@ -159,11 +132,15 @@ combine_proportions <- function(...,
   curves <- list(...)
   # print(curves)
 
-  if (length(curves) == 0) {
-    stop("No data provided.")
-  } else if (length(curves) == 1) {
+  if (length(curves) == 0 | is.null(curves)) {
+    stop("Must provide one or more data frames.")
+  } else if (is.null(curves[[1]])) {
+    stop("Must provide one or more data frames.")
+  } else if (length(curves) == 1 & !is.data.frame(curves[[1]])) {
     curves <- curves[[1]]
   }
+
+  # print(curves)
   # print("now working with: ")
   # print(curves)
   # DO THESE CHECKS IN THE FOR LOOP BELOW
@@ -178,7 +155,7 @@ combine_proportions <- function(...,
   #   }
   # }
   if (!is.logical(plot)) {
-    stop("Plot variable must be TRUE/FALSE.")
+    stop("Must specify a logical value for `plot`.")
   }
 
   # Combine curves ----------------------------------------------
@@ -188,6 +165,13 @@ combine_proportions <- function(...,
   # }
 
   if (length(curves) == 1) {
+    if (is.null(curves[[1]][["prob_cumul"]])) {
+      stop("Can't find `prob_cumul` in data frame.")
+    }
+    if (is.null(curves[[1]][["area_cumul"]])) {
+      stop("Can't find `area_cumul` in data frame.")
+    }
+
     sum_curve <- curves[[1]]
   } else {
     sum_curve <- tibble(
@@ -198,6 +182,20 @@ combine_proportions <- function(...,
     )
 
     for (cur in curves) {
+      # print(cur)
+      if (is.null(cur[["prob_cumul"]])) {
+        stop("Can't find `prob_cumul` in data frame.")
+      }
+      if (is.null(cur[["area_cumul"]])) {
+        stop("Can't find `area_cumul` in data frame.")
+      }
+      if (nrow(sum_curve) != nrow(cur)) {
+        msg <- paste0("Can't combine curves of different lengths.\n",
+                      "x First curve is length ", nrow(sum_curve), "\n",
+                      "x Second curve is length ", nrow(cur), "\n")
+        stop(msg)
+      }
+
       sum_curve[["prob_cumul"]] <- sum_curve[["prob_cumul"]] + cur[["prob_cumul"]]
       sum_curve[["area_cumul"]] <- sum_curve[["area_cumul"]] + cur[["area_cumul"]]
     }
@@ -251,8 +249,8 @@ combine_proportions <- function(...,
 #' @return The area under the curve.
 #' @export
 #'
-srcurve_auc <- function(curve,
-                        integral_type = "trap") {
+success_rate_auc <- function(curve,
+                             integral_type = "trap") {
 
   # Check parameters ----------------------------------------------------------
 
@@ -309,11 +307,12 @@ srcurve_auc <- function(curve,
 #'
 #' @return A data frame with the success rate curve and the modeled probability curve.
 #' @export
-srcurve2 <- function(landslides,
+success_rate_curve <- function(landslides,
                      dem_list,
                      plot = TRUE,
                      prob_col = "prob.pos",
-                     bins = NULL) {
+                     bins = NULL,
+                     quiet = TRUE) {
 
 
   #### OR ####
@@ -343,11 +342,11 @@ srcurve2 <- function(landslides,
   # -------------- PSEUDOCODE -------------------
 
   # b = seq(0, 1, length = 100)
-  # curve_obs <- calc_proportionslandslides, bins = b)
+  # curve_obs <- calculate_proportionslandslides, bins = b)
   # output$observed_prop <- curve_obs$area_prop
 
   # for (every dem) {
-  #   curve_dem_list <- append(curve_dem_list, calc_proportionsdem, bins = b))
+  #   curve_dem_list <- append(curve_dem_list, calculate_proportionsdem, bins = b))
   # }
   # curve_dem_all <- combine_proportions(curve_dem_list)
 
@@ -366,10 +365,15 @@ srcurve2 <- function(landslides,
     .rows = nrow(b)
   )
 
-  curve_obs <- calc_proportions(landslides, bins = b)
+  tic()
+  curve_obs <- calculate_proportions(landslides, bins = b)
   output$observed_prop <- curve_obs$area_prop
+  t <- toc(quiet = TRUE)
 
-  print("Done with observed landslide curve.")
+  if (!quiet) {
+
+    print(paste0("Done with observed landslide curve: ", t$callback_msg))
+  }
   # curve_dems <- list()
 
   # need to figure this out!!!!
@@ -378,16 +382,29 @@ srcurve2 <- function(landslides,
   # print("Reading csv predictions. ")
   # dem_tibbles <- lapply(lapply(dem_list, read.csv), tibble)
   # print(dem_tibbles)
-  print("Calculating proportions on predictions")
-  curve_dems <- lapply(dem_tibbles, calc_proportions, bins = b)
+  # print("Calculating proportions on predictions")
+
+  if (!is.data.frame(dem_list[[1]])) {
+    dem_tibbles <- lapply(lapply(dems, read.csv), tibble)
+  }
+
+
+  tic()
+  curve_dems <- lapply(dem_list, calculate_proportions, bins = b)
+  t <- toc(quiet = TRUE)
+
+  if (!quiet) {
+      print(paste0("Done with modeled landslide curve: ", t$callback_msg))
+
+  }
 
 
 
 
   # for (dem in dem_list[2:length(dem_list)]) {
   #   dem_pred <- tibble(read.csv(dem))
-  #   curve_dems <- append(curve_dems, calc_proportions(dem_pred, bins = b))
-  #   # calc_proportions(dem_pred, bins = b)
+  #   curve_dems <- append(curve_dems, calculate_proportions(dem_pred, bins = b))
+  #   # calculate_proportions(dem_pred, bins = b)
   # }
   curve_comb <- combine_proportions(curve_dems, plot = TRUE)
 
