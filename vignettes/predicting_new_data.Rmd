@@ -23,6 +23,7 @@ library(TerrainWorksUtils)
 
 library(data.table)
 library(tidyverse)
+library(googledrive)
 ```
 
 # Predicting new data using a trained model
@@ -38,7 +39,7 @@ We choose to put the output in a directory at the same level as the input direct
 
 ```{r}
 input_dir <- params$input_dir
-output_dir <- paste0(dirname(input_dir), "/pred_output/")
+output_dir <- paste0(dirname(input_dir), "/prediction_rast_only/")
 
 basin_list <- dirname(list.files(input_dir, 
                                  paste0("^gradient\\.flt"), 
@@ -85,9 +86,19 @@ This makes it easier to evaluate predictions from different models, without runn
 
 out <- predict_multiple_dems(ls_model, 
                       pred_dir = input_dir, 
-                      basin_list = basin_list[1:5], 
+                      basin_list = basin_list, 
                       out_dir = output_dir, 
-                      scale_vals = scale_vals)
+                      scale_vals = scale_vals, 
+                      write_covars = FALSE)
+
+
+# out <- predict_multiple_dems(ls_model, 
+#                       pred_dir = input_dir, 
+#                       basin_list = basin_list, 
+#                       out_dir = output_dir, 
+#                       scale_vals = scale_vals, 
+#                       output = "csv", 
+#                       overwrite = TRUE)
 
 
 ```

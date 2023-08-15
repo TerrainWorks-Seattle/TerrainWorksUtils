@@ -18,19 +18,19 @@
 predict_multiple_dems <- function(model,
                                   pred_dir,
                                   basin_list,
-                                  out_dir = NULL,
-                                  scale_vals = NULL,
-                                  output = c("csv")) {
+                                  ...,
+                                  out_dir = NULL) {
+  params <- list(...)
 
   if (is.null(out_dir)) {
     out_dir <- paste0(dirname(pred_dir), "/predicting_output/")
   }
 
-  out <- mapply(predict_and_save,
+  mapply(predict_and_save,
                 paste0(pred_dir, basin_list),
-                paste0(out_dir, basin_list, "/predictions.csv"),
-                MoreArgs = list(model = model,
-                                scale_vals = scale_vals,
+                paste0(out_dir, basin_list),
+                MoreArgs = list(...,
+                                model = model,
                                 transform = make_quadratic_features))
 
 }
@@ -41,9 +41,8 @@ predict_multiple_dems <- function(model,
 #' This function takes a folder with elevation derivative files for a basin and a model and saves the predictions to a .csv file.
 #' The csv has columns "x" and "y" with coordinates, "prob.pos" with the model output, and all features used in the calculation of the model.
 #'
-#' Called on all the PFA DEMs, this produces
+#' An implementation note: Since we are using a classification model to derive the probability of classification into the positive class, we must change the rasters into a data frame, and use the $predict_newdata function. If we were interested in classification, we would be able use the mlr3spatiotemp::predict_spatial() function with raster inputs and raster outputs.
 #'
-#' TODO: add compression option
 #'
 #' @param dir_in A directory which contains the necessary elevation derivative files for prediction.
 #' @param file_out The name of the csv file to write results.
@@ -59,12 +58,19 @@ predict_multiple_dems <- function(model,
 predict_and_save <- function(dir_in,
                              file_out,
                              model,
+                             ...,
                              scale_vals = NULL,
-                             transform = function(x) x) {
+                             transform = function(x) x,
+                             output = "tif",
+                             write_covars = TRUE) {
+  params <- list(...)
+  # print(params)
+
   tic()
   # read files into a raster
   topo_files <- c(paste0("GRADIENT,", dir_in, "/gradient.flt"),
                   paste0("MEAN CURVATURE,", dir_in, "/mean_curv.flt"))
+  # print(topo_files)
   topo_rast <- elev_deriv(rasters = topo_files)
   pca_file <- list.files(paste0(dir_in), "^pca.{1,8}\\.flt", full.names = TRUE)
   pca_rast <- contributing_area(raster = pca_file)
@@ -82,6 +88,8 @@ predict_and_save <- function(dir_in,
 
   input_data <- transform(input_data)
 
+  # print(scale_vals)
+
   # center and scale the data
   if (!is.null(scale_vals)) {
     for (col in names(scale_vals)) {
@@ -98,21 +106,49 @@ predict_and_save <- function(dir_in,
                            by = "row_ids",
                            multiple = "error")
 
-  # write to a file
-  to_select <- c("row_ids", "x", "y", "prob.pos", model$state$train_task$feature_names)
-  dir.create(dirname(file_out), showWarnings = FALSE, recursive = TRUE)
-
-  if (!str_ends(file_out, fixed(".csv"))) {
-    file_out <- ".csv"
+  # assemble data for writing
+  if (write_covars) {
+    to_select <- c( "x", "y", "prob.pos", model$state$train_task$feature_names)
+  } else {
+    to_select <- c( "x", "y", "prob.pos")
   }
-  # print(file_out)
-  write_csv(select(predictions, to_select),
-            file_out)
+  # to_select <- c( "x", "y", "row_ids", "prob.pos", model$state$train_task$feature_names)
+  predictions <- predictions[to_select]
+  dir.create((file_out), showWarnings = FALSE, recursive = TRUE)
+
+  if (output == "tif") {                            # write to a tif file
+    # if (!str_ends(file_out, fixed(".tif"))) {
+    #   file_out <- ".tif"
+    # }
+    predictions_rast <- terra::rast(predictions, type = "xyz")
+    # print(names(predictions_rast))
+    if (write_covars) {
+      file_out <- paste0(file_out, "/", names(predictions_rast), ".tif")
+    } else {
+      file_out <- paste0(file_out, "/predictions.tif")
+    }
+    # print(file_out)
+    terra::writeRaster(predictions_rast,
+                       file_out,
+                       filetype = "GTiff",
+                       overwrite = params$overwrite)
+  } else if (output == "csv") {                     # write to a csv file
+    # if (!str_ends(file_out, fixed(".csv"))) {
+    #   file_out <- ".csv"
+    # }
+    # print(file_out)
+    write_csv(predictions,
+              paste0(file_out, "predictions.csv"))
+  } else {
+    stop(paste0("`output` must be a supported filetype.",
+                "\nx currently `csv` and `tif` are supported."))
+  }
+
   print(paste0("Wrote file ", file_out))
 
   toc(quiet = FALSE)
   # print(predictions)
-  return(predictions)
+  return(TRUE)
 
 }
 

@@ -406,7 +406,7 @@ success_rate_curve <- function(landslides,
   #   curve_dems <- append(curve_dems, calculate_proportions(dem_pred, bins = b))
   #   # calculate_proportions(dem_pred, bins = b)
   # }
-  curve_comb <- combine_proportions(curve_dems, plot = TRUE)
+  curve_comb <- combine_proportions(curve_dems, plot = plot)
 
   output$modeled_prop <- curve_comb$prob_prop
   output$area_prop <- curve_comb$area_prop
