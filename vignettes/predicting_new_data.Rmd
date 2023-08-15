@@ -32,6 +32,30 @@ TerrainWorksUtils contains helper functions designed to simplify the process of 
 
 These functions are designed to work with the type of model produced by mlr3, but really can be used with any model that contains a function called $predict_newdata that accepts new data in the form of a data frame. 
 
+### Using googledrive and googlesheets4
+
+We will start working with data in the Google Drive folder so that it remains synced between us. 
+
+The package `googlesheets4` offers a convenient and fast integration for reading, writing, and updating spreadsheets, but most of the data that we work with does not come in spreadsheet form. We work with data that is stored as .flt files or .tiff files, meaning we will download, read, edit/change, write, and upload. 
+
+It is also hard to download folders full of files recursively, so this is a problem that I am putting on hold for a second. I think that the easiest solution will to be to create a naming structure that allows all files to be located in the same folder and identified usefully by their names, but this is a tad daunting/I want to get Dan's input on what the file names should look like. 
+
+
+```{r}
+# library(googlesheets4)
+# gs4_auth()
+
+library(googledrive)
+drive_auth()
+```
+
+```{r}
+pred_folder <- as_id("https://drive.google.com/drive/u/1/folders/1qn3wYhEpzDmphBgUriGYhrTlqN4Nj2wY")
+drive_ls(pred_folder)
+
+```
+
+
 ### Define our inputs 
 
 First, we identify the inputs. For this example, a directory with predicting input should be defined as a parameter when stitching this file.
