@@ -28,7 +28,7 @@ We can test the validity of the predicted probabilities by comparing empirical a
 
     -   Success-rate curve and area under the curve. A single-valued metric is needed for model comparisons, which area-under-the-curve provides, but we might want to compare the shape of the curves themselves sometimes.
 
-    -   Proportion histograms and cumulative absolute difference in modeled and observed proportions across the histogram bins. The cumulative absolute difference provides a single-valued metric. These are similar to [calibration ](https://en.wikipedia.org/wiki/Probabilistic_classification)curves (or reliability diagrams); we might be able to define a better metric, something like a Brier Score, for using these to get a single-valued measure of model success.
+    -   Proportion histograms and cumulative absolute difference in modeled and observed proportions across the histogram bins. The cumulative absolute difference provides a single-valued metric. These are similar to [calibration](https://en.wikipedia.org/wiki/Probabilistic_classification) curves (or reliability diagrams); we might be able to define a better metric, something like a Brier Score, for using these to get a single-valued measure of model success.
 
     -   ROC and associated AUC, and other classification-based metrics.
 
