@@ -2,11 +2,11 @@
 title: "PFA Debris-Flow Runout Analysis"
 author: "Dan Miller"
 format:
-  docx:
-    toc: true
-    number-sections: true
-    highlight-style: github
-    echo: false
+#  docx:
+#    toc: true
+#    number-sections: true
+#    highlight-style: github
+#    echo: false
   html:
     toc: true
     toc-float: true
@@ -22,15 +22,6 @@ format:
 #    keeptex: true
 #    include-in-header: 
 #      text: |
-#        \usepackage{booktabs}
-#        \usepackage{siunitx}
-#        \newcolumntype{d}{S[
-#            input-open-uncertainty=,
-#            input-close-uncertainty=,
-#            parse-numbers = false,
-#            table-align-text-pre=false,
-#            table-align-text-post=false
-#         ]}
 date: May 18, 2023
 editor: visual
 number-sections: true
@@ -264,7 +255,7 @@ The $P_{DF}$ and $P_T$ values are proportional to the spatial density of debris-
 
 As described earlier, the magnitude of the modeled probability is problematic. It depends on the number of debris-flow tracks included in the inventory. Likewise, the distribution of channel lengths as a function of modeled probability will vary from sub-basin to sub-basin, depending on the distribution of topographic attributes unique to each sub-basin. As described by Burnett and Miller [-@burnett2007], use of proportions effectively normalizes these differences so that results can be compared directly between sites. The cumulative distribution shows how the proportion of channel length is distributed across the range of modeled probability values. Rather than mapping probability, we can map channels in terms of the proportion of expected debris-flow-traversed length. This is illustrated with the black lines and arrows in @fig-TravPropGraph; each increment includes 20% of the modeled channel length.
 
-![Proportion of channel length as a function of modeled traversal probability.](images/PropCurves.png){#fig-TravPropGraph alt="Proportion of channel length as a function of modeled traversal probability." fig-align="center" width="6in"}
+![Proportion of channel length as a function of modeled traversal probability.](images/PropCurves.png){#fig-TravPropGraph fig-align="center" width="6in"}
 
 These values can be mapped back to the traced flow paths. The flow paths can then be parsed into segments containing a specified proportion of the total track length, ordered from lowest probability to highest (or visa versa), as shown in @fig-TravPropMap below. This is the methodology used to identify the "Debris-flow traversal area" and "Designated debris-flow traversal areas" defined for the PFA [@odf2022, pages 30-31].
 
@@ -455,7 +446,7 @@ We had two datasets to work with, the field-based landslide inventory from the O
 
 The 1996 Storm study included 6 study areas following the February 1996 storm and two following the November 1996 storm. Three of the sites following the February storm, Mapleton, Tillamook, and Vida, were chosen for more detailed surveys because of the high density of landslides at these locations.
 
-![](images/1996_Storm_Study_Sites.png){#fig-DataLocations fig-align="center" width="6in"}
+![Site locations for the ODF 1996 Storm Study and DOGAMI Special Paper 53 debris-flow inventory.](images/1996_Storm_Study_Sites.png){#fig-DataLocations fig-align="center" width="6in"}
 
 Surveys at these three areas including detailed mapping of channel impacts associated with the storm. Being field based, these surveys were able to distinguish four types of debris-flow-runout behavior: 1) a scoured debris path, along unchannelized topography or within channels greater than 40% gradient, 2) channelized flow with scour, 3) channelized flow with deposition, and 4) transitional channelized flow with no net scour or deposition. At these sites, all channels with gradients up to 40% were surveyed and storm impacts were categorized as high, medium, or low and recorded at \~150-foot increments [@robison1999]. High impacts were associated with "debris torrents" and impacts in these channels were further categorized as scour, deposit, transitional, or debris jam. Although "debris torrent" and "debris flow" are not synonymous, we used this mapping to calibrate a logistic regression model for the probability of debris-flow scour or deposition.
 
