@@ -1,0 +1,47 @@
+---
+title: "tasks"
+format: html
+editor: visual
+---
+
+## Cross validation.
+
+Our input data is derived from 163 small sub-basins across Oregon. Each sub-basin contains one or more landslide initiation points and associated runout tracks from the DOGAMI Special Paper 53 inventory. We use these data to determine the probability that any point on the ground is within an initiation site, or more specifically, if any DEM cell contains an initiation point in the inventory, and the probability that a landslide initiated at that point runs out to a stream channel. We use a classification model, here logistic regression, for the former and survival analysis for the latter. The product of these two probabilities gives the joint probability that any DEM cell contains a landslide point in the inventory with a runout track that reached a stream channel. We calculate this probability for every DEM cell and output the result as a raster file.
+
+Input data to the classification model and survival analysis consist of topographic attributes derived from a DEM, estimated age of dominant trees in the forest stand, predominant rock type, and distance to a road. The inventory data, DEMs, stand-age and rock-type data, and road locations are stored as vector and raster files in the "DataFiles/in" directory. The Quarto file PFA_data_extraction.qmd reads these files and produces the elevation derivatives (gradient, curvatures, contributing areas) and distance-to-road rasters for each sub-basin, which are stored in the "DataFiles/out" directory. Each raster includes a suffix in its name that references the associated basin number (1 to 163). These numbers are referenced to a basin list, "input_list.txt", in the "DataFiles/in" directory.
+
+PFA_data_extraction.qmd includes code chunks to obtain the terrain-attribute values (predictors) for each landslide initiation point and for a sample of non-landslide points. These are stored in .Rdata files. Initiation points are further parsed by the date range of occurrence: 1996, 2007, 2011. Data files for runout tracks are currently generated with Fortran code - we'll need to translate these into R scripts.
+
+We can test the validity of the predicted probabilities by comparing empirical and modeled success-rate curves and proportions. We've done this with training data for initiation points, but we haven't implemented a sub-sampling scheme (training + test) or ability to include runout probability. What functionality do we need to implement sub-sampling and training + testing of a linked (initiation \* runout probabilities) model?
+
+1.  Dividing the 163 sub-basins into training and test sets. We can also subsample by date of occurrence.
+
+2.  Train an initiation model with the training data. We have a couple options for implementing this:
+
+    -   Create a data frame of landslide and nonlandslide points that includes a column for the basin number. Subset this data frame into training and test data.
+
+    -   Create separate data frames for each sub-basin, then assemble the training and test data from these.
+
+    -   The landslide initiation points are fixed, but we could resample the nonlandslide points with each iteration. This would introduce another source of variation between cross-validation iterations; perhaps a better strategy for examining effects of the nonlandslide sample would be to iterate over the same training and test set of basins with different nonlandslide samples.
+
+3.  Use the trained model to build probability rasters for every sub-basin. Then build evaluation metrics for the training set and for the test set. There will be variation in how well the models can mimic the training data, so we want to compare both the performance on the test data to the performance on the training data and compare test-data performance across all iterations. We have several metrics to use:
+
+    -   Success-rate curve and area under the curve. A single-valued metric is needed for model comparisons, which area-under-the-curve provides, but we might want to compare the shape of the curves themselves sometimes.
+
+    -   Proportion histograms and cumulative absolute difference in modeled and observed proportions across the histogram bins. The cumulative absolute difference provides a single-valued metric. These are similar to [calibration](https://en.wikipedia.org/wiki/Probabilistic_classification) curves (or reliability diagrams); we might be able to define a better metric, something like a Brier Score, for using these to get a single-valued measure of model success.
+
+    -   ROC and associated AUC, and other classification-based metrics.
+
+    For each of these we can calculate a value based on the initiation-point locations and another based on integration of the probability raster. This gives us an empirical value to compare to the modeled value, which provides a measure of how well the model can mimic the training data. We do the same with the test basins to see how well the model can mimic the test data. This gives two metrics of model performance: 1) how well it can match the observed distribution of landslide densities, and 2) if it can match the observed test-data observed densities as well as it did the training-data observed densities.
+
+4.  Train a survival analysis model on the training basins. Use it to build delivery-probability rasters for the training and test basins. Multiply these by the initiation-probability rasters to get initiation + delivery probability rasters. Then repeat step 3 above using those joint-probability rasters. This will require first parsing the initiation sites into those with and those without delivery. We only use those with delivery to build the empirical curves and histograms. I have never tried this and don't know how well it will work. It reduces the size of the "positives" for testing the model. We can also build a traversal-probability raster. This is the probability that any DEM cell is traversed by a debris-flow from upslope that continues to a stream. We can then integrate flow paths over the traversal-probability raster to generate modeled success-rate curves and proportion histograms for debris-flow track length. These can be compared to the empirical curves derived from those inventoried debris-flow tracks that intersected a stream. I haven't tried this yet either.
+
+5.  Another tactic to try is to use the empirical and modeled success-rate curves and proportions to determine how to adjust the modeled probabilities so that the empirical and modeled curves match the training data. We then use that calibrated model on the test data. I'm looking for examples in the literature.
+
+You've been working on code to build the probability rasters and success--rate curves. What do we need to make these fully functional? Can we rely on mlr3, or will we need to write our own scripts to implement resampling and cross validation? I suspect the latter. Some thoughts:
+
+-   In predict_dems.R/predict_and_save you call terrainworks::elev_deriv and contributing_area. Would it be more efficient to write these all to disk? PFA_data_extraction.qmd does that (mostly) now, but writes them as .flt rasters. If we could implement everything through R, perhaps using package terra, maybe we could store them all as spatrasters.
+
+-   Then we could also store the calculated probabilities as terra spatrasters. The success-rate and calibration curves could then be constructed from these.
+
+-   I have Fortran code to build the input data files needed for the survival analysis functions in R and for then using the resulting models to build delivery and traversal probability rasters. I'll write R wrappers for these so we can call them from within an R script to return probability as spatrasters. I can also modify this code to flag those initiation points with associated runout tracks that reach a stream channel, I think.

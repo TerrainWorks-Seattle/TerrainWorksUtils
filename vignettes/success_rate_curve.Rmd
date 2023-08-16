@@ -1,0 +1,152 @@
+---
+title: "Assessing Models"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Assessing Models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+```
+
+# Assessing Models
+
+TerrainWorks uses a few ways of assessing models specific to the problem of landslide susceptibility. 
+Some of these methods exist in the literature, such as the success rate curve, while some created by TerrainWorks. 
+
+We define 5 goals of a measure of model performance: 
+1. How well the sample of nonlandslide points characterizes the joint distributions of predictor values across the entire study area.
+2. How well the chosen model algorithm characterizes the distribution of landslide densities within the data space defined by the predictors.
+3. How well the choice of predictors resolves spatial variations in landslide density.
+4. How sensitive model results are to the predictor values, and
+5. Geomorphic plausability.
+
+## Training data, etc. 
+
+When assessing models, it is very important to carefully track what data is being used for what type of assessment; thiswill determine the limits on interpretation of any measure. 
+
+Typically, a data set is divided into training and testing data sets (often multiple times, in a cross-validation scheme). Data that the model has *never* seen during the training process can be used to assess predictive performance of a model. For spatiotemporal data sets (as is the case with landslide susceptibility modeling), this split is usually along some spatial or temporal division. Since the model is guaranteed to be applied to data that is outside the temporal scope of the training data, it is often a good idea to look at temporal splits. 
+
+For now, we are using a model that has been trained on all available landslide points, so we do not have any testing data set. 
+
+In the case of the success rate curve, the literature differentiates curves generating using training data and testing data. When using testing data, the curve is called a prediction rate curve. 
+
+```{r}
+
+land_pred <- as_tibble(as.data.table(ls_model$predict_newdata(train_data)))
+```
+
+
+## The Success Rate Curve
+
+> The “success-rate” curve was introduced by Chung and Fabbri (n.d.). To construct a success-rate curve, we rank DEM cells by the modeled probability that they contain a landslide initiation point. We then plot the proportion of mapped landslides versus the proportion of area, ranked by modeled probability.
+
+To generate the success rate curve, we need a list of data frames that contain the modeled probabilities for each DEM that we want to consider in our assessment. 
+
+The size of the study area, or which DEMs to include, should be carefully considered. as it will For instance, imagine if you included a completely flat portion of the study area, that had an appropriately low probability of landslide initiation. 
+
+For this example, we pull from a small directory of DEMs. This should not be considered a 
+
+```{r}
+
+pred_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/pred_output_rast/"
+
+dems <- list.files(pred_dir, full.names = TRUE,  recursive = TRUE)
+dems
+
+```
+
+Each csv file should have one row per cell of the DEM, with (x, y) columns, a prob.pos column, and all columns that are needed for inputting into the model. An example of one of these data frames is shown below. 
+
+Files like this can be created using functions included in this package, see \code{vignette(predicting_new_data)}. 
+
+```{r}
+tic()
+as_tibble(fread(dems[1]))
+toc()
+```
+
+Now, we give the \code{srcurve} function a data frame of the landslide predicted 
+
+
+Testing improvements with parallelization: using parallel
+```{r}
+test <- dems[21:40]
+
+tic()
+dem_tibbles <- lapply(test, fread)
+toc()
+
+# tic()
+# dem_tibbles <- mclapply(test, read.csv, mc.cores = parallel::detectCores() / 2)
+# toc()
+
+# tic()
+# cl <- makeCluster(detectCores() / 2)
+# dem_tibbles <- parLapply(cl, test, fread)
+# stopCluster(cl)
+# toc()
+
+
+# tic()
+# registerDoMC(cores = 4)
+# dem_tibbles <- foreach(dem = dems) %dopar% {
+#   read.csv(dem)
+# }
+# toc()
+
+
+```
+
+
+The time-consuming part of this process is reading the .csv files. A planned expansion of this project is to allow a list of data frames in lieu of a list of files names, to accommodate different workflows and potential streamlining. 
+
+```{r}
+
+if (!exists("dem_tibbles") | length(dem_tibbles) != length(dems)) {
+  dem_tibbles <- lapply(lapply(dems, read.csv), tibble)
+}
+
+s <- success_rate_curve(land_pred, 
+                        dem_list = dem_tibbles, 
+                        quiet = TRUE)
+
+```
+```{r}
+s
+```
+
+This function automatically plots the success rate curve with gray lines which represent each individual DEM (it can be turned off by changing the `plot` argument to false). It also returns a data frame with the proportions of observed and modeled landslides at each probability, along with the proportion of total area at each probability. 
+With this information, we can plot the observed landslide curve against the modeled landslide success rate curve. 
+
+```{r}
+ggplot(data = s) + 
+  geom_line(aes(x = area_prop, y = observed_prop), color = "red") + 
+  geom_line(aes(x = area_prop, y = modeled_prop))
+```
+
+
+
+
+## The Suislaw Basin
+
+[A map showing the basin and its predicted probabilities with one model, then another model.]
+
+## The Prediction Rate Curve
+
+Using the function to generate a prediction rate curve with predicted probabilities for the entire region. 
+
+## Combining curves
+
+Treat the Suislaw basin as two separate curves for this example. 
+
+## Including it in the workflow 

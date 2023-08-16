@@ -1,0 +1,129 @@
+---
+title: "Predicting New Data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Predicting New Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+params: 
+  input_dir: 
+    label: Predicting directory
+    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/
+    input: text
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+
+library(data.table)
+library(tidyverse)
+library(googledrive)
+```
+
+# Predicting new data using a trained model
+
+TerrainWorksUtils contains helper functions designed to simplify the process of applying a model to multiple DEMs, which is useful in managing data sets with a large expanse. 
+
+These functions are designed to work with the type of model produced by mlr3, but really can be used with any model that contains a function called $predict_newdata that accepts new data in the form of a data frame. 
+
+### Using googledrive and googlesheets4
+
+We will start working with data in the Google Drive folder so that it remains synced between us. 
+
+The package `googlesheets4` offers a convenient and fast integration for reading, writing, and updating spreadsheets, but most of the data that we work with does not come in spreadsheet form. We work with data that is stored as .flt files or .tiff files, meaning we will download, read, edit/change, write, and upload. 
+
+It is also hard to download folders full of files recursively, so this is a problem that I am putting on hold for a second. I think that the easiest solution will to be to create a naming structure that allows all files to be located in the same folder and identified usefully by their names, but this is a tad daunting/I want to get Dan's input on what the file names should look like. 
+
+
+```{r}
+# library(googlesheets4)
+# gs4_auth()
+
+library(googledrive)
+drive_auth()
+```
+
+```{r}
+pred_folder <- as_id("https://drive.google.com/drive/u/1/folders/1qn3wYhEpzDmphBgUriGYhrTlqN4Nj2wY")
+drive_ls(pred_folder)
+
+```
+
+
+### Define our inputs 
+
+First, we identify the inputs. For this example, a directory with predicting input should be defined as a parameter when stitching this file.
+We choose to put the output in a directory at the same level as the input directory, with the name "pred_output". If this directory does not yet exist, it will be automatically created by the predicting function. 
+
+```{r}
+input_dir <- params$input_dir
+output_dir <- paste0(dirname(input_dir), "/prediction_rast_only/")
+
+basin_list <- dirname(list.files(input_dir, 
+                                 paste0("^gradient\\.flt"), 
+                                 recursive = TRUE))
+```
+
+The list of basins is a list of all the sub-directories in the folder, where each sub-directory contains the elevation derivative files for a single DEM. 
+The files in the folder should be named as following: 
+1. gradient.flt
+2. mean_curve.flt
+3. pca[...].flt
+
+The ellipses indicates that the filename can have some other characters after it. 
+An example folder is shown below. 
+
+```{r}
+list.files(paste0(input_dir, basin_list[1]))
+```
+
+### Load a trained model. 
+
+We use a pre-trained model for the example. 
+
+```{r}
+
+# load ls_model object and scale_vals - trained model. 
+load(paste0(dirname(input_dir), "lrmodel_grad_mc_pca.Rdata"))
+
+print(ls_model)
+print(scale_vals)
+
+```
+
+### Now, predict the new data. 
+
+We put the input into the function.
+
+The function reports the full path of the file that was created and how long it took to predict and write the file. 
+The output of this function is minimal - a large matrix object which contains all of the predicted probabilities is created. The main purpose of this function is to create the .csv files that store the predictions. 
+
+This makes it easier to evaluate predictions from different models, without running time-intensive predicting processes multiple times. 
+
+```{r}
+
+out <- predict_multiple_dems(ls_model, 
+                      pred_dir = input_dir, 
+                      basin_list = basin_list, 
+                      out_dir = output_dir, 
+                      scale_vals = scale_vals, 
+                      write_covars = FALSE)
+
+
+# out <- predict_multiple_dems(ls_model, 
+#                       pred_dir = input_dir, 
+#                       basin_list = basin_list, 
+#                       out_dir = output_dir, 
+#                       scale_vals = scale_vals, 
+#                       output = "csv", 
+#                       overwrite = TRUE)
+
+
+```
+
