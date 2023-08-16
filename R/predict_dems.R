@@ -55,10 +55,11 @@ predict_multiple_dems <- function(model,
 #'
 #' @importFrom tictoc tic toc
 #' @importFrom dplyr rename
-predict_and_save <- function(dir_in,
+predict_and_save <- function(model,
+                             dir_in,
                              file_out,
-                             model,
                              ...,
+                             mask_range = NULL,
                              scale_vals = NULL,
                              transform = function(x) x,
                              output = "tif",
@@ -78,6 +79,13 @@ predict_and_save <- function(dir_in,
   # combine into one raster
   rasters <- c(topo_rast, pca_rast)
   names(rasters) <- c("gradient", "mean_curv", "pca")
+
+  if (!is.null(mask_range)) {
+    mask <- mask_by_range(rasters,
+                          mask_range)
+    rasters <- terra::mask(rasters, mask)
+    # plot(rasters)
+  }
 
   # convert to a data frame
   input_data <- as_tibble(as.data.frame(rasters, xy = TRUE))
@@ -106,6 +114,7 @@ predict_and_save <- function(dir_in,
                            by = "row_ids",
                            multiple = "error")
 
+  # print(nrow(predictions))
   # assemble data for writing
   if (write_covars) {
     to_select <- c( "x", "y", "prob.pos", model$state$train_task$feature_names)
