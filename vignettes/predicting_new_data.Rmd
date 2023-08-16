@@ -8,7 +8,7 @@ vignette: >
 params: 
   input_dir: 
     label: Predicting directory
-    value: /Users/julialober/Documents/terrainworks/code/sandbox/data/predicting_input/
+    value: C:/Work/data/predicting_input/
     input: text
 ---
 ```{r, include = FALSE}
@@ -63,7 +63,7 @@ We choose to put the output in a directory at the same level as the input direct
 
 ```{r}
 input_dir <- params$input_dir
-output_dir <- paste0(dirname(input_dir), "/prediction_rast_only/")
+output_dir <- paste0(dirname(input_dir), "/prediction_tifs/")
 
 basin_list <- dirname(list.files(input_dir, 
                                  paste0("^gradient\\.flt"), 
@@ -89,8 +89,12 @@ We use a pre-trained model for the example.
 
 ```{r}
 
-# load ls_model object and scale_vals - trained model. 
-load(paste0(dirname(input_dir), "lrmodel_grad_mc_pca.Rdata"))
+# load ls_model object and scale_vals - trained model.
+# load(paste0(dirname(input_dir), "lrmodel_grad_mc_pca.Rdata"))
+
+mask_range <- t(sapply(sample_pnts[, c("gradient", "mean_curv", "ln_pca_k1_48")], range))
+colnames(mask_range) <- c("min", "max")
+rownames(mask_range) <- c("gradient", "mean_curv", "pca")
 
 print(ls_model)
 print(scale_vals)
@@ -112,8 +116,10 @@ out <- predict_multiple_dems(ls_model,
                       pred_dir = input_dir, 
                       basin_list = basin_list, 
                       out_dir = output_dir, 
+                      mask_range = mask_range,
                       scale_vals = scale_vals, 
-                      write_covars = FALSE)
+                      write_covars = FALSE,
+                      overwrite = TRUE)
 
 
 # out <- predict_multiple_dems(ls_model, 
