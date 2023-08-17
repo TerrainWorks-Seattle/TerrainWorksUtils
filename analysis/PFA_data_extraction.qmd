@@ -5,11 +5,11 @@ editor: visual
 params:
   output_dir:
     label: Output Directory
-    value: c:/tempDir/out/
+    value: D:/Google Drive/DataFiles/tempDir/out/
     input: text
   data_dir:
     label: Data Directory
-    value: c:/tempDir/in
+    value: D:/Google Drive/DataFiles/tempDir/in/
     input: text
   length_scale:
     label: Length Scale (m)
@@ -21,7 +21,7 @@ params:
     input: numeric
   input_list:
     label: Text file containing a list of DEM .flt rasters and initiation point shapefiles.
-    value: c:/tempDir/in/DEMs/input_list.txt
+    value: D:/Google Drive/DataFiles/tempDir/in/DEMs/input_list.txt
     input: text
   inner_buffer:
     label: Inner Buffer for Landslide Points (m)
@@ -130,7 +130,6 @@ length_scale = params$length_scale # Default is a 15-meter length scale (7.5-met
 data_files <- read.table(params$input_list, 
                          header = TRUE,
                          sep = ",")
-
 ```
 
 ```{r}
@@ -826,4 +825,82 @@ Take a look.
 
 ```{r}
 str(ls_1996)
+```
+
+### Rearrange Files
+
+Currently, this code produces a list of files in tempDir/out that is numbered in order of the basins as they come in input_file.txt.
+
+We want code that makes it easy to transition this list of files into a basin/subbasin/files structure (like Julia is currently working with), or a basin/files (like the tempDir/in looks) structure, or even just renaming to more descriptive files. In any of these cases, we just need to reference the list to make sure that we know from which basin it comes, and then sort it into the appropriate structure. I may even turn this into a function, for internal TerrainWorks use.
+
+Here is the full list of basins and initiation point files that we have in the tempDir/in folder. This shows the structure that we use here.
+
+```{r}
+DEM <- list.files(params$data_dir,
+             "^basin.*\\.flt$",
+             recursive = TRUE,
+             full.names = TRUE)
+init_pts <- list.files(params$data_dir,
+             "^init_pnts.*\\.shp$",
+             recursive = TRUE,
+             full.names = TRUE)
+  
+data_files <- as_tibble(cbind(DEM, init_pts))
+data_files
+```
+
+This files generates the following attributes for each basin:
+
+1.  accumMax
+
+2.  distTo
+
+3.  gradient
+
+4.  meancurv
+
+5.  pca_48
+
+6.  profcurv
+
+7.  roads
+
+8.  tancurv
+
+All as .flt files. Next up will be to write code to convert the .flt files into .tif files which will be much smaller and a bit more universal.
+
+```{r}
+attr <- c("accumMax", "distTo", "gradient", "meancurv", "pca_48", "profcurv", "tancurv")
+attr_snake <- c("accum_max", "dist_to", "gradient", "mean_curv", "pca_48", "prof_curv", "tan_curv")
+attr_regex <- paste0("^", attr, ".*\\.flt$")
+
+
+old_fns <- sapply(attr_regex, list.files, path = params$output_dir, recursive = TRUE, full.names = TRUE)
+names(old_fns) <- attr_snake
+```
+
+```{r}
+output_style <- "basin-files"
+
+fn_order <- data_files$DEM
+fn_table <- table(dirname(data_files$DEM))
+
+new_fns <- lapply(old_fns, basename)
+for (i in 1:length(old_fns)) {
+  new_fns[[i]] <- gsub(attr[i], attr_snake[i], new_fns[[i]])
+}
+
+if (output_style == "basin-files") {
+  new_prefix <- gsub("basin.*$", "", fn_order)
+  new_prefix <- gsub("^.*/in", paste0(gsub("/tempDir.*$", "", params$output_dir), "/covars"), new_prefix)
+  
+  
+  
+} else if (output_style == "verbose-filenames") {
+  new_prefix <- gsub("/basin.*$", "", fn_order)
+  new_prefix <- gsub("^.*/in", "D:/Google Drive/DataFiles/covars", new_prefix)
+} else if (output_style == "basin-subbasin") {
+  new_prefix <- gsub("/basin.*$", "", fn_order)
+  new_prefix <- gsub("^.*/in", "D:/Google Drive/DataFiles/covars", new_prefix)
+}
 ```
