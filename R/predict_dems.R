@@ -232,7 +232,7 @@ flt_to_tif <- function(path,
   # delete files associated with the old .flt file
   if (rm_old) {
     delete <- list.files(dirname(path),
-                         gsub("\\..*", "", basename(path)),
+                         paste0(gsub("\\..*", "", basename(path)), "\\."),
                          full.names = TRUE)
     delete <- delete[!endsWith(delete, suffix = ".tif")]
     file.remove(delete)
