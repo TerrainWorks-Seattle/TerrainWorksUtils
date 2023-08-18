@@ -869,9 +869,11 @@ This files generates the following attributes for each basin:
 
 All as .flt files. Next up will be to write code to convert the .flt files into .tif files which will be much smaller and a bit more universal.
 
+Note this code relies heavily on regular expressions. It would be useful to have a solid understanding of how those work before diving in to trying to understand this code.
+
 ```{r}
 attr <- c("accumMax", "distTo", "gradient", "meancurv", "pca_48", "profcurv", "tancurv")
-attr_snake <- c("accum_max", "dist_to", "gradient", "mean_curv", "pca_48", "prof_curv", "tan_curv")
+attr_snake <- c("accum_max", "dist_to", "gradient", "mean_curv", "pca", "prof_curv", "tan_curv")
 attr_regex <- paste0("^", attr, ".*\\..*$")
 
 # find the files in the output directory
@@ -879,7 +881,8 @@ old_fns <- sapply(attr_regex, list.files, path = params$output_dir, recursive = 
 names(old_fns) <- attr_snake
 
 # leave out dist_to for now, since we are missing a couple of files 
-old_fns <- old_fns[c(1, 3, 4, 5, 6, 7)]
+use <- c(1, 3, 4, 5, 6, 7)
+old_fns <- old_fns[use]
 ```
 
 ```{r}
@@ -887,45 +890,52 @@ old_fns <- old_fns[c(1, 3, 4, 5, 6, 7)]
 output_style <- "basin-files"
 
 # get the order of the filenames from input_file.txt 
-fn_order <- data_files$DEM
+fn_order <- as_tibble(data_files$DEM)
+names(fn_order) <- c("old_path")
+fn_order$basin_id <- seq(1:length(fn_order$old_path))
 fn_table <- table(dirname(data_files$DEM))
 
 # change filenames to snake case
 new_fns <- lapply(old_fns, basename)
 for (i in 1:length(new_fns)) {
-  new_fns[[i]] <- gsub(attr[i], attr_snake[i], new_fns[[i]])
+  new_fns[[i]] <- gsub(attr[use[i]], attr_snake[use[i]], new_fns[[i]])
 }
+new_fns <- lapply(new_fns, as_tibble)
+new_fns <- lapply(new_fns, function(x) {
+  x$basin_id <- as.numeric(gsub("\\D", "", x$value))
+  return(x)
+})
+```
 
+Now we have two tibbles, both with a column called basin_id that should match up to each other.
+
+```{r}
 if (output_style == "basin-files") {
-  new_path <- gsub("basin.*$", "", fn_order)
-  new_path <- gsub("^.*/in", paste0(gsub("/tempDir.*$", "", params$output_dir), "/covars"), new_path)
+  fn_order$new_path <- dirname(fn_order$old_path)
+  fn_order$new_path <- gsub("^.*/in", paste0(gsub("/tempDir.*$", "", params$output_dir), "/covariates"), fn_order$new_path)
   
-  lapply(new_path, dir.create, recursive = TRUE, showWarnings = FALSE)
+  res <- lapply(fn_order$new_path, dir.create, recursive = TRUE, showWarnings = FALSE)
   
-  for (i in 1:length(new_fns)) {
-    new_fns[[i]] <- paste0(new_path, new_fns[[i]])
-  }
-  
-  mapply(file.copy, old_fns, new_fns)
+  joined <- lapply(new_fns, left_join, y = fn_order, by = "basin_id")
+  joined <- lapply(joined, function(x) {
+    x$new <- unite(x, 'new', all_of(c("new_path", "value")), sep = "/", remove = FALSE)
+  })
+
+  res <- mapply(function(x, y) {
+                  file.copy(x, y$new)
+                }, 
+                old_fns, 
+                joined)
   
 } else if (output_style == "verbose-filenames") {
-  new_prefix <- gsub("/basin.*$", "", fn_order)
-  new_prefix <- gsub("^.*/in", "D:/Google Drive/DataFiles/covars-verbose", new_prefix)
-  
-  for (i in 1:length(new_fns)) {
-    new_fns[[i]] <- gsub(attr[i], attr_snake[i], new_fns[[i]])
-  }
-  
-  lapply(new_path, dir.create, recursive = TRUE, showWarnings = FALSE)
-  
-  for (i in 1:length(new_fns)) {
-    new_fns[[i]] <- paste0(new_path, new_fns[[i]])
-  }
-  
-  mapply(file.copy, old_fns, new_fns)
   
 } else if (output_style == "basin-subbasin") {
-  new_prefix <- gsub("/basin.*$", "", fn_order)
-  new_prefix <- gsub("^.*/in", "D:/Google Drive/DataFiles/covars", new_prefix)
 }
+```
+
+Now, to convert, we just run these two lines of code:
+
+```{r}
+convert <- list.files("D:/Google Drive/DataFiles/covariates", ".flt$", recursive = TRUE, full.names = TRUE)
+lapply(convert, flt_to_tif, rm_old = TRUE)
 ```
