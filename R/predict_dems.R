@@ -196,3 +196,91 @@ make_quadratic_features <- function(data,
 
   return(data)
 }
+
+#' Flt to Tif file conversion
+#'
+#' This is a helpful tool for converting between flt (ArcGIS raster files) and
+#' GTiff files. The FORTRAN executables included in the TerrainWorks R packages
+#' currently use .flt files, but .tif files are generally a better format for
+#' storage, since they support compression.
+#'
+#' This function offers an option to delete the .flt files, once it has been
+#' converted. This option is included for space efficiency, if working with
+#' large amounts of data.
+#'
+#' @param path Path of the file to convert
+#' @param new_path The path to of where to write the file. The directory must
+#'                 exist already. The default is a file of the same name as the
+#'                 original file.
+#' @param rm_old Whether to delete the .flt (and associated) files.
+#' @param quiet Whether to report the time spent reading + writing files.
+#'
+#' @export
+flt_to_tif <- function(path,
+                       new_path = paste0(gsub("\\..*", "", path), ".tif"),
+                       rm_old = FALSE,
+                       quiet = TRUE) {
+  tic()
+
+  # read in raster
+  raster <- terra::rast(path)
+  terra::writeRaster(raster,
+                     new_path,
+                     filetype = "GTiff",
+                     overwrite = TRUE)
+
+  # delete files associated with the old .flt file
+  if (rm_old) {
+    delete <- list.files(dirname(path),
+                         gsub("\\..*", "", basename(path)),
+                         full.names = TRUE)
+    delete <- delete[!endsWith(delete, suffix = ".tif")]
+    file.remove(delete)
+  }
+
+  toc(quiet = quiet)
+}
+
+#' Tif to flt file conversion
+#'
+#' This is a helpful tool for converting between Flt (ArcGIS raster files) and
+#' GTiff files. The FORTRAN executables included in the TerrainWorks R packages
+#' currently use .flt files, but .tif files are generally a better format for
+#' storage, since they support compression.
+#'
+#' This function offers an option to delete the .tif file, once it has been
+#' converted. This option is included for space efficiency, if working with
+#' large amounts of data.
+#'
+#' @param path Path of the file to convert
+#' @param new_path The path to of where to write the file. The directory must
+#'                 exist already. The default is a file of the same name as the
+#'                 original file.
+#' @param rm_old Whether to delete the .tif (and associated) files.
+#' @param quiet Whether to report the time spent reading + writing files.
+#'
+#' @export
+tif_to_flt <- function(path,
+                       new_path = paste0(gsub("\\..*", "", path), ".hdr"),
+                       rm_old = FALSE,
+                       quiet = TRUE) {
+  tic()
+
+  # read in raster
+  raster <- terra::rast(path)
+  terra::writeRaster(raster,
+                     new_path,
+                     filetype = "Ehdr",
+                     overwrite = TRUE)
+
+  # delete files associated with the old .flt file
+  if (rm_old) {
+    delete <- list.files(dirname(path),
+                         gsub("\\..*", "", basename(path)),
+                         full.names = TRUE)
+    delete <- delete[!endsWith(delete, suffix = ".tif")]
+    file.remove(delete)
+  }
+
+  toc(quiet = quiet)
+}
