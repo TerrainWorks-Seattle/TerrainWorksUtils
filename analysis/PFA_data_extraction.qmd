@@ -872,33 +872,58 @@ All as .flt files. Next up will be to write code to convert the .flt files into 
 ```{r}
 attr <- c("accumMax", "distTo", "gradient", "meancurv", "pca_48", "profcurv", "tancurv")
 attr_snake <- c("accum_max", "dist_to", "gradient", "mean_curv", "pca_48", "prof_curv", "tan_curv")
-attr_regex <- paste0("^", attr, ".*\\.flt$")
+attr_regex <- paste0("^", attr, ".*\\..*$")
 
-
+# find the files in the output directory
 old_fns <- sapply(attr_regex, list.files, path = params$output_dir, recursive = TRUE, full.names = TRUE)
 names(old_fns) <- attr_snake
+
+# leave out dist_to for now, since we are missing a couple of files 
+old_fns <- old_fns[c(1, 3, 4, 5, 6, 7)]
 ```
 
 ```{r}
+# can be "basin-files", "verbose-filenames", or "basin-subbasin"
 output_style <- "basin-files"
 
+# get the order of the filenames from input_file.txt 
 fn_order <- data_files$DEM
 fn_table <- table(dirname(data_files$DEM))
 
+# change filenames to snake case
 new_fns <- lapply(old_fns, basename)
-for (i in 1:length(old_fns)) {
+for (i in 1:length(new_fns)) {
   new_fns[[i]] <- gsub(attr[i], attr_snake[i], new_fns[[i]])
 }
 
 if (output_style == "basin-files") {
-  new_prefix <- gsub("basin.*$", "", fn_order)
-  new_prefix <- gsub("^.*/in", paste0(gsub("/tempDir.*$", "", params$output_dir), "/covars"), new_prefix)
+  new_path <- gsub("basin.*$", "", fn_order)
+  new_path <- gsub("^.*/in", paste0(gsub("/tempDir.*$", "", params$output_dir), "/covars"), new_path)
   
+  lapply(new_path, dir.create, recursive = TRUE, showWarnings = FALSE)
   
+  for (i in 1:length(new_fns)) {
+    new_fns[[i]] <- paste0(new_path, new_fns[[i]])
+  }
+  
+  mapply(file.copy, old_fns, new_fns)
   
 } else if (output_style == "verbose-filenames") {
   new_prefix <- gsub("/basin.*$", "", fn_order)
-  new_prefix <- gsub("^.*/in", "D:/Google Drive/DataFiles/covars", new_prefix)
+  new_prefix <- gsub("^.*/in", "D:/Google Drive/DataFiles/covars-verbose", new_prefix)
+  
+  for (i in 1:length(new_fns)) {
+    new_fns[[i]] <- gsub(attr[i], attr_snake[i], new_fns[[i]])
+  }
+  
+  lapply(new_path, dir.create, recursive = TRUE, showWarnings = FALSE)
+  
+  for (i in 1:length(new_fns)) {
+    new_fns[[i]] <- paste0(new_path, new_fns[[i]])
+  }
+  
+  mapply(file.copy, old_fns, new_fns)
+  
 } else if (output_style == "basin-subbasin") {
   new_prefix <- gsub("/basin.*$", "", fn_order)
   new_prefix <- gsub("^.*/in", "D:/Google Drive/DataFiles/covars", new_prefix)
