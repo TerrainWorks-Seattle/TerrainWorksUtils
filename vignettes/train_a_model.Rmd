@@ -63,6 +63,11 @@ train_data <- as_tibble(data[!(is.na(data$dist_to_road)), 2:length(data)])
 train_data$geo <- as.factor(train_data$geo)
 train_data$class <- as.factor(train_data$class)
 
+ranges <- sapply(train_data, function(x) {
+            if(is.numeric(x)) {return(range(x))}
+            else (return(c(0, 0)))
+          })
+
 ```
 
 ## Feature manipulation
