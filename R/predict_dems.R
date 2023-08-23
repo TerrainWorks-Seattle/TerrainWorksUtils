@@ -16,22 +16,25 @@
 #' @return Nothing
 #' @export
 predict_multiple_dems <- function(model,
-                                  pred_dir,
-                                  basin_list,
-                                  ...,
-                                  out_dir = NULL) {
+                                  files_in,
+                                  output_dir,
+                                  output_labels,
+                                  ...) {
   params <- list(...)
 
-  if (is.null(out_dir)) {
-    out_dir <- paste0(dirname(pred_dir), "/predicting_output/")
-  }
+  # if (is.null(output_dir)) {
+  #   output_dir <- paste0(dirname(files_in[1, 1]), "/predicting_output/")
+  # }
 
-  mapply(predict_and_save,
-                paste0(pred_dir, basin_list),
-                paste0(out_dir, basin_list),
-                MoreArgs = list(...,
-                                model = model,
-                                transform = make_quadratic_features))
+  # print(as_tibble(t(files_in)))
+  # print(paste0(output_dir, "predictions_", (gsub("\\D", "", files_in$gradient))))
+
+  r <- mapply(predict_and_save,
+         as_tibble(t(files_in)),
+         paste0(output_dir, "predictions_", output_labels),
+         MoreArgs = list(...,
+                         model = model,
+                         transform = make_quadratic_features))
 
 }
 
@@ -56,47 +59,42 @@ predict_multiple_dems <- function(model,
 #' @importFrom tictoc tic toc
 #' @importFrom dplyr rename
 predict_and_save <- function(model,
-                             dir_in,
+                             files_in,
                              file_out,
                              ...,
                              mask_range = NULL,
                              scale_vals = NULL,
+                             ln_pca = TRUE,
                              transform = function(x) x,
-                             output = "tif",
-                             write_covars = TRUE) {
+                             file_type = "tif",
+                             write_covars = TRUE,
+                             quiet = FALSE) {
   params <- list(...)
-  # print(params)
 
+  # time keeper
   tic()
-  # read files into a raster
-  topo_files <- c(paste0("GRADIENT,", dir_in, "/gradient.flt"),
-                  paste0("MEAN CURVATURE,", dir_in, "/mean_curv.flt"))
-  # print(topo_files)
-  topo_rast <- elev_deriv(rasters = topo_files)
-  pca_file <- list.files(paste0(dir_in), "^pca.{1,8}\\.flt", full.names = TRUE)
-  pca_rast <- contributing_area(raster = pca_file)
 
-  # combine into one raster
-  rasters <- c(topo_rast, pca_rast)
-  names(rasters) <- c("gradient", "mean_curv", "pca")
+  r <- lapply(files_in, function(x) {return(terra::rast(x))})
+  rasters <- terra::rast(r)
 
+  # remove any trailing numbers, if needed
+  names(rasters) <- gsub("[^A-Za-z]*$","", names(rasters))
+
+  # apply the analysis region mask
   if (!is.null(mask_range)) {
     mask <- mask_by_range(rasters,
                           mask_range)
     rasters <- terra::mask(rasters, mask)
-    # plot(rasters)
   }
 
   # convert to a data frame
   input_data <- as_tibble(as.data.frame(rasters, xy = TRUE))
 
-
-  input_data$pca <- log(input_data$pca)
-  input_data <- rename(input_data, ln_pca_k1_48 = pca) # comment this out when i change the names used for training the model.
-
+  #transform data as needed
+  if (ln_pca & !is.null(input_data$pca)){
+    input_data$ln_pca <- log(input_data$pca)
+  }
   input_data <- transform(input_data)
-
-  # print(scale_vals)
 
   # center and scale the data
   if (!is.null(scale_vals)) {
@@ -114,57 +112,50 @@ predict_and_save <- function(model,
                            by = "row_ids",
                            multiple = "error")
 
-  # print(nrow(predictions))
   # assemble data for writing
   if (write_covars) {
     to_select <- c( "x", "y", "prob.pos", model$state$train_task$feature_names)
   } else {
     to_select <- c( "x", "y", "prob.pos")
   }
-  # to_select <- c( "x", "y", "row_ids", "prob.pos", model$state$train_task$feature_names)
   predictions <- predictions[to_select]
   dir.create((file_out), showWarnings = FALSE, recursive = TRUE)
 
-  if (output == "tif") {                            # write to a tif file
-    # if (!str_ends(file_out, fixed(".tif"))) {
-    #   file_out <- ".tif"
-    # }
+  # write files
+  if (file_type == "tif") {                            # write to a tif file
     predictions_rast <- terra::rast(predictions, type = "xyz")
-    # print(names(predictions_rast))
     if (write_covars) {
       file_out <- paste0(file_out, "/", names(predictions_rast), ".tif")
     } else {
       file_out <- paste0(file_out, "/predictions.tif")
     }
-    # print(file_out)
     terra::writeRaster(predictions_rast,
                        file_out,
                        filetype = "GTiff",
                        overwrite = params$overwrite)
-  } else if (output == "csv") {                     # write to a csv file
-    # if (!str_ends(file_out, fixed(".csv"))) {
-    #   file_out <- ".csv"
-    # }
-    # print(file_out)
-    write_csv(predictions,
-              paste0(file_out, "predictions.csv"))
+  } else if (file_type == "csv") {                     # write to a csv file
+    file_out <- paste0(file_out, "/predictions.csv")
+    write_csv(predictions, file_out)
   } else {
-    stop(paste0("`output` must be a supported filetype.",
+    stop(paste0("`file_type` must be a supported filetype.",
                 "\nx currently `csv` and `tif` are supported."))
   }
 
-  print(paste0("Wrote file ", file_out))
+  if(!quiet) {
+    print(paste0("Wrote file ", file_out))
+  }
 
-  toc(quiet = FALSE)
-  # print(predictions)
+  toc(quiet = quiet)
   return(TRUE)
 
 }
 
 #' Make quadratic features
 #'
-#' This helper function adds quadratic features to add for training the model. TerrainWorks found that adding these features could improve model performance.
-#' Squared terms and interaction terms are added to the original data frame using using standardized column names.
+#' This helper function adds quadratic features to add for training the model.
+#' TerrainWorks found that adding these features could improve model performance.
+#' Squared terms and interaction terms are added to the original data frame
+#' using standardized column names.
 #'
 #' TODO: add handling for non-numeric features.
 #'
@@ -175,26 +166,37 @@ predict_and_save <- function(model,
 #' @export
 #'
 #' @importFrom combinat combn
-make_quadratic_features <- function(data,
+make_quadratic_features <- function(.data,
                                     ignore = c("x", "y", "row_ids")) {
 
+  # check for non numeric columns
+  nonnum <- names(select_if(.data, negate(is.numeric)))
+  if (!all(nonnum %in% ignore)) {
+    cols <-  nonnum[!(nonnum %in% ignore)]
+
+    msg <- paste0("column(s) `", paste0(cols, collapse = "`, `"),
+                  "` are non-numeric and are being ignored.")
+    ignore <- nonnum
+    warning(msg)
+  }
+
   # find combinations of features
-  use_these <- names(data)[!names(data) %in% ignore]
+  use_these <- names(.data)[!names(.data) %in% ignore]
   combos <- combn(use_these, 2)
 
   # add squared terms
   for (col in use_these) {
-    data[[paste0(col, "_sq")]] <- data[[col]] ^ 2
+    .data[[paste0(col, "_sq")]] <- .data[[col]] ^ 2
   }
 
   # add interaction terms
   for (col in 1:ncol(combos)) {
     combo <- combos[, col]
-    data[[paste0(combo[[1]], "_by_", combo[[2]])]] <-
-      data[[combo[[1]]]] * data[[combo[[2]]]]
+    .data[[paste0(combo[[1]], "_by_", combo[[2]])]] <-
+      .data[[combo[[1]]]] * .data[[combo[[2]]]]
   }
 
-  return(data)
+  return(.data)
 }
 
 #' Flt to Tif file conversion
