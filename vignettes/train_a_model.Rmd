@@ -85,7 +85,7 @@ train_data$ln_pca <- log(train_data$pca_k1_48)
 ```{r}
 
 training_cols <- c("x", "y", "class", 
-                   "gradient", "mean_curv", "total_accum", "ln_pca")
+                   "gradient", "mean_curv", "ln_pca")
 
 train_data <- train_data %>% 
                 select(all_of(training_cols)) %>%
