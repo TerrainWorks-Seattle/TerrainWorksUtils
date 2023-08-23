@@ -24,6 +24,9 @@ library(TerrainWorksUtils)
 
 library(data.table)
 library(tidyverse)
+library(mlr3)
+library(mlr3spatial)
+library(mlr3pipelines)
 ```
 
 # Training a Model
@@ -147,3 +150,8 @@ ls_model$model
 ## Next steps
 
 This is just the beginning of the machine learning workflow. You will likely want to compare different types of models, implement a cross-validation scheme, calculate performance metrics, etc. The mlr3 ecosystem offers many things that could help (check out mlr3spatiotempcv for cross-validation, mlr3resample and mlr3benchmark for comparison frameworks), but we will not go into any more specifics here. 
+
+```{r}
+
+```
+
