@@ -18,7 +18,7 @@
 predict_multiple_dems <- function(model,
                                   files_in,
                                   output_dir,
-                                  output_labels,
+                                  out_label,
                                   ...) {
   params <- list(...)
 
@@ -30,11 +30,11 @@ predict_multiple_dems <- function(model,
   # print(paste0(output_dir, "predictions_", (gsub("\\D", "", files_in$gradient))))
 
   r <- mapply(predict_and_save,
-         as_tibble(t(files_in)),
-         paste0(output_dir, "predictions_", output_labels),
-         MoreArgs = list(...,
-                         model = model,
-                         transform = make_quadratic_features))
+              files_in,
+              paste0(output_dir, out_label),
+              MoreArgs = list(...,
+                              model = model,
+                              transform = make_quadratic_features))
 
 }
 
@@ -58,6 +58,7 @@ predict_multiple_dems <- function(model,
 #'
 #' @importFrom tictoc tic toc
 #' @importFrom dplyr rename
+#' @importFrom purrr negate
 predict_and_save <- function(model,
                              files_in,
                              file_out,
@@ -125,16 +126,16 @@ predict_and_save <- function(model,
   if (file_type == "tif") {                            # write to a tif file
     predictions_rast <- terra::rast(predictions, type = "xyz")
     if (write_covars) {
-      file_out <- paste0(file_out, "/", names(predictions_rast), ".tif")
+      file_out <- paste0(file_out, "", names(predictions_rast), ".tif")
     } else {
-      file_out <- paste0(file_out, "/predictions.tif")
+      file_out <- paste0(file_out, "predictions.tif")
     }
     terra::writeRaster(predictions_rast,
                        file_out,
                        filetype = "GTiff",
                        overwrite = params$overwrite)
   } else if (file_type == "csv") {                     # write to a csv file
-    file_out <- paste0(file_out, "/predictions.csv")
+    file_out <- paste0(file_out, "predictions.csv")
     write_csv(predictions, file_out)
   } else {
     stop(paste0("`file_type` must be a supported filetype.",
