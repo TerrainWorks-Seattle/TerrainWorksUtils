@@ -2,6 +2,7 @@ library(TerrainWorksUtils)
 library(testthat)
 
 
+# For testing analysis region ------------------------------------------
 
 analysis_region <- terra::rast(system.file("ex/elev.tif", package = "terra"))
 analysis_region_mask <- terra::deepcopy(analysis_region)
@@ -27,3 +28,8 @@ vars_raster <- c(
   inverseelev_raster
 )
 names(vars_raster) <- c("elevation", "random", "inverse")
+
+# For testing model assessment -----------------------------------------
+
+# load(system.file("examples/model_output_gradcurvpca.Rdata", package = "TerrainWorksUtils"))
+

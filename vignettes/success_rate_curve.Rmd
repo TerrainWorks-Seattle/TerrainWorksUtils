@@ -1,0 +1,135 @@
+---
+title: "Assessing Models"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Assessing Models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+params: 
+  predictions: 
+    label: Predictions
+    value: D:/Google Drive/DataFiles/gr_mc_pca_quad_predictions/
+    input: text
+  training_data: 
+    label: Training Data
+    value: D:/Google Drive/DataFiles/gr_mc_pca_quad_predictions/train_probs.Rdata
+    input: text
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+```
+
+# Assessing Models
+
+TerrainWorks uses a few ways of assessing models specific to the problem of landslide susceptibility. 
+Some of these methods exist in the literature, such as the success rate curve, while some created by TerrainWorks. 
+
+We define 5 goals of a measure of model performance: 
+1. How well the sample of nonlandslide points characterizes the joint distributions of predictor values across the entire study area.
+2. How well the chosen model algorithm characterizes the distribution of landslide densities within the data space defined by the predictors.
+3. How well the choice of predictors resolves spatial variations in landslide density.
+4. How sensitive model results are to the predictor values, and
+5. Geomorphic plausability.
+
+## Training data, etc. 
+
+When assessing models, it is very important to carefully track what data is being used for what type of assessment; thiswill determine the limits on interpretation of any measure. 
+
+Typically, a data set is divided into training and testing data sets (often multiple times, in a cross-validation scheme). Data that the model has *never* seen during the training process can be used to assess predictive performance of a model. For spatiotemporal data sets (as is the case with landslide susceptibility modeling), this split is usually along some spatial or temporal division. Since the model is guaranteed to be applied to data that is outside the temporal scope of the training data, it is often a good idea to look at temporal splits. 
+
+For now, we are using a model that has been trained on all available landslide points, so we do not have any testing data set. 
+
+In the case of the success rate curve, the literature differentiates curves generating using training data and testing data. When using testing data, the curve is called a prediction rate curve. 
+
+```{r}
+load(params$training_data)
+train_probs <- as_tibble(as.data.frame(train_probs$prob[train_probs$truth == "pos", ]))
+train_probs <- train_probs %>% rename(prob.pos = pos)
+```
+
+
+## The Success Rate Curve
+
+> The “success-rate” curve was introduced by Chung and Fabbri (n.d.). To construct a success-rate curve, we rank DEM cells by the modeled probability that they contain a landslide initiation point. We then plot the proportion of mapped landslides versus the proportion of area, ranked by modeled probability.
+
+To generate the success rate curve, we need a list of data frames that contain the modeled probabilities for each DEM that we want to consider in our assessment. 
+
+The size of the study area, or which DEMs to include, should be carefully considered. as it will For instance, imagine if you included a completely flat portion of the study area, that had an appropriately low probability of landslide initiation. 
+
+For this example, we pull from a small directory of DEMs. 
+
+```{r}
+preds <- as_tibble(list.files(params$predictions, "predictions.tif", 
+                              full.names = TRUE,  recursive = TRUE))
+preds
+```
+
+See \code{vignette(predicting_new_data)} for details on using a trained model to create predicted probabilities for multiple DEMs. 
+
+The time-consuming part of this process is converting the rasters to data frames. 
+
+```{r}
+tic()
+pred_rast <- lapply(t(preds), terra::rast)
+pred_tbl <- lapply(lapply(pred_rast, as.data.frame, xy = TRUE), as_tibble)
+toc()
+```
+
+
+```{r}
+s <- success_rate_curve(train_probs, 
+                        preds = pred_tbl, 
+                        quiet = TRUE,
+                        plot = TRUE)
+s
+```
+
+```{r}
+p <- ggplot(s) +
+    geom_point(mapping = aes(x = area_prop, y = modeled_prop, color = prob),
+              size = 1) +
+    # geom_point(mapping = aes(x = area_prop, y = observed_prop),
+    #            color = "red", size = 1) +
+    geom_line(mapping = aes(x = area_prop, y = observed_prop, color = prob),
+              size = 1) +
+    labs(title = "Success rate curve",
+         x = "Proportion of area",
+         y = "Proportion of landslides") +
+    theme(legend.position = "right") + 
+    scale_color_continuous(name = "Probability", type = "viridis")
+plot(p)
+```
+
+
+This function automatically plots the success rate curve with gray lines which represent each individual DEM (it can be turned off by changing the `plot` argument to false). It also returns a data frame with the proportions of observed and modeled landslides at each probability, along with the proportion of total area at each probability. 
+With this information, we can plot the observed landslide curve against the modeled landslide success rate curve. 
+
+```{r}
+c <- calibration_bars(s,
+                      plot = TRUE)
+```
+
+
+
+
+## The Suislaw Basin
+
+[A map showing the basin and its predicted probabilities with one model, then another model.]
+
+## The Prediction Rate Curve
+
+Using the function to generate a prediction rate curve with predicted probabilities for the entire region. 
+
+## Combining curves
+
+Treat the Suislaw basin as two separate curves for this example. 
+
+## Including it in the workflow 

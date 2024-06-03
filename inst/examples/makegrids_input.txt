@@ -1,0 +1,8 @@
+# Input file for makeGrids
+# Creating by input_file_utils.R
+# On 2023-05-15 11:45:29
+DEM: \\Mac\Home\Documents\terrainworks\code\sandbox\data\downloaded_3.6\in\Siuslaw\basin_6
+SCRATCH DIRECTORY: \\Mac\Home\Documents\terrainworks\code\sandbox\data\predicting_input\Siuslaw\basin_6
+LENGTH SCALE: 15
+GRID: GRADIENT, OUTPUT FILE = //Mac/Home/Documents/terrainworks/code/sandbox/data/predicting_input/Siuslaw/basin_6/gradient
+GRID: MEAN CURVATURE, OUTPUT FILE = //Mac/Home/Documents/terrainworks/code/sandbox/data/predicting_input/Siuslaw/basin_6/mean_curv

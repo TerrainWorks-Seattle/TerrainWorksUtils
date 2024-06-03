@@ -658,3 +658,55 @@ DEV_input <- function(dem,
 }
 
 #---------------------------------------------------------
+#' Create an input file for Fortran program resample
+#'
+#' Resample downsamples a raster using increments of the raster pixel size.
+#' It uses no interpolation; output pixel corner locations match input pixel corners,
+#' the pixels are just bigger. Resample is primarily used to downsample a DEM,
+#' in which case instead of pixel corners, we're dealing with grid points or cells.
+#' @param in_raster Character string
+#' @param skip integer, number of cells to skip.
+#' @param out_raster Character string, resampled input raster
+#' @param scratch_dir Character string: Directory for temporary files.
+#'   The input file is written to the scratch_dir.
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk (in the scratch_dir) of the input file.
+#' @export
+#'
+resample_input <- function(in_raster, skip, out_raster, scratch_dir) {
+
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+
+  # Normalize paths
+  dem <- normalizePath(in_raster)
+  scratch_dir <- normalizePath(scratch_dir)
+  suppressWarnings(out_raster <- normalizePath(out_raster))
+
+  out_file <- paste0(scratch_dir, "\\input_resample.txt")
+  if (str_detect(dem, ".flt$") == TRUE) {
+    n <- str_length(dem)
+    dem <- str_sub(dem, 1, n[[1]]-4)
+  }
+
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+
+  write_input("# Input file for program resample\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+
+  write_input("INPUT RASTER: ", in_raster)
+  write_input("OUTPUT RASTER: ", out_raster)
+  write_input("SKIP: ", skip)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+}

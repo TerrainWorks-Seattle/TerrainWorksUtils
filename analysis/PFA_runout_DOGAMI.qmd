@@ -22,16 +22,7 @@ format:
 #    keeptex: true
 #    include-in-header: 
 #      text: |
-#        \usepackage{booktabs}
-#        \usepackage{siunitx}
-#        \newcolumntype{d}{S[
-#            input-open-uncertainty=,
-#            input-close-uncertainty=,
-#            parse-numbers = false,
-#            table-align-text-pre=false,
-#            table-align-text-post=false
-#         ]}
-date: June 5, 2023
+date: May 18, 2023
 editor: visual
 number-sections: true
 params:
@@ -455,7 +446,7 @@ We had two datasets to work with, the field-based landslide inventory from the O
 
 The 1996 Storm study included 6 study areas following the February 1996 storm and two following the November 1996 storm. Three of the sites following the February storm, Mapleton, Tillamook, and Vida, were chosen for more detailed surveys because of the high density of landslides at these locations.
 
-![](images/1996_Storm_Study_Sites.png){#fig-DataLocations fig-align="center" width="6in"}
+![Site locations for the ODF 1996 Storm Study and DOGAMI Special Paper 53 debris-flow inventory.](images/1996_Storm_Study_Sites.png){#fig-DataLocations fig-align="center" width="6in"}
 
 Surveys at these three areas including detailed mapping of channel impacts associated with the storm. Being field based, these surveys were able to distinguish four types of debris-flow-runout behavior: 1) a scoured debris path, along unchannelized topography or within channels greater than 40% gradient, 2) channelized flow with scour, 3) channelized flow with deposition, and 4) transitional channelized flow with no net scour or deposition. At these sites, all channels with gradients up to 40% were surveyed and storm impacts were categorized as high, medium, or low and recorded at \~150-foot increments [@robison1999]. High impacts were associated with "debris torrents" and impacts in these channels were further categorized as scour, deposit, transitional, or debris jam. Although "debris torrent" and "debris flow" are not synonymous, we used this mapping to calibrate a logistic regression model for the probability of debris-flow scour or deposition.
 

@@ -1,0 +1,157 @@
+---
+title: "Train a model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Predicting New Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+params: 
+  training_data: 
+    label: Training Data
+    value: D:/Google Drive/DataFiles/train_data/
+    input: text
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(TerrainWorksUtils)
+
+library(data.table)
+library(tidyverse)
+library(mlr3)
+library(mlr3spatial)
+library(mlr3pipelines)
+```
+
+# Training a Model
+
+This package does not include many tools for building a model, since the mlr3 ecosystem is already pretty nimble and easy-to-use. This vignette lays out a few of those steps, and shows a few useful ways of using mlr3 for this specific modeling purpose. 
+
+## Training data
+
+See vignette("create_training_data.Rmd") for details. 
+
+First, we need to find and load our training data. 
+
+```{r}
+files <- list.files(path = params$training_data, 
+                    pattern = ".Rdata$", 
+                    full.names = TRUE)
+for (f in files) {load(f)}
+```
+
+This training data happens to come in separate data frames for the positive/negative points, and the different years, so it requires a bit of preprocessing to create the big data frame we want. Your data might not require this. 
+
+```{r}
+# fix an issue with the geo input
+ls_2011$geo <- ls_2011$geo$GeoClass
+ls_2007$geo <- ls_2007$geo$GeoClass
+
+# concatenate into one data frame
+data <- rbind(transform(ls_1996, year = "1996"),
+                    transform(ls_2007, year = "2007"),
+                    transform(ls_2011, year = "2011"),
+                    transform(nonls_1996, year = "1996"),
+                    transform(nonls_2007, year = "2007"),
+                    transform(nonls_2011, year = "2011"))
+
+# remove NA's and factorize some variables
+train_data <- as_tibble(data[!(is.na(data$dist_to_road)), 2:length(data)])
+train_data$geo <- as.factor(train_data$geo)
+train_data$class <- as.factor(train_data$class)
+
+ranges <- sapply(train_data, function(x) {
+            if(is.numeric(x)) {return(range(x))}
+            else (return(c(0, 0)))
+          })
+
+```
+
+## Feature manipulation
+
+Machine learning models often perform slightly better when we augment the data in certain ways. We found that our landslide model generally improves when we added quadratic features (e.g., gradient^2) and interaction terms (e.g., gradient * pca). 
+
+The LSutils package includes a helpful function for doing this - make_quadratic_features - which is pipe-friendly and operates pretty fast. 
+
+It is important that you carefully track what you do to your data before training the model - all of these steps will need to be implemented on any new data that you use for predicting. 
+
+```{r}
+train_data$ln_pca <- log(train_data$pca_k1_48)
+```
+
+```{r}
+
+training_cols <- c("x", "y", "class", 
+                   "gradient", "mean_curv", "ln_pca")
+
+train_data <- train_data %>% 
+                select(all_of(training_cols)) %>%
+                make_quadratic_features(ignore = c("x", "y", "class"))
+train_data
+```
+
+## Defining the task 
+
+Mlr3 uses tasks to describe the target of a machine learning problem. 
+Since our problem is landslide susceptibility and we are using spatiotemporal data, we use the method as_task_classif_st() to define a spatiotemporal classification problem. 
+
+
+```{r}
+ls_task <- as_task_classif_st(
+  x = train_data, 
+  id = "landslide_initiation",
+  target = "class", 
+  positive = "pos", 
+  coordinate_names = c("x", "y"), 
+  crs = "epsg:26910"
+)
+ls_task
+```
+
+The last thing to do before training the model is scaling and centering the data. This is a step that is easily built into mlr3, so we can do it nicely before the task.
+
+```{r}
+# seed for repeatability
+set.seed(12345)
+
+# create a pipeline for data preprocessing
+scaler <- 
+  po("scale") %>>% 
+  po("encode") 
+scaler$train((ls_task))
+
+# save the scaling information for later
+scale_vals <- t(tibble(center_vals = scaler$pipeops$scale$state$center, 
+                       scale_vals = scaler$pipeops$scale$state$scale))
+colnames(scale_vals) <- ls_task$feature_names
+
+# scale the data
+scaled <- scaler$predict(ls_task)$encode.output
+```
+
+## Train the model
+
+Now that our data is ready, the model can be created and trained in just a few lines of code. 
+
+```{r}
+ls_model <- lrn("classif.log_reg", 
+            predict_type = "prob")
+
+ls_model$train(scaled)
+ls_model$model
+```
+
+## Next steps
+
+This is just the beginning of the machine learning workflow. You will likely want to compare different types of models, implement a cross-validation scheme, calculate performance metrics, etc. The mlr3 ecosystem offers many things that could help (check out mlr3spatiotempcv for cross-validation, mlr3resample and mlr3benchmark for comparison frameworks), but we will not go into any more specifics here. 
+
+```{r}
+
+```
+

@@ -99,6 +99,17 @@ extract_range <- function(raster,
 #'
 mask_by_range <- function(raster,
                           range_mx) {
+
+  # check parameters
+  if (!all(names(range_mx) %in% names(raster))) {
+    cols <-  names(range_mx)[!(names(range_mx) %in% names(raster))]
+
+    msg <- ("all ranges given must correspond to a column in `raster`.")
+    msg <- paste0(msg, "\nx column(s) `", paste0(cols, collapse = "`, `"),
+                  "` are not found in `raster`.")
+    stop(msg)
+  }
+
   rep <- 1
 
   for (var_name in rownames(range_mx)) {
