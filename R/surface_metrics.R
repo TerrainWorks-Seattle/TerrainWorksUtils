@@ -31,6 +31,7 @@
 #'     \item PROFILE CURVATURE
 #'     \item NORMAL SLOPE CURVATURE
 #'     \item TANGENTIAL CURVATURE
+#'     \item MEAN CURVATURE (Normal + Tangential)*0.5
 #'   }
 #' @param length_scale: A numeric (dbl) value specifying the diameter
 #'   in meters over which to measure the requested derivatives. Used for
@@ -893,7 +894,7 @@ PFA_debris_flow <- function(dem = 'none',
 #'   files are written. If an input file for program partial is created,
 #'   it is written here.
 #'
-#' @return A \code{SpatRaster} of distance to the closest road for each DEM grid point.
+#' @return A \code{SpatRaster} of DEV values.
 #'
 #' @export
 #'
@@ -997,7 +998,7 @@ DEV <- function(input_file = "nofile",
     # Get the location of the Fortran compiled code for makegrids.exe
     executable_path <- get_executable_path()
 
-    localRelief <- file.path(executable_path, "LocalRelief.exe")
+    localRelief <- file.path(executable_path, "DEV.exe")
     command <- paste0(localRelief, " ", input_file)
     output <- system(command, wait = TRUE)
     if (output != 0) {
@@ -1007,6 +1008,65 @@ DEV <- function(input_file = "nofile",
   # Create a spatraster with one layer for each output grid
   out_grid <- rast(raster)
   return(out_grid)
+}
+
+#---------------------------------------------------------
+#' Resample
+#'
+#' Read an input DEM (.flt or .tif) and output a DEM of lower resolution.
+#'
+#' Resample operates as a wrapper for program resample.
+#'
+#' @param in_raster Character string: the DEM to be down sampled
+#' @param skip Integer, the output cell length is skip * input cell length.
+#' So if the input DEM has cell size 1m and skip is 2, the output DEM
+#' has cell size 2m. If skip is 5, the output DEM has cellsize 5m.
+#' @param out_raster The output DEM, written as a .flt file.
+#' @param scratch_dir Character string: A scratch directory where temporary
+#'   files are written. If an input file for program partial is created,
+#'   it is written here.
+#'
+#' @return A .flt raster written to disk.
+#'
+#' @export
+#'
+resample <- function(in_raster = "nofile",
+                skip = 0,
+                out_raster = 'none',
+                scratch_dir = "none") {
+
+  err = 0
+
+  if (!file.exists(in_raster)) {
+        print("Input raster does not exist")
+        err <- -1
+      }
+
+  if (skip == 0.) {
+    print("skip value not specified")
+    err <- -1
+  }
+
+  if (err < 0) {
+    stop("Error with input arguments")
+  }
+
+  resample_input(in_raster,
+                skip,
+                out_raster,
+                scratch_dir)
+
+  input_file <- paste0(scratch_dir, "\\input_resample.txt")
+
+  # Get the location of the Fortran compiled code for makegrids.exe
+  executable_path <- get_executable_path()
+
+  resample <- file.path(executable_path, "resample.exe")
+  command <- paste0(resample, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    stop("Problem resampling")
+  }
 }
 
 #---------------------------------------------------------
