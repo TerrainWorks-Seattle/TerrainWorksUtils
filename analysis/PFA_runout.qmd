@@ -200,6 +200,7 @@ runData <- as.data.frame(runout)
 summary(runData)
 # exclude site
 runData <- subset(runData, select = -site)
+runData <- subset(runData, select = -Accum_km2)
 run <- as_task_classif(runData,
                        target = "Track_Type",
                        id = "tracks")
