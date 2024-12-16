@@ -5,7 +5,8 @@ Version: 0.1.3
 Authors@R: 
     c(
         person("Helen", "Miller", email = "helenthehuman@gmail.com", role = c("aut", "cre")), 
-        person("Tate", "Brasel", role = "aut")
+        person("Tate", "Brasel", role = "aut"),
+        person("Julia", "Lober", email = "julia.lober@outlook.com", role = "aut")
      )
 Description: TerrainWorks resources for creating and assessing statistical models for predicting landslide susceptibility.
 License: MIT + file LICENSE
@@ -16,7 +17,11 @@ Imports:
   randomForest,
   ROCR,
   stats,
-  terra (>= 1.5)
+  terra (>= 1.5),
+  tibble,
+  tictoc,
+  dplyr,
+  data.table
 RoxygenNote: 7.2.3
 Suggests: 
     knitr,

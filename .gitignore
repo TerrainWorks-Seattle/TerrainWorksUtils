@@ -78,48 +78,7 @@ analysis/PFA_data_extraction_files/figure-html/
 >>>>>>> Stashed changes
 
 analysis/prcomp_training_data.qmd
-
-analysis/Apendix.zip
-
-analysis/Criteria_Appendix.zip
-
-analysis/Criteria_ISPR.zip
-
-analysis/Criteria_ISPR.docx
-
-analysis/Criteria_ISPR_files/figure-html/2Dplots-1.png
-
-analysis/Criteria_ISPR_files/figure-html/byGrad-1.png
-
-analysis/Criteria_ISPR_files/figure-html/curv_PCA-1.png
-
-analysis/Criteria_ISPR_files/figure-html/density-1.png
-
-analysis/Criteria_ISPR_files/figure-html/
-
-analysis/PFA_initiation_DOGAMI_files/figure-html/
-
-analysis/images/PropDeliv.jpg
-
-analysis/images/prop_3_200.jpg
-
-analysis/images/Layout4.jpg
-
-TerrainWorksUtils.Rproj
-
-analysis/images/init_fit3_200.jpg
-
-analysis/PFA_runout_DOGAMI.docx
-
-analysis/PFA_data_extraction.qmd
-
-analysis/PFA_initiation_take_a_look.qmd
-
-analysis/images/PCA_6.tif
-
-analysis/Criteria_ISPR.qmd
-
-analysis/~$iteria_ISPR.docx
+<<<<<<< HEAD
 
 analysis/PFA_runout_DOGAMI.docx
 
@@ -233,12 +192,50 @@ analysis/Criteria_ISPR_files/figure-html/unnamed-chunk-19-1.png
 
 analysis/Criteria_ISPR.qmd
 
-*.Rmd
+analysis/runoutDocumentation.zip
+=======
 
-*.png
+analysis/Apendix.zip
 
-inst/examples/
+analysis/Criteria_Appendix.zip
 
-*.txt
+analysis/Criteria_ISPR.zip
 
-*.Rdata
+analysis/Criteria_ISPR.docx
+
+analysis/Criteria_ISPR_files/figure-html/2Dplots-1.png
+
+analysis/Criteria_ISPR_files/figure-html/byGrad-1.png
+
+analysis/Criteria_ISPR_files/figure-html/curv_PCA-1.png
+
+analysis/Criteria_ISPR_files/figure-html/density-1.png
+
+analysis/Criteria_ISPR_files/figure-html/
+
+analysis/PFA_initiation_DOGAMI_files/figure-html/
+
+analysis/images/PropDeliv.jpg
+
+analysis/images/prop_3_200.jpg
+
+analysis/images/Layout4.jpg
+
+TerrainWorksUtils.Rproj
+
+analysis/images/init_fit3_200.jpg
+
+analysis/PFA_runout_DOGAMI.docx
+
+analysis/PFA_data_extraction.qmd
+
+analysis/PFA_initiation_take_a_look.qmd
+
+analysis/images/PCA_6.tif
+
+analysis/Criteria_ISPR.qmd
+
+analysis/~$iteria_ISPR.docx
+
+analysis/runoutDocumentation.zip
+>>>>>>> main

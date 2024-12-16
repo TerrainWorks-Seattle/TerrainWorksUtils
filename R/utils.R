@@ -1,5 +1,3 @@
-
-
 log_err <- function(...) {
   stop(sprintf("[%s] %s\n", Sys.time(), paste0(..., collapse = "")))
 }
@@ -160,8 +158,6 @@ alignRasters <- function(referenceRaster = NULL, inputRasters = NULL) {
 #' @param points A \code{SpatVector} object of points.
 #'
 #' @return A \code{data.frame} of values.
-#'
-#'
 #'
 ##'
 extractRasterValues <- function(raster = NULL,

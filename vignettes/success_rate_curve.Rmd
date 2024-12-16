@@ -5,6 +5,15 @@ vignette: >
   %\VignetteIndexEntry{Assessing Models}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+params: 
+  predictions: 
+    label: Predictions
+    value: D:/Google Drive/DataFiles/gr_mc_pca_quad_predictions/
+    input: text
+  training_data: 
+    label: Training Data
+    value: D:/Google Drive/DataFiles/gr_mc_pca_quad_predictions/train_probs.Rdata
+    input: text
 ---
 
 ```{r, include = FALSE}
@@ -41,8 +50,9 @@ For now, we are using a model that has been trained on all available landslide p
 In the case of the success rate curve, the literature differentiates curves generating using training data and testing data. When using testing data, the curve is called a prediction rate curve. 
 
 ```{r}
-
-land_pred <- as_tibble(as.data.table(ls_model$predict_newdata(train_data)))
+load(params$training_data)
+train_probs <- as_tibble(as.data.frame(train_probs$prob[train_probs$truth == "pos", ]))
+train_probs <- train_probs %>% rename(prob.pos = pos)
 ```
 
 
@@ -54,84 +64,57 @@ To generate the success rate curve, we need a list of data frames that contain t
 
 The size of the study area, or which DEMs to include, should be carefully considered. as it will For instance, imagine if you included a completely flat portion of the study area, that had an appropriately low probability of landslide initiation. 
 
-For this example, we pull from a small directory of DEMs. This should not be considered a 
+For this example, we pull from a small directory of DEMs. 
 
 ```{r}
-
-pred_dir <- "/Users/julialober/Documents/terrainworks/code/sandbox/data/pred_output_rast/"
-
-dems <- list.files(pred_dir, full.names = TRUE,  recursive = TRUE)
-dems
-
+preds <- as_tibble(list.files(params$predictions, "predictions.tif", 
+                              full.names = TRUE,  recursive = TRUE))
+preds
 ```
 
-Each csv file should have one row per cell of the DEM, with (x, y) columns, a prob.pos column, and all columns that are needed for inputting into the model. An example of one of these data frames is shown below. 
+See \code{vignette(predicting_new_data)} for details on using a trained model to create predicted probabilities for multiple DEMs. 
 
-Files like this can be created using functions included in this package, see \code{vignette(predicting_new_data)}. 
+The time-consuming part of this process is converting the rasters to data frames. 
 
 ```{r}
 tic()
-as_tibble(fread(dems[1]))
+pred_rast <- lapply(t(preds), terra::rast)
+pred_tbl <- lapply(lapply(pred_rast, as.data.frame, xy = TRUE), as_tibble)
 toc()
 ```
 
-Now, we give the \code{srcurve} function a data frame of the landslide predicted 
-
-
-Testing improvements with parallelization: using parallel
-```{r}
-test <- dems[21:40]
-
-tic()
-dem_tibbles <- lapply(test, fread)
-toc()
-
-# tic()
-# dem_tibbles <- mclapply(test, read.csv, mc.cores = parallel::detectCores() / 2)
-# toc()
-
-# tic()
-# cl <- makeCluster(detectCores() / 2)
-# dem_tibbles <- parLapply(cl, test, fread)
-# stopCluster(cl)
-# toc()
-
-
-# tic()
-# registerDoMC(cores = 4)
-# dem_tibbles <- foreach(dem = dems) %dopar% {
-#   read.csv(dem)
-# }
-# toc()
-
-
-```
-
-
-The time-consuming part of this process is reading the .csv files. A planned expansion of this project is to allow a list of data frames in lieu of a list of files names, to accommodate different workflows and potential streamlining. 
 
 ```{r}
-
-if (!exists("dem_tibbles") | length(dem_tibbles) != length(dems)) {
-  dem_tibbles <- lapply(lapply(dems, read.csv), tibble)
-}
-
-s <- success_rate_curve(land_pred, 
-                        dem_list = dem_tibbles, 
-                        quiet = TRUE)
-
-```
-```{r}
+s <- success_rate_curve(train_probs, 
+                        preds = pred_tbl, 
+                        quiet = TRUE,
+                        plot = TRUE)
 s
 ```
+
+```{r}
+p <- ggplot(s) +
+    geom_point(mapping = aes(x = area_prop, y = modeled_prop, color = prob),
+              size = 1) +
+    # geom_point(mapping = aes(x = area_prop, y = observed_prop),
+    #            color = "red", size = 1) +
+    geom_line(mapping = aes(x = area_prop, y = observed_prop, color = prob),
+              size = 1) +
+    labs(title = "Success rate curve",
+         x = "Proportion of area",
+         y = "Proportion of landslides") +
+    theme(legend.position = "right") + 
+    scale_color_continuous(name = "Probability", type = "viridis")
+plot(p)
+```
+
 
 This function automatically plots the success rate curve with gray lines which represent each individual DEM (it can be turned off by changing the `plot` argument to false). It also returns a data frame with the proportions of observed and modeled landslides at each probability, along with the proportion of total area at each probability. 
 With this information, we can plot the observed landslide curve against the modeled landslide success rate curve. 
 
 ```{r}
-ggplot(data = s) + 
-  geom_line(aes(x = area_prop, y = observed_prop), color = "red") + 
-  geom_line(aes(x = area_prop, y = modeled_prop))
+c <- calibration_bars(s,
+                      plot = TRUE)
 ```
 
 

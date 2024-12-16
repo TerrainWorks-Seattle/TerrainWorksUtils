@@ -46,11 +46,17 @@ calculate_proportions <- function(data,
 
   # get the data ready
   props <- as.data.table(data[c(prob_col)])
+  # print(head(props))
+
   names(props) <- c("prob")
 
   # sort by probability and combine cells with equal probabilities
   setorder(props, -"prob")
+  # print(head(props))
+
   props <- props[, .N, by = prob]
+
+  # print(head(props))
 
   # calculate the cumulative sums of area and probabilities
   props$prob_cumul <- cumsum(props$prob * props$N)
@@ -307,12 +313,12 @@ success_rate_auc <- function(curve,
 #'
 #' @return A data frame with the success rate curve and the modeled probability curve.
 #' @export
-success_rate_curve <- function(landslides,
-                     dem_list,
-                     plot = TRUE,
-                     prob_col = "prob.pos",
-                     bins = NULL,
-                     quiet = TRUE) {
+success_rate_curve <- function(obs,
+                               modeled,
+                               plot = TRUE,
+                               prob_col = "prob.pos",
+                               bins = NULL,
+                               quiet = TRUE) {
 
 
   #### OR ####
@@ -366,8 +372,9 @@ success_rate_curve <- function(landslides,
   )
 
   tic()
-  curve_obs <- calculate_proportions(landslides, bins = b)
-  output$observed_prop <- curve_obs$area_prop
+  # print(obs)
+  props_obs <- calculate_proportions(obs, bins = b)
+  output$observed_prop <- props_obs$area_prop
   t <- toc(quiet = TRUE)
 
   if (!quiet) {
@@ -384,13 +391,13 @@ success_rate_curve <- function(landslides,
   # print(dem_tibbles)
   # print("Calculating proportions on predictions")
 
-  if (!is.data.frame(dem_list[[1]])) {
-    dem_tibbles <- lapply(lapply(dems, read.csv), tibble)
-  }
+  # if (!is.data.frame(preds[[1]])) {
+  #   dem_tibbles <- lapply(lapply(dems, read.csv), tibble)
+  # }
 
 
   tic()
-  curve_dems <- lapply(dem_list, calculate_proportions, bins = b)
+  props <- lapply(modeled, calculate_proportions, bins = b)
   t <- toc(quiet = TRUE)
 
   if (!quiet) {
@@ -406,13 +413,81 @@ success_rate_curve <- function(landslides,
   #   curve_dems <- append(curve_dems, calculate_proportions(dem_pred, bins = b))
   #   # calculate_proportions(dem_pred, bins = b)
   # }
-  curve_comb <- combine_proportions(curve_dems, plot = plot)
+  props_comb <- combine_proportions(props)
 
-  output$modeled_prop <- curve_comb$prob_prop
-  output$area_prop <- curve_comb$area_prop
+  output$modeled_prop <- props_comb$prob_prop
+  output$area_prop <- props_comb$area_prop
+
+  p <- ggplot(output) +
+    geom_line(mapping = aes(x = area_prop, y = modeled_prop, color = "Modeled"),
+              size = 2) +
+    # geom_point(mapping = aes(x = area_prop, y = observed_prop),
+    #            color = "red", size = 1) +
+    geom_line(mapping = aes(x = area_prop, y = observed_prop, color = "Observed"),
+              size = 2) +
+    labs(title = "Success rate curve",
+         x = "Proportion of area",
+         y = "Proportion of landslides") +
+    theme(legend.position = "right") +
+    scale_color_manual(name = "", values = c("Modeled" = "black", "Observed" = "red"))
+
+
+  if (plot) {
+    plot(p)
+  }
 
   return(output)
 
 }
 
+calibration_bars <- function(data,
+                             plot = TRUE,
+                             prob_col = "prob.pos",
+                             bins = NULL,
+                             quiet = TRUE) {
+
+  # check parameters
+  need_these <- c("modeled_prop", "observed_prop", "prob", "area_prop")
+
+  if (!all(need_these %in% names(data))) {
+    cols <- need_these[!(need_these %in% names(data))]
+
+
+    msg <- paste0("column(s) `", paste0(cols, collapse = "`, `"),
+                  "` not found in `data`.")
+    stop(msg)
+  }
+
+  bins <- tibble(prob = seq(1, 0, length = 11))
+
+  # bars <- left_join(bins, data, join_by(closest(prob >= observed_prop)))
+  # bars <- distinct(bars, prob.x, .keep_all = TRUE)
+  bars <- left_join(bins, data, join_by(closest(prob >= prob)))
+  bars <- rename(bars, prob = prob.x)
+
+  # print(bars)
+
+
+  bars$modeled_d <- bars$modeled_prop - lead(bars$modeled_prop, n = 1)
+  bars$observed_d <- bars$observed_prop - lead(bars$observed_prop, n = 1)
+  # bars$area_d <- bars$area_d - lead(bars$area_d, n = 1)
+
+  # bars$expected_d <- rep(0.1, 11)
+  bars <- bars %>% mutate(expected_d = rep(0.1, 11)) %>%
+      mutate(modeled_err = (abs(modeled_d) - expected_d)) %>%
+      mutate(observed_err = (abs(observed_d) - expected_d))
+
+  # print(bars)
+
+  to_plot <- bars[1:10, ]
+  p <- ggplot(to_plot) +
+          geom_col(aes(x = (prob - .05), y = observed_err)) +
+          labs(x = "Modeled probability (10% bins)",
+               y = "Difference in number of observed landslides") +
+          scale_x_continuous(breaks = seq(0, 1, by = 0.1))
+
+  plot(p)
+
+
+}
 
