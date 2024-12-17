@@ -1,4 +1,3 @@
-#' @export
 #' @title Create Analysis Region Mask
 #'
 #' @description Create a mask of the same size and shape as \code{raster} with
@@ -18,7 +17,10 @@
 #' @param expansion_factor Factor to expand the range by. Default is 1, which
 #' indicates no expansion. 0.5 will reduce the range by 50%. 2 will double the
 #' range.
-#'
+#' 
+#' @importFrom terra subset
+#' @export
+#' 
 #' @return SpatRaster with NA values everywhere outside analysis region
 #' and 1 everywhere within the analysis region.
 #'
@@ -50,6 +52,7 @@ create_analysis_region_mask <- function(raster,
 #' @param extraction_locations A SpatVector of points or polyogons to extract range from.
 #' @param expansion_factor Factor to expand the range by. 1 indicates no expansion.
 #' 0.5 will reduce the range by 50\%. 2 will double the range.
+#' @importFrom terra extract
 #' @export
 #' @return A matrix that holds the min & max initiation limits of each raster layer
 #'
@@ -92,7 +95,7 @@ extract_range <- function(raster,
 #' @param range_mx A matrix with one row for each layer of the raster to
 #' use when calculating mask, and a column each for "min" and "max", indicating
 #' min and max allowable values. Rownames must match layer names in raster.
-#'
+#' @importFrom terra app
 #' @export
 #' @return A SpatRaster mask: Values are NA where values fall outside the
 #' range and 1 where values fall within the range.

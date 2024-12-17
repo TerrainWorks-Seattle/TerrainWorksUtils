@@ -28,7 +28,7 @@
 #' * [parse_arg()] extracts the parameter and value from a single argument.
 #'
 #' @import tibble
-#' @import stringr
+#' @importFrom stringr str_detect
 
 #' @export
 #'

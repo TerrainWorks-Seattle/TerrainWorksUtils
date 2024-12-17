@@ -1,4 +1,4 @@
-#' @export
+
 #'
 #' @title Calculate ROC Statistics
 #'
@@ -24,7 +24,10 @@
 #'
 #' rocStats <- calcRocStats(classes, probs, "POS", "NEG")
 #' }
+#' @importFrom ROCR prediction performance
+#' @importFrom methods slot
 #'
+#' @export
 calcRocStats <- function(classes = NULL,
                          probs = NULL,
                          posClass = NULL,
