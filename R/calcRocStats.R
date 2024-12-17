@@ -3,8 +3,7 @@
 #' @title Calculate ROC Statistics
 #'
 #' @description Calculates ROC statistics for a set of classes and their
-#' probabilities data
-#' and a wetland probability raster. ROC statistics include: ROC, area under ROC
+#' probabilities data. ROC statistics include: ROC, area under ROC
 #' curve (AUC), precision, accuracy.
 #'
 #' @param classes A character vector of classifications.
@@ -20,10 +19,10 @@
 #' library(TerrainWorksUtils)
 #'
 #' # Generate test data with a bit of class probability overlap
-#' classes <- c(rep("WET", 40), rep("UPL", 60))
+#' classes <- c(rep("POS", 40), rep("NEG", 60))
 #' probs <- c(runif(40, 0.4, 1.0), runif(60, 0.0, 0.6))
 #'
-#' rocStats <- calcRocStats(classes, probs, "WET", "UPL")
+#' rocStats <- calcRocStats(classes, probs, "POS", "NEG")
 #' }
 #'
 calcRocStats <- function(classes = NULL,
