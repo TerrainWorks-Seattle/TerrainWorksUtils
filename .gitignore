@@ -4,7 +4,6 @@
 .Ruserdata
 *.dll
 *.exe
-*.Rd
 *.DS_Store
 data-cache
 inst/doc
