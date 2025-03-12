@@ -1068,5 +1068,120 @@ resample <- function(in_raster = "nofile",
     stop("Problem resampling")
   }
 }
+#---------------------------------------------------------
+#' Align
+#'
+#' Coregister two DTMs.
+#'
+#' @param refDTM Character: The file name (full path) for the input 
+#' reference DTM.
+#' @param alignDTM Character: The file name (full path) for the input
+#' DTM to align with the reference DTM. 
+#' @param iterations Numeric (int): Number of iterations to solve for the shift
+#' @param outDTM Character: File name (full path) for the output aligned DTM
+#' @param tileNx (int): number of tiles in the x direction
+#' @param tilesNy (int): number of tiles in the y direction
+#' @param overlap (dbl): overlap between tiles
+#' @param radius (dbl): radius in meters for measuring slope and aspect
+#' @param dslope (dbl): gradient bin size
+#' @param maxSlope (dbl): maximum gradient for binning
+#' @param nAzimuth (int): number of azimuth bins
+#' @param outbins Character: output csv file of elevation differences
+#' binned by slope and aspect
+#' @param outDif Character: output elevation difference raster (.flt)
+#' @param scratch_dir Character string: A scratch directory where temporary
+#'   files are written. If an input file for program partial is created,
+#'   it is written here.
+#'
+#' @export
+#'
+align <- function(refDTM = "nofile",
+                  alignDTM = "nofile",
+                  iterations = 5,
+                  outDTM = "nofile",
+                  tileNx = 0,
+                  tileNy = 0,
+                  overlap = 0.5,
+                  radius = 15,
+                  dslope = 0.15,
+                  maxSlope = 1.05,
+                  nAzimuth = 8,
+                  outbins = "nofile",
+                  outDif = "nofile",
+                  scratch_dir = "none") {
+  
+  err = 0
+  
+  if (!file.exists(refDTM)) {
+    print("Input reference DTM does not exist")
+    err <- -1
+  }
+  
+  if (!file.exists(alignDTM)) {
+    print("Input DTM to align does not exist")
+    err <- -1
+  }
+  
+  if (outDTM == "nofile") {
+    print("Output DTM not specified")
+    err <- -1
+  }
+  
+  if (tileNx == 0) {
+    print("Number of tiles in x direction not specified")
+    err <- -1
+  }
+  
+  if (tileNy == 0) {
+    print("Number of tiles in y direction not specified")
+    err <- -1
+  }
+  
+  if (outbins == "nofile") {
+    print("Output csv file not specified")
+    err <- -1
+  }
+  
+  if (outDif == "nofile") {
+    print("Output difference raster not specified")
+    err <- -1
+  }
+  
+  if (scratch_dir == "none") {
+    print("Scratch directory not specified")
+    err <- -1
+  }
+  
+  if (err < 0) {
+    stop("Error with input arguments")
+  }
+  
+  align_input(refDTM,
+              alignDTM,
+              iterations,
+              outDTM,
+              tileNx,
+              tileNy,
+              overlap,
+              radius,
+              dslope,
+              maxSlope,
+              nAzimuth,
+              outbins,
+              outDif,
+              scratch_dir)
+  
+  input_file <- paste0(scratch_dir, "/input_align.txt")
+  
+  # Get the location of the Fortran compiled code for makegrids.exe
+  executable_path <- get_executable_path()
+  
+  align <- file.path(executable_path, "align.exe")
+  command <- paste0(align, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    stop("Problem aligning")
+  }
+}
 
 #---------------------------------------------------------
