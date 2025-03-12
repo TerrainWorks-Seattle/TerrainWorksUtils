@@ -331,6 +331,105 @@ accum_input <- function(dem,
 }
 
 #---------------------------------------------------------
+#' Create an input file for Fortran program align.
+#'
+#' Program align co-registers two overlapping DTMs. It characterizes the 
+#' frequency distribution of elevation differences as functions of 
+#' slope gradient and aspect, uses that to determine slope- and aspect-dependent
+#' thresholds for filtering elevation differences in setting up a set of linear
+#' equations to solve for the optimal x-y-z shift of one DTM, solves for the
+#' x-y-z shift, generates an aligned DTM, and outputs an elevation difference
+#' raster. Inputs to program align are read from an ASCII input file using 
+#' "Keyword: arguments" format, built here.
+#'
+#' @param refDTM Character: The file name (full path) for the input 
+#' reference DTM.
+#' @param alignDTM Character: The file name (full path) for the input
+#' DTM to align with the reference DTM. 
+#' @param iterations Numeric (int): Number of iterations to solve for the shift
+#' @param outDTM Character: File name (full path) for the output aligned DTM
+#' @param tileNx (int): number of tiles in the x direction
+#' @param tilesNy (int): number of tiles in the y direction
+#' @param overlap (dbl): overlap between tiles
+#' @param radius (dbl): radius in meters for measuring slope and aspect
+#' @param dslope (dbl): gradient bin size
+#' @param maxSlope (dbl): maximum gradient for binning
+#' @param nAzimuth (int): number of azimuth bins
+#' @param outbins Character: output csv file of elevation differences
+#' binned by slope and aspect
+#' @param outDif Character: output elevation difference raster (.flt)
+#' @param scratch_dir Charcter: scratch directory
+#'
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk of the partial input file.
+#' @export
+#'
+align_input <- function(refDTM,
+                        alignDTM,
+                        iterations,
+                        outDTM,
+                        tileNx,
+                        tileNy,
+                        overlap,
+                        radius,
+                        dslope,
+                        maxSlope,
+                        nAzimuth,
+                        outbins,
+                        outDif,
+                        scratch_dir) {
+  
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+  
+  # Normalize paths
+  refDTM <- normalizePath(refDTM)
+  alignDTM <- normalizePath(alignDTM)
+  suppressWarnings(outDTM <- normalizePath(outDTM))
+  suppressWarnings(outDif <- normalizePath(outDif))
+  suppressWarnings(outbins <- normalizePath(outbins))
+  scratch_dir <- normalizePath(scratch_dir)
+  
+  # Do not include ".flt" in raster file names
+  if (str_detect(refDTM, ".flt$") == TRUE) {
+    n <- str_length(refDTM)
+    refDTM <- str_sub(refDTM, 1, n[[1]]-4)
+  }
+  if (str_detect(alignDTM, ".flt$") == TRUE) {
+    n <- str_length(alignDTM)
+    alignDTM <- str_sub(alignDTM, 1, n[[1]]-4)
+  }
+
+  out_file <- paste0(scratch_dir, "\\input_align.txt")
+    
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+  
+  write_input("# Input file for align\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+  
+  write_input("REFERENCE DEM: ", refDTM)
+  write_input("DEM TO ALIGN: ", alignDTM)
+  write_input("RADIUS: ", radius)
+  write_input("ITERATIONS: ", iterations)
+  write_input("OUTPUT DEM: ", outDTM)
+  write_input("TILES: X = ", tileNx, ", Y = ", tileNy, ", OVERLAP = ", overlap)
+  write_input("BINS: SLOPE BIN SIZE=",dslope,",MAX SLOPE=",maxSlope,",AZIMUTH BINS=",nAzimuth,",OUTPUT=",outbins)
+  write_input("OUTPUT DIFFERENCE RASTER: ", outDif)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+}
+
+#---------------------------------------------------------
 #' Create an input file for Fortran program distanceToRoad.
 #'
 #' Program distanceToRoad builds a raster giving the distance in meters
