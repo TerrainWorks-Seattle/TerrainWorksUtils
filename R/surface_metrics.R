@@ -1076,41 +1076,61 @@ resample <- function(in_raster = "nofile",
 #' @param refDTM Character: The file name (full path) for the input 
 #' reference DTM.
 #' @param alignDTM Character: The file name (full path) for the input
-#' DTM to align with the reference DTM. 
+#' DTM to align with the reference DTM.
+#' @param refDSM Character: The file name (full path) for the input
+#' reference DSM (digital surface model).
+#' @param alignDSM Character: The file name (full path) for the input
+#' DSM to align with the reference DTM.
 #' @param iterations Numeric (int): Number of iterations to solve for the shift
+#' @param dampener Numeric (dbl): Dampener for the shift, 1.0 or less
+#' @param k Numeric (dbl): The number of inter-quartile ranges from q1 and q3
+#' to use as a Tukey's fence for outlier removal
 #' @param outDTM Character: File name (full path) for the output aligned DTM
 #' @param tileNx (int): number of tiles in the x direction
 #' @param tilesNy (int): number of tiles in the y direction
 #' @param overlap (dbl): overlap between tiles
 #' @param radius (dbl): radius in meters for measuring slope and aspect
-#' @param dslope (dbl): gradient bin size
+#' @param nslope (int): number of gradient bins
 #' @param maxSlope (dbl): maximum gradient for binning
 #' @param nAzimuth (int): number of azimuth bins
 #' @param outbins Character: output csv file of elevation differences
 #' binned by slope and aspect
 #' @param outDif Character: output elevation difference raster (.flt)
+#' @param outOutlier Character: output outlier raster (.flt)
 #' @param scratch_dir Character string: A scratch directory where temporary
 #'   files are written. If an input file for program partial is created,
 #'   it is written here.
+#' @param executable_dir Character: The directory where the executable
+#' file is located.
+#'   
+#' @return error code
 #'
 #' @export
 #'
 align <- function(refDTM = "nofile",
                   alignDTM = "nofile",
+                  refDSM = "nofile",
+                  alignDSM = "nofile",
                   iterations = 5,
+                  k = 0,
+                  dampener,
                   outDTM = "nofile",
                   tileNx = 0,
                   tileNy = 0,
                   overlap = 0.5,
                   radius = 15,
-                  dslope = 0.15,
-                  maxSlope = 1.05,
+                  nslope = 7,
+                  maxSlope = 1.0,
                   nAzimuth = 8,
                   outbins = "nofile",
                   outDif = "nofile",
-                  scratch_dir = "none") {
+                  outOutlier = "nofile",
+                  scratch_dir = "none",
+                  executable_dir = "none",
+                  program_name = "align") {
   
   err = 0
+  returnCode = 0
   
   if (!file.exists(refDTM)) {
     print("Input reference DTM does not exist")
@@ -1122,18 +1142,13 @@ align <- function(refDTM = "nofile",
     err <- -1
   }
   
+  if (k < 0) {
+    print("Tukey's fence parameter not specified")
+    err <- -1
+  }
+  
   if (outDTM == "nofile") {
     print("Output DTM not specified")
-    err <- -1
-  }
-  
-  if (tileNx == 0) {
-    print("Number of tiles in x direction not specified")
-    err <- -1
-  }
-  
-  if (tileNy == 0) {
-    print("Number of tiles in y direction not specified")
     err <- -1
   }
   
@@ -1147,41 +1162,169 @@ align <- function(refDTM = "nofile",
     err <- -1
   }
   
+  if (outOutlier == "nofile") {
+    print("Output outlier raster not specified")
+    err <- -1
+  } 
+  
+  if (scratch_dir == "none") {
+    print("Scratch directory not specified")
+    err <- -1
+  }
+  
+  if (executable_dir == "none") {
+    print("Executable directory not specified")
+    err <- -1
+  }
+  
+  if (err < 0) {
+    returnCode = -1
+    return(returnCode)
+    stop("Error with input arguments")
+  }
+  
+  TerrainWorksUtils::align_input(refDTM,
+              alignDTM,
+              refDSM,
+              alignDSM,
+              iterations,
+              k,
+              dampener,
+              outDTM,
+              tileNx,
+              tileNy,
+              overlap,
+              radius,
+              nslope,
+              maxSlope,
+              nAzimuth,
+              outbins,
+              outDif,
+              outOutlier,
+              scratch_dir)
+  
+  input_file <- paste0(scratch_dir, "/input_align.txt")
+  
+  align <- file.path(executable_dir, paste0(program_name, ".exe"))
+  command <- paste0(align, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    returnCode = -1
+    return(returnCode)
+    stop("Problem aligning")
+  }
+  return(returnCode)
+}
+
+#---------------------------------------------------------
+#' Quantiles
+#' 
+#' Program Quantiles reads a raster file and computes quantiles
+#' over a moving circular window. For each iteration of the window,
+#' the interquartile range is determined and outliers, based
+#' on a Tukey's fence with k = 1.5, are removed. Quartiles are then
+#' recalculated using the remaining values. Each pixel of the raster with
+#' a value z less than q1 is assigned a value (z-q1)/(q3-q1) and each
+#' pixel with a value greater than q3 is assigned a value of (z-q3)/(q3-q1).
+#' This shows how many interquartile ranges the pixel value is from the first
+#' or third quartile and serves as a measure of how extreme the value is.
+#' Quantiles will also output z scores for each pixel.
+#' @param in_raster Character: The file name (full path) for the input raster.
+#' @param radius Numeric (dbl): radius in meters for the moving window
+#' @param buffer Numeric (dbl): spacign between moving window center points,
+#' in raster cells.
+#' @param out_outlier Character: output file name (full path) for the 
+#' outlier raster (optional)
+#' @param out_q1 Character: output file name (full path) for the
+#' first-quartile raster (optional)
+#' @param out_q2 Character: output file name (full path) for the
+#' median raster (optional)
+#' @param out_q3 Character: output file name (full path) for the
+#' third-quartile raster (optional)
+#' @param out_mean Character: output file name (full path) for the mean raster
+#' @param out_zscore Character: output file name (full path) for the 
+#' z-score raster
+#' @param out_prob Character: output file name (full path) for the
+#' probability raster (optional)
+#' @param scratch_dir Charcter: scratch directory
+#' @param executable_dir Character: directory where the executable is located
+#' @param program_name Character: name of the executable
+#'   
+#' @return error code
+#'
+#' @export
+#'
+quantiles <- function(in_raster = "nofile",
+                      radius = 0.,
+                      buffer = 0,
+                      out_outlier = "nofile",
+                      out_q1 = "nofile",
+                      out_q2 = "nofile",
+                      out_q3 = "nofile",
+                      out_mean = "nofile",
+                      out_zscore = "nofile",
+                      out_prob = "nofile",
+                      scratch_dir = "none",
+                      executable_dir = "none",
+                      program_name = "quantiles") {
+  
+  err = 0
+  returnCode = 0
+  
+  if (!file.exists(in_raster)) {
+    print("Input raster does not exist")
+    err <- -1
+  }
+  
+  if (radius == 0.) {
+    print("Radius not specified")
+    err <- -1
+  }
+  
+  if (buffer == 0) {
+    print("Buffer not specified")
+    err <- -1
+  }
+  
+  if (executable_dir == "none") {
+    print("Executable directory not specified")
+    err <- -1
+  }
+  
   if (scratch_dir == "none") {
     print("Scratch directory not specified")
     err <- -1
   }
   
   if (err < 0) {
+    returnCode = -1
+    return(returnCode)
     stop("Error with input arguments")
   }
   
-  align_input(refDTM,
-              alignDTM,
-              iterations,
-              outDTM,
-              tileNx,
-              tileNy,
-              overlap,
-              radius,
-              dslope,
-              maxSlope,
-              nAzimuth,
-              outbins,
-              outDif,
-              scratch_dir)
+  quantiles_input(in_raster,
+                  radius,
+                  buffer,
+                  out_outlier,
+                  out_q1,
+                  out_q2,
+                  out_q3,
+                  out_mean,
+                  out_zscore,
+                  out_prob,
+                  scratch_dir)
   
-  input_file <- paste0(scratch_dir, "/input_align.txt")
+  input_file <- paste0(scratch_dir, "/input_quantiles.txt")
   
-  # Get the location of the Fortran compiled code for makegrids.exe
-  executable_path <- get_executable_path()
-  
-  align <- file.path(executable_path, "align.exe")
-  command <- paste0(align, " ", input_file)
+  quantiles <- file.path(executable_dir, paste0(program_name, ".exe"))
+  command <- paste0(quantiles, " ", input_file)
   output <- system(command, wait = TRUE)
   if (output != 0) {
-    stop("Problem aligning")
+    returnCode = -1
+    return(returnCode)
+    stop("Quantiles failed")
   }
+  return(returnCode)
 }
 
 #---------------------------------------------------------
