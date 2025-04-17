@@ -345,19 +345,26 @@ accum_input <- function(dem,
 #' @param refDTM Character: The file name (full path) for the input 
 #' reference DTM.
 #' @param alignDTM Character: The file name (full path) for the input
-#' DTM to align with the reference DTM. 
+#' @param refDSM Character: The file name (full path) for the input
+#' reference surface height raster (optional).
+#' @param alignDSM Character: The file name (full path) for the input
+#' DSM raster to align (optional) 
 #' @param iterations Numeric (int): Number of iterations to solve for the shift
+#' @param k Numeric (dbl): Number of inter-quartile ranges to use with a
+#' Tukey's fence to identify outliers
+#' @param dampener Numeric (dbl): Dampener for the shift
 #' @param outDTM Character: File name (full path) for the output aligned DTM
 #' @param tileNx (int): number of tiles in the x direction
 #' @param tilesNy (int): number of tiles in the y direction
 #' @param overlap (dbl): overlap between tiles
 #' @param radius (dbl): radius in meters for measuring slope and aspect
-#' @param dslope (dbl): gradient bin size
+#' @param nslope (int): number of gradient bins
 #' @param maxSlope (dbl): maximum gradient for binning
 #' @param nAzimuth (int): number of azimuth bins
 #' @param outbins Character: output csv file of elevation differences
 #' binned by slope and aspect
 #' @param outDif Character: output elevation difference raster (.flt)
+#' @param outOutlier Character: output outlier raster (.flt)
 #' @param scratch_dir Charcter: scratch directory
 #'
 #' @return There is no explicit return object, but an explicit side effect
@@ -366,17 +373,22 @@ accum_input <- function(dem,
 #'
 align_input <- function(refDTM,
                         alignDTM,
+                        refDSM = 'nofile',
+                        alignDSM = 'nofile',
                         iterations,
+                        k,
+                        dampener,
                         outDTM,
                         tileNx,
                         tileNy,
                         overlap,
                         radius,
-                        dslope,
+                        nslope,
                         maxSlope,
                         nAzimuth,
                         outbins,
                         outDif,
+                        outOutlier,
                         scratch_dir) {
   
   if (!dir.exists(scratch_dir)) {
@@ -386,9 +398,16 @@ align_input <- function(refDTM,
   # Normalize paths
   refDTM <- normalizePath(refDTM)
   alignDTM <- normalizePath(alignDTM)
+  if (!refDSM == 'nofile') {
+    suppressWarnings(refDSM <- normalizePath(refDSM))
+  }
+  if (!alignDSM == 'nofile') {
+    suppressWarnings(alignDSM <- normalizePath(alignDSM))
+  }
   suppressWarnings(outDTM <- normalizePath(outDTM))
   suppressWarnings(outDif <- normalizePath(outDif))
   suppressWarnings(outbins <- normalizePath(outbins))
+  suppressWarnings(outOutlier <- normalizePath(outOutlier))
   scratch_dir <- normalizePath(scratch_dir)
   
   # Do not include ".flt" in raster file names
@@ -420,12 +439,153 @@ align_input <- function(refDTM,
   
   write_input("REFERENCE DEM: ", refDTM)
   write_input("DEM TO ALIGN: ", alignDTM)
+  if (!refDSM == 'nofile') {
+    write_input("REFERENCE DSM: ", refDSM)
+  }
+  if (!alignDSM == 'nofile') {
+    write_input("DSM TO ALIGN: ", alignDSM)
+  }
   write_input("RADIUS: ", radius)
   write_input("ITERATIONS: ", iterations)
+  write_input("K: ", k)
+  write_input("DAMPENER: ", dampener)
   write_input("OUTPUT DEM: ", outDTM)
   write_input("TILES: X = ", tileNx, ", Y = ", tileNy, ", OVERLAP = ", overlap)
-  write_input("BINS: SLOPE BIN SIZE=",dslope,",MAX SLOPE=",maxSlope,",AZIMUTH BINS=",nAzimuth,",OUTPUT=",outbins)
+  write_input("BINS: SLOPE BINS=",nslope,",MAX SLOPE=",maxSlope,",AZIMUTH BINS=",nAzimuth,",OUTPUT=",outbins)
   write_input("OUTPUT DIFFERENCE RASTER: ", outDif)
+  write_input("OUTPUT OUTLIER RASTER: ", outOutlier)
+  write_input("SCRATCH DIRECTORY: ", scratch_dir)
+}
+
+#----------------------------------------------------------
+#' Create an input file for Fortran program Quantiles.
+#' 
+#' Program Quantiles reads a raster file and computes quantiles
+#' over a moving circular window. For each iteration of the window,
+#' the interquartile range is determined and outliers, based
+#' on a Tukey's fence with k = 1.5, are removed. Quartiles are then
+#' recalculated using the remaining values and the minimum and 
+#' maximum range 
+#' 
+#' @param in_raster Character: The file name (full path) for the input raster.
+#' @param radius Numeric (dbl): radius in meters for the moving window
+#' @param buffer Numeric (dbl): spacign between moving window center points,
+#' in raster cells.
+#' @param out_outlier Character: output file name (full path) for the 
+#' outlier raster (optional)
+#' @param out_q1 Character: output file name (full path) for the
+#' first-quartile raster (optional)
+#' @param out_q2 Character: output file name (full path) for the
+#' median raster (optional)
+#' @param out_q3 Character: output file name (full path) for the
+#' third-quartile raster (optional)
+#' @param out_mean Character: output file name (full path) for the mean raster
+#' @param out_zscore Character: output file name (full path) for the 
+#' z-score raster
+#' @param out_prob Character: output file name (full path) for the
+#' probability raster (optional)
+#' @param scratch_dir Charcter: scratch directory
+#'
+#' @return There is no explicit return object, but an explicit side effect
+#'   is writing to disk of the partial input file.
+#' @export
+#' 
+quantiles_input <- function(in_raster = "nofile",
+                            radius = 0.,
+                            buffer = 0,
+                            out_outlier = "nofile",
+                            out_q1 = "nofile",
+                            out_q2 = "nofile",
+                            out_q3 = "nofile",
+                            out_mean = "nofile",
+                            out_zscore = "nofile",
+                            out_prob = "nofile",
+                            scratch_dir = "none") {
+  
+  if (!dir.exists(scratch_dir)) {
+    stop("invalid scratch folder: ", scratch_dir)
+  }
+  
+  # Normalize paths
+  in_raster <- normalizePath(in_raster)
+  
+  if (!out_outlier == "nofile") {
+    suppressWarnings(out_outlier <- normalizePath(out_outlier))
+  }
+  
+  if (!out_q1 == "nofile") {
+    suppressWarnings(out_q1 <- normalizePath(out_q1))
+  }
+  
+  if (!out_q2 == "nofile") {
+    suppressWarnings(out_q2 <- normalizePath(out_q2))
+  }
+  
+  if (!out_q3 == "nofile") {
+    suppressWarnings(out_q3 <- normalizePath(out_q3))
+  }
+  
+  if (!out_mean == "nofile") {
+    suppressWarnings(out_mean <- normalizePath(out_mean))
+  }
+  
+  if (!out_zscore == "nofile") {
+    suppressWarnings(out_zscore <- normalizePath(out_zscore))
+  }
+  
+  if (!out_prob == "nofile") {
+    suppressWarnings(out_prob <- normalizePath(out_prob))
+  }
+
+  scratch_dir <- normalizePath(scratch_dir)
+  
+  # Do not include ".flt" in raster file names
+  if (str_detect(in_raster, ".flt$") == TRUE) {
+    n <- str_length(in_raster)
+    in_raster <- str_sub(in_raster, 1, n[[1]]-4)
+  }
+  
+  out_file <- paste0(scratch_dir, "\\input_quantiles.txt")
+  
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+  
+  write_input("# Input file for quantiles\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+  
+  write_input("INPUT RASTER: ", in_raster)
+  write_input("RADIUS: ", radius)
+  write_input("BUFFER: ", buffer)
+  if (!out_outlier == "nofile") {
+    write_input("OUTPUT OUTLIER RASTER: ", out_outlier)
+  }
+  if (!out_q1 == "nofile") {
+    write_input("OUTPUT Q1 RASTER: ", out_q1)
+  }
+  if (!out_q2 == "nofile") {
+    write_input("OUTPUT Q2 RASTER: ", out_q2)
+  }
+  if (!out_q3 == "nofile") {
+    write_input("OUTPUT Q3 RASTER: ", out_q3)
+  }
+  if (!out_mean == "nofile") {
+    write_input("OUTPUT MEAN RASTER: ", out_mean)
+  }
+  if (!out_zscore == "nofile") {
+    write_input("OUTPUT ZSCORE RASTER: ", out_zscore)
+  }
+  if (!out_prob == "nofile") {
+    write_input("OUTPUT PROBABILITY RASTER: ", out_prob)
+  }
   write_input("SCRATCH DIRECTORY: ", scratch_dir)
 }
 
