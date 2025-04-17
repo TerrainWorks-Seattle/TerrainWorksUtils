@@ -12,6 +12,8 @@ get_executable_path <- function() {
   utilities_dir <- system.file(dir = "/DEMUtilities", package = "TerrainWorksUtils")
   executable_zip <- file.path(utilities_dir, "files.zip")
   executable_dir <- file.path(utilities_dir, "files")
+  print(executable_dir)
+  
   if ((!dir.exists(executable_dir) | length(list.files(path = executable_dir)) == 0)
         & file.exists(executable_zip)) {
     utils::unzip(executable_zip, exdir = executable_dir)
