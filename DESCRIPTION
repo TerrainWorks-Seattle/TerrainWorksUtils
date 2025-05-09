@@ -21,7 +21,10 @@ Imports:
   tibble,
   tictoc,
   dplyr,
-  data.table
+  data.table,
+  Matrix, 
+  sf, 
+  parallel
 RoxygenNote: 7.2.3
 Suggests: 
     knitr,
