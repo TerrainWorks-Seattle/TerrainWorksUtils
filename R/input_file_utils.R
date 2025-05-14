@@ -458,6 +458,124 @@ align_input <- function(refDTM,
 }
 
 #----------------------------------------------------------
+#' Create an input file for Fortran program HuntLS
+#' 
+#' Program HuntLS reads an "outlier" raster created by program Align.
+#' The "outlier" k values indicate the number of interquartile ranges
+#' (q3-q1) a DoD de (delta elevation) value falls outside of the 
+#' interquartile range: k = (de-q1)/(q3-a1) if k is less than q1 
+#' and k = (de-q3)/(q3-q1) if k is greater than q3. Values of de
+#' between q1 and q3 are given k values of zero. HuntLS associates 
+#' k patches with field-mapped landslide locations surveyed for the
+#' Post Mortem (Stewart et al., 2013) study. 
+#' 
+#' @param DEM Character: The reference DTM used for program Align.
+#' @param Outlier Character: The input outlier raster (.flt) created by Align.
+#' @param DoD Character: Input DoD raster (.flt) created by Align.
+#' @param Accum Character: Input flow accumulation raster created by bldgrds.
+#' @param AccumThreshold Numeric (dbl): Contributing area above which landslide
+#' patches are precluded.
+#' @param LSpnts Character: Input point shapefile of mapped landslide points.
+#' @param IDfield Character: LSpnts attributes-table field name for record ID.
+#' @param Radius Numeric (dbl): Search radius in meters for matching landslide
+#' points to k-value patches.
+#' @param AspectLength Numeric (dbl): Length in meters to calculate aspect.
+#' @param GradLength Numeric (dbl): Length in meters to calculate gradient.
+#' @param OutlierThreshold Numeric (dbl): Minimum absolute k value for a patch.
+#' @param ScratchDir Character: Scratch directory.
+#' @param OutPatch Character: Output patch raster.
+#' @param Outcsv Character: Output comma-delimited table.
+#' 
+#' @return returnCode, a value of zero indicates success
+#' @export
+#' 
+ huntLSinput <- function(DEM,
+                         Outlier,
+                         DoD,
+                         Accum,
+                         AccumThreshold,
+                         LSpnts,
+                         IDfield,
+                         Radius,
+                         AspectLength,
+                         GradLength,
+                         OutlierThreshold,
+                         ScratchDir,
+                         OutPatch,
+                         Outcsv) {
+
+  returnCode = -1
+  
+  if (!dir.exists(ScratchDir)) {
+    stop("invalid scratch folder: ", ScratchDir)
+  }
+
+# Normalize paths
+  suppressWarnings(DEM <- normalizePath(DEM))
+  suppressWarnings(DoD <- normalizePath(DoD))
+  suppressWarnings(Accum <- normalizePath(Accum))
+  suppressWarnings(LSpnts <- normalizePath(LSpnts))
+  suppressWarnings(OutPatch <- normalizePath(OutPatch))
+  suppressWarnings(Outcsv <- normalizePath(Outcsv))
+  suppressWarnings(ScratchDir <- normalizePath(ScratchDir))
+  
+  # Do not include ".flt" in raster file names
+  if (str_detect(DEM, ".flt$") == TRUE) {
+    n <- str_length(DEM)
+    DEM <- str_sub(DEM, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(DoD, ".flt$") == TRUE) {
+    n <- str_length(DoD)
+    DoD <- str_sub(DoD, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(Outlier, ".flt$") == TRUE) {
+    n <- str_length(Outlier)
+    Outlier <- str_sub(Outlier, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(Accum, ".flt$") == TRUE) {
+    n <- str_length(Accum)
+    Accum <- str_sub(Accum, 1, n[[1]]-4)
+  }
+  
+  out_file <- paste0(ScratchDir, "\\input_huntls.txt")
+  
+  write_input <- function(...,
+                          append = TRUE) {
+    cat(..., "\n",
+        file = out_file,
+        sep = "",
+        append = append
+    )
+  }
+  
+  write_input("# Input file for HuntLS\n",
+              "# Creating by input_file_utils.R\n",
+              "# On ", as.character(Sys.time()),
+              append = FALSE
+  )
+  
+  write_input("DEM: ", DEM)
+  write_input("INPUT OUTLIER RASTER: ", Outlier)
+  write_input("INPUT ELEVATION DIFFERENCE RASTER: ", DoD)
+  write_input("INPUT FLOW ACCUMULATION RASTER: ", Accum)
+  write_input("ACCUMULATION THRESHOLD: ", AccumThreshold)
+  write_input(paste0("INPUT LANDSLIDE POINT SHAPEFILE: ", LSpnts, ", ID FIELD = ", IDfield))
+  write_input("SEARCH RADIUS: ", Radius)
+  write_input("ASPECT LENGTH SCALE: ", AspectLength)
+  write_input("GRADIENT LENGTH SCALE: ", GradLength)
+  write_input("OUTLIER THRESHOLD: ", OutlierThreshold)
+  write_input("SCRATCH DIRECTORY: ", ScratchDir)
+  write_input("OUTPUT PATCH RASTER: ", OutPatch)
+  write_input("OUTPUT TABLE: ", Outcsv)
+  
+  returnCode = 0
+  return(returnCode)
+}
+
+#-------------------------------------------------------------------------
 #' Create an input file for Fortran program Quantiles.
 #' 
 #' Program Quantiles reads a raster file and computes quantiles

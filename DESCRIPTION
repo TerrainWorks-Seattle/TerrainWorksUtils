@@ -21,7 +21,7 @@ Imports:
   terra (>= 1.5),
   tibble,
   data.table
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2
 Suggests: 
     knitr,
     covr,

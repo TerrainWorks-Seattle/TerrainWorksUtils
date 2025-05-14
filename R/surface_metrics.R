@@ -1217,6 +1217,165 @@ align <- function(refDTM = "nofile",
 }
 
 #---------------------------------------------------------
+#' HuntLS
+#' Program HuntLS reads an "outlier" raster created by program Align.
+#' The "outlier" k values indicate the number of interquartile ranges
+#' (q3-q1) a DoD de (delta elevation) value falls outside of the 
+#' interquartile range: k = (de-q1)/(q3-a1) if k is less than q1 
+#' and k = (de-q3)/(q3-q1) if k is greater than q3. Values of de
+#' between q1 and q3 are given k values of zero. HuntLS associates 
+#' k patches with field-mapped landslide locations surveyed for the
+#' Post Mortem (Stewart et al., 2013) study. 
+#' 
+#' @param DEM Character: The reference DTM used for program Align.
+#' @param Outlier Character: The input outlier raster (.flt) created by Align.
+#' @param DoD Character: Input DoD raster (.flt) created by Align.
+#' @param Accum Character: Input flow accumulation raster created by bldgrds.
+#' @param AccumThreshold Numeric (dbl): Contributing area above which landslide
+#' patches are precluded.
+#' @param LSpnts Character: Input point shapefile of mapped landslide points.
+#' @param IDfield Character: LSpnts attributes-table field name for record ID.
+#' @param Radius Numeric (dbl): Search radius in meters for matching landslide
+#' points to k-value patches.
+#' @param AspectLength Numeric (dbl): Length in meters to calculate aspect.
+#' @param GradLength Numeric (dbl): Length in meters to calculate gradient.
+#' @param OutlierThreshold Numeric (dbl): Minimum absolute k value for a patch.
+#' @param ScratchDir Character: Scratch directory.
+#' @param OutPatch Character: Output patch raster.
+#' @param Outcsv Character: Output comma-delimited table.
+#' @param executable_dir Character: The directory where the executable
+#' file is located. 
+#' 
+#' @return returnCode, a value of zero indicates success
+#' @export
+#' 
+huntLS <- function(DEM = "nofile",
+                   Outlier = "nofile",
+                   DoD = "nofile",
+                   Accum = "nofile",
+                   AccumThreshold = -9999.,
+                   LSpnts = "nofile",
+                   IDfield = "none",
+                   Radius = -9999.,
+                   AspectLength = -9999.,
+                   GradLength = -9999.,
+                   OutlierThreshold = -9999.,
+                   ScratchDir = "nofile",
+                   OutPatch = "nofile",
+                   Outcsv = "nofile",
+                   executable_dir = "none") {
+  
+  returnCode <- -1
+  program_name <- "huntLS"
+  
+  if (!dir.exists(ScratchDir)) {
+    stop("invalid scratch folder: ", ScratchDir)
+  }
+  
+  err = 0
+
+  if (!file.exists(DEM)) {
+    print("Input DEM not found")
+    err <- -1
+  }   
+  
+  if (!file.exists(Outlier)) {
+    print("Input Outlier raster not found")
+    err <- -1
+  }
+  
+  if (!file.exists(Accum)) {
+    print("Input flow accumulation raster not found")
+    err <- -1
+  }
+  
+  if (!file.exists(LSpnts)) {
+    print("Landslide point shapefile not found")
+    print(LSpnts)
+    err <- -1
+  }
+  
+  if (IDfield == "none") {
+    print("LSpnts IDfield not specified")
+    err <- -1
+  }
+
+  if (AccumThreshold < 0) {
+    print("Accumulation threshold not specified")
+    err <- -1
+  }
+  
+  if (Radius < 0.) {
+    print("Search radius not specifie")
+    err <- -1
+  }
+  
+  if (AspectLength < 0.) {
+    print("Aspect scale length not specified")
+    err <- -1
+  }
+  
+  if (GradLength < 0.) {
+    print("Gradient scale length not specified")
+    err <- -1
+  }
+  
+  if (OutlierThreshold == -9999.) {
+    print("Outlier threshold not specified")
+    err <- -1
+  }
+  
+  if (OutPatch == "nofile") {
+    print("Output patch raster not specified")
+    err <- -1
+  }
+  
+  if (Outcsv == "nofile") {
+    print("Output csv table not specifie")
+    err <- -1
+  }
+  
+  if (executable_dir == "none") {
+    print("Executable directory not specified")
+    err <- -1
+  }
+
+  if (err < 0) {
+    returnCode = -1
+    return(returnCode)
+    stop("Error with input arguments")
+  }
+  
+  TerrainWorksUtils::huntLSinput(DEM,
+                                 Outlier,
+                                 DoD,
+                                 Accum,
+                                 AccumThreshold,
+                                 LSpnts,
+                                 IDfield,
+                                 Radius,
+                                 AspectLength,
+                                 GradLength,
+                                 OutlierThreshold,
+                                 ScratchDir,
+                                 OutPatch,
+                                 Outcsv)
+
+  input_file <- paste0(ScratchDir, "/input_huntLS.txt")
+  
+  huntLS <- file.path(executable_dir, paste0(program_name, ".exe"))
+  command <- paste0(huntLS, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    returnCode <- -1
+    return(returnCode)
+    stop("Problem hunting")
+  }
+  returnCode <- 0
+  return(returnCode)
+}
+
+#---------------------------------------------------------    
 #' Quantiles
 #' 
 #' Program Quantiles reads a raster file and computes quantiles
