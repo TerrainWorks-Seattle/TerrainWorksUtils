@@ -18,6 +18,7 @@ huntLSinput(
   OutlierThreshold,
   ScratchDir,
   OutPatch,
+  OutGrad,
   Outcsv
 )
 }
@@ -48,7 +49,9 @@ points to k-value patches.}
 
 \item{ScratchDir}{Character: Scratch directory.}
 
-\item{OutPatch}{Character: Output patch raster.}
+\item{OutPatch}{Character: Output patch raster (.flt).}
+
+\item{OutGrad}{Character: Output gradient raster (.flt).}
 
 \item{Outcsv}{Character: Output comma-delimited table.}
 }

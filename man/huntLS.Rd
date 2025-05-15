@@ -26,6 +26,7 @@ huntLS(
   OutlierThreshold = -9999,
   ScratchDir = "nofile",
   OutPatch = "nofile",
+  OutGrad = "nofile",
   Outcsv = "nofile",
   executable_dir = "none"
 )
@@ -57,7 +58,9 @@ points to k-value patches.}
 
 \item{ScratchDir}{Character: Scratch directory.}
 
-\item{OutPatch}{Character: Output patch raster.}
+\item{OutPatch}{Character: Output patch raster (.flt).}
+
+\item{OutGrad}{Character: Output gradient raster (.flt).}
 
 \item{Outcsv}{Character: Output comma-delimited table.}
 

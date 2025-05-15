@@ -483,7 +483,8 @@ align_input <- function(refDTM,
 #' @param GradLength Numeric (dbl): Length in meters to calculate gradient.
 #' @param OutlierThreshold Numeric (dbl): Minimum absolute k value for a patch.
 #' @param ScratchDir Character: Scratch directory.
-#' @param OutPatch Character: Output patch raster.
+#' @param OutPatch Character: Output patch raster (.flt).
+#' @param OutGrad Character: Output gradient raster (.flt).
 #' @param Outcsv Character: Output comma-delimited table.
 #' 
 #' @return returnCode, a value of zero indicates success
@@ -502,6 +503,7 @@ align_input <- function(refDTM,
                          OutlierThreshold,
                          ScratchDir,
                          OutPatch,
+                         OutGrad,
                          Outcsv) {
 
   returnCode = -1
@@ -516,6 +518,7 @@ align_input <- function(refDTM,
   suppressWarnings(Accum <- normalizePath(Accum))
   suppressWarnings(LSpnts <- normalizePath(LSpnts))
   suppressWarnings(OutPatch <- normalizePath(OutPatch))
+  suppressWarnings(OutGrad <- normalizePath(OutGrad))
   suppressWarnings(Outcsv <- normalizePath(Outcsv))
   suppressWarnings(ScratchDir <- normalizePath(ScratchDir))
   
@@ -569,14 +572,117 @@ align_input <- function(refDTM,
   write_input("OUTLIER THRESHOLD: ", OutlierThreshold)
   write_input("SCRATCH DIRECTORY: ", ScratchDir)
   write_input("OUTPUT PATCH RASTER: ", OutPatch)
+  write_input("OUTPUT GRADIENT RASTER: ", OutGrad)
   write_input("OUTPUT TABLE: ", Outcsv)
   
   returnCode = 0
   return(returnCode)
 }
+#----------------------------------------------------------
+#' Create an input file for Fortran program LShunter
+#' 
+#' Program LShunter identifies potential landslide sites using 
+#' "outlier patches" on a DoD (DEM of Difference) delineated on
+#' an "outlier" raster created by Program Align. 
+#' 
+#' @param DoD Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.
+#' @param Outlier Character: The outlier raster (.flt) created by Align.
+#' @param threshold1 Numeric (dbl): Maximum k value for a patch (e.g., -5.0), 1st round.
+#' @param threshold2 Numeric (dbl): Maximum k value for a patch (e.g., -1.5), 2nd round.
+#' @param Gradient Character: An input gradient raster (.flt) created by program MakeGrids.
+#' @param min1 Numeric (dbl): Minimum gradient for a patch, 1st round.
+#' @param min2 Numeric (dbl): Minimum gradient for a patch, 2nd round.
+#' @param Accum Character: Input flow accumulation raster (.flt) created by bldgrds.
+#' @param maxAccum1 Numeric (dbl): Maximum flow accumulation for a patch, 1st round.
+#' @param maxAccum2 Numeric (dbl): Maximum flow accumulation for a patch, 2nd round.
+#' @param MinSize Numeric (dbl): Minimum size of a patch in square meters.
+#' @param OutPatch Character: Output patch raster (.flt)
+#' @param ScratchDir Character: Scratch directory.
+#' 
+#' @return returnCode, a value of zero indicates success
+#' @export
+#' 
+LShunterInput <- function(
+  DoD,
+  Outlier,
+  threshold1,
+  threshold2,
+  Gradient,
+  min1,
+  min2,
+  Accum,
+  maxAccum1,
+  maxAccum2,
+  MinSize,
+  OutPatch,
+  ScratchDir) {
+ 
+ returnCode = -1
+ 
+ if (!dir.exists(ScratchDir)) {
+   stop("invalid scratch folder: ", ScratchDir)
+ }
+ 
+ # Normalize paths
+ suppressWarnings(DoD <- normalizePath(DoD))
+ suppressWarnings(Outlier <- normalizePath(Outlier))
+ suppressWarnings(Gradient <- normalizePath(Gradient))
+ suppressWarnings(Accum <- normalizePath(Accum)) 
+ suppressWarnings(OutPatch <- normalizePath(OutPatch))
+ suppressWarnings(ScratchDir <- normalizePath(ScratchDir))
+ 
+ # Do not include ".flt" in raster file names
+ if (str_detect(DoD, ".flt$") == TRUE) {
+   n <- str_length(DoD)
+   DoD <- str_sub(DoD, 1, n[[1]]-4)
+ }
+ 
+ if (str_detect(Outlier, ".flt$") == TRUE) {
+   n <- str_length(Outlier)
+   Outlier <- str_sub(Outlier, 1, n[[1]]-4)
+ }
+ 
+ if (str_detect(Gradient, ".flt$") == TRUE) {
+   n <- str_length(Gradient)
+   Gradient <- str_sub(Gradient, 1, n[[1]]-4)
+ }
+ 
+ if (str_detect(Accum, ".flt$") == TRUE) {
+   n <- str_length(Accum)
+   Accum <- str_sub(Accum, 1, n[[1]]-4)
+ }
+ 
+ out_file <- paste0(ScratchDir, "\\input_LShunter.txt")
+ 
+ write_input <- function(...,
+                         append = TRUE) {
+   cat(..., "\n",
+       file = out_file,
+       sep = "",
+       append = append
+   )
+ }
+ 
+ write_input("# Input file for LShunter\n",
+             "# Creating by input_file_utils.R\n",
+             "# On ", as.character(Sys.time()),
+             append = FALSE
+ )
+ 
+ write_input("DoD: ", DoD)
+ write_input("OUTLIER: ", Outlier, ", THRESHOLD1 = ", threshold1, ", THRESHOLD2 = ", threshold2)
+ write_input("GRADIENT: ", Gradient, ", MIN1 = ", min1, ", MIN2 = ", min2)
+ write_input("FLOW ACCUMULATION: ", Accum, ", MAX1 = ", maxAccum1, ", MAX2 = ", maxAccum2)
+ write_input("MINIMUM SIZE: ", MinSize)
+ write_input("OUTPUT PATCH RASTER: ", OutPatch)
+ write_input("SCRATCH DIRECTORY: ", ScratchDir)
+ 
+ returnCode = 0
+ return(returnCode)
+}
 
 #-------------------------------------------------------------------------
-#' Create an input file for Fortran program Quantiles.
+ #' Create an input file for Fortran program Quantiles.
 #' 
 #' Program Quantiles reads a raster file and computes quantiles
 #' over a moving circular window. For each iteration of the window,

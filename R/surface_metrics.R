@@ -1241,7 +1241,8 @@ align <- function(refDTM = "nofile",
 #' @param GradLength Numeric (dbl): Length in meters to calculate gradient.
 #' @param OutlierThreshold Numeric (dbl): Minimum absolute k value for a patch.
 #' @param ScratchDir Character: Scratch directory.
-#' @param OutPatch Character: Output patch raster.
+#' @param OutPatch Character: Output patch raster (.flt).
+#' @param OutGrad Character: Output gradient raster (.flt).
 #' @param Outcsv Character: Output comma-delimited table.
 #' @param executable_dir Character: The directory where the executable
 #' file is located. 
@@ -1262,6 +1263,7 @@ huntLS <- function(DEM = "nofile",
                    OutlierThreshold = -9999.,
                    ScratchDir = "nofile",
                    OutPatch = "nofile",
+                   OutGrad = "nofile",
                    Outcsv = "nofile",
                    executable_dir = "none") {
   
@@ -1330,6 +1332,11 @@ huntLS <- function(DEM = "nofile",
     err <- -1
   }
   
+  if (OutGrad == "nofile") {
+    print("Output gradient raster not specified")
+    err <- -1
+  }
+  
   if (Outcsv == "nofile") {
     print("Output csv table not specifie")
     err <- -1
@@ -1346,7 +1353,7 @@ huntLS <- function(DEM = "nofile",
     stop("Error with input arguments")
   }
   
-  TerrainWorksUtils::huntLSinput(DEM,
+  returnCode <- TerrainWorksUtils::huntLSinput(DEM,
                                  Outlier,
                                  DoD,
                                  Accum,
@@ -1359,8 +1366,14 @@ huntLS <- function(DEM = "nofile",
                                  OutlierThreshold,
                                  ScratchDir,
                                  OutPatch,
+                                 OutGrad,
                                  Outcsv)
 
+  if (returnCode != 0) {
+    return(returnCode)
+    stop("Error writing input file")
+  }
+  
   input_file <- paste0(ScratchDir, "/input_huntLS.txt")
   
   huntLS <- file.path(executable_dir, paste0(program_name, ".exe"))
@@ -1374,7 +1387,161 @@ huntLS <- function(DEM = "nofile",
   returnCode <- 0
   return(returnCode)
 }
-
+#---------------------------------------------------------
+#' LShunter
+#' 
+#' Program LShunter identifies potential landslide sites using 
+#' "outlier patches" on a DoD (DEM of Difference) delineated on
+#' an "outlier" raster created by Program Align. 
+#' 
+#' @param DoD Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.
+#' @param Outlier Character: The outlier raster (.flt) created by Align.
+#' @param threshold1 Numeric (dbl): Outlier threshold for the 1st round.
+#' @param threshold2 Numeric (dbl): Outlier threshold for the 2nd round.
+#' @param Gradient Character: An input gradient raster (.flt) created by program HuntLS.
+#' @param min1 Numeric (dbl): Minimum gradient for the 1st round.
+#' @param min2 Numeric (dbl): Minimum gradient for the 2nd round.
+#' @param Accum Character: Input flow accumulation raster (.flt) created by bldgrds.
+#' @param maxAccum1 Numeric (dbl): Maximum flow accumulation for the 1st round.
+#' @param maxAccum2 Numeric (dbl): Maximum flow accumulation for the 2nd round.
+#' @param MinSize Numeric (dbl): Minimum size of a patch in square meters.
+#' @param OutPatch Character: Output patch raster (.flt)
+#' @param ScratchDir Character: Scratch directory.
+#' @param Executable_dir Character: The directory where the executable file is located
+#' 
+#' @return returnCode, a value of zero indicates success
+#' @export
+#' 
+LShunter <- function(
+    DoD = "nofile",
+    Outlier = "nofile",
+    threshold1 = -9999.,
+    threshold2 = -9999.,
+    Gradient = "nofile",
+    min1 = -9999.,
+    min2 = -9999.,
+    Accum = "nofile",
+    maxAccum1 = -9999.,
+    maxAccum2 = -9999.,
+    minSize = -9999.,
+    OutPatch = "nofile",
+    ScratchDir = "none",
+    Executable_dir = "none") {
+  
+  returnCode = -1
+  program_name <- "LShunter"
+  
+  if (!dir.exists(ScratchDir)) {
+    stop("invalid scratch folder: ", ScratchDir)
+  }
+  
+  err = 0
+  
+  if (!file.exists(DoD)) {
+    print("Input DoD not found")
+    err <- -1
+  }
+  
+  if (!file.exists(Outlier)) {
+    print("Input Outlier raster not found")
+    err <- -1
+  }
+  
+  if (threshold1 == -9999.) {
+    print("Threshold1 not specified")
+    err <- -1
+  }
+  
+  if (threshold2 == -9999.) {
+    print("Threshold2 not specified")
+    err <- -1
+  }
+  
+  if (!file.exists(Gradient)) {
+    print("Input Gradient raster not found")
+    err <- -1
+  }
+  
+  if (min1 <= 0.) {
+    print("Minimum round1 gradient not specified")
+    err <- -1
+  }
+  
+  if (min2 <= 0.) {
+    print("Minimum round2 gradient not specified")
+    err <- -1
+  }
+  
+  if (!file.exists(Accum)) {
+    print("Input flow accumulation raster not found")
+    err <- -1
+  }
+  
+  if (maxAccum1 <= 0.) {
+    print("Maximum round1 flow accumulation not specified")
+    err <- -1
+  }
+  
+  if (maxAccum2 <= 0.) {
+    print("Maximum round2 flow accumulation not specified")
+    err <- -1
+  }
+  
+  if (minSize < 0.) {
+    print("Minimum patch size not specified")
+    err <- -1
+  }
+  
+  if (OutPatch == "nofile") {
+    print("Output patch raster not specified")
+    err <- -1
+  }
+  
+  if (Executable_dir == "nofile") {
+    print("Executable directory not specified")
+    err <- -1
+  }
+  
+  if (err < 0) {
+    returnCode = -1
+    return(returnCode)
+    stop("Error with input arguments")
+  }
+  
+  returnCode <- TerrainWorksUtils::LShunterInput(
+    DoD,
+    Outlier,
+    threshold1,
+    threshold2,
+    Gradient,
+    min1,
+    min2,
+    Accum,
+    maxAccum1,
+    maxAccum2,
+    minSize,
+    OutPatch,
+    ScratchDir)
+ 
+  if (returnCode != 0) {
+    return(returnCode)
+    stop("Error writing input file")
+  }
+  
+  input_file <- paste0(ScratchDir, "/input_LShunter.txt")
+  
+  LShunter <- file.path(Executable_dir, paste0(program_name, ".exe"))
+  command <- paste0(LShunter, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    returnCode <- -1
+    return(returnCode)
+    stop("Problem hunting")
+  }
+  returnCode <- 0
+  return(returnCode)
+  
+}
 #---------------------------------------------------------    
 #' Quantiles
 #' 
