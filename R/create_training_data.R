@@ -179,6 +179,7 @@ create_training_data_with_buffer <- function(positive_points,
 #' points can be sampled. Only regions covered by non-NA cells will be included
 #' if analysis_region is a raster.
 #' @param sample_rate Samples per km^2
+#' @param ratio Ratio of number of positive to negative samples
 #' @param region_margin width in meters of margin to draw around polygon edges
 #' which will not be used for sampling.
 #' @param polygon_class label for points sampled from within polygons
@@ -188,22 +189,22 @@ create_training_data_with_buffer <- function(positive_points,
 create_training_points_from_polygons <- function(polygons,
                                              analysis_region,
                                              sample_rate = 0.5,
+                                             ratio = 1,
                                              region_margin = 50,
                                              polygon_class = "positive",
                                              nonpolygon_class = "negative") {
   if (class(polygons) != "SpatVector") stop("polygons must be SpatVector")
 
+  if (!is.numeric(sample_rate) | length(sample_rate) != 1) {
+    stop("sample_rate must be a single numeric value")
+  }  
+  
   # Make sure analysis_region is polygon
   if (class(analysis_region) == "SpatRaster") {
     analysis_region <- as.polygons(analysis_region > -Inf)
   }
 
-  if (!is.numeric(sample_rate) | length(sample_rate) != 1) {
-    stop("sample_rate must be a single numeric value")
-  }
-
   # Prepare the region ---------------------------------------------------------
-
 
   # Shrink region by applying an interior margin. This ensures that training
   # points will not be sampled near the region's edges
@@ -224,7 +225,7 @@ create_training_points_from_polygons <- function(polygons,
   negative_region <- terra::erase(analysis_region, positive_polygons)
 
   # Sample non-wetland regions
-  negative_points <- sample_from_polygons(negative_region, sample_rate)
+  negative_points <- sample_from_polygons(negative_region, sample_rate*ratio)
 
 
   # Combine sample points ------------------------------------------------------

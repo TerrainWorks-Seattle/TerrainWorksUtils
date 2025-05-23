@@ -237,7 +237,7 @@ extractRasterValues <- function(raster = NULL,
 #' from within polygons.
 #'
 #' @param polygons SpatVector object containing polygons
-#' @param sampleRate Number of points per kilometer to sample
+#' @param sampleRate Number of points per square kilometer to sample
 #'
 #' @return SpatVector of sampled points
 sample_from_polygons <- function(polygons,

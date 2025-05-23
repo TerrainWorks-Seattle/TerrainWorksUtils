@@ -9,7 +9,7 @@ sample_from_polygons(polygons, sampleRate)
 \arguments{
 \item{polygons}{SpatVector object containing polygons}
 
-\item{sampleRate}{Number of points per kilometer to sample}
+\item{sampleRate}{Number of points per square kilometer to sample}
 }
 \value{
 SpatVector of sampled points

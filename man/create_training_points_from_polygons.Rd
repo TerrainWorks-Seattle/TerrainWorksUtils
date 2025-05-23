@@ -8,6 +8,7 @@ create_training_points_from_polygons(
   polygons,
   analysis_region,
   sample_rate = 0.5,
+  ratio = 1,
   region_margin = 50,
   polygon_class = "positive",
   nonpolygon_class = "negative"
@@ -22,6 +23,8 @@ points can be sampled. Only regions covered by non-NA cells will be included
 if analysis_region is a raster.}
 
 \item{sample_rate}{Samples per km^2}
+
+\item{ratio}{Ratio of number of positive to negative samples}
 
 \item{region_margin}{width in meters of margin to draw around polygon edges
 which will not be used for sampling.}
