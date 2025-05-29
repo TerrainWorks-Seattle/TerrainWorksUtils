@@ -1580,6 +1580,7 @@ LShunter <- function(
 #' @param inPoints Character: output shapefile name (full path) for the inside points.
 #' @param outPoints Character: output shapefile name (full path) for the outside points.
 #' @param outMask Character: output raster (.flt) name (full path) for the mask.
+#' @param outInit Character: output raster (.flt) name (full path) for the initiation zones sampled.
 #' @param table Character: output table name (full path) for the binning results.
 #' @param scratchDir Character: scratch directory.
 #' @param executableDir Character: The directory where the executable file is located.
@@ -1600,6 +1601,7 @@ samplePoints <- function(
     inPoints = "nofile",
     outPoints = "nofile",
     outMask = "nofile",
+    outInit = "nofile",
     table = "nofile",
     scratchDir = "nofile",
     executableDir = "none") {
@@ -1653,6 +1655,10 @@ samplePoints <- function(
     print("Output mask raster not specified")
     err <- -1
   }
+  if (outInit == "nofile") {
+    print("Output initiation zones raster not specified")
+    err <- -1
+  }
   if (table == "nofile") {
     print("Output table not specified")
     err <- -1
@@ -1675,6 +1681,7 @@ samplePoints <- function(
     inPoints,
     outPoints,
     outMask,
+    outInit,
     table,
     scratchDir)
   

@@ -718,6 +718,7 @@ LShunterInput <- function(
 #' @param inPoints Character: output shapefile name (full path) for the inside points.
 #' @param outPoints Character: output shapefile name (full path) for the outside points.
 #' @param outMask Character: output raster (.flt) name (full path) for the mask.
+#' @param outInit Character: output raster (.flt) name (full path) for the initiation zones sampled.
 #' @param table Character: output table name (full path) for the binning results.
 #' @param scratchDir Character: scratch directory.
 #' 
@@ -737,6 +738,7 @@ samplePointInput <- function(
   inPoints,
   outPoints,
   outMask,
+  outInit,
   table,
   scratchDir) {
   
@@ -820,6 +822,7 @@ samplePointInput <- function(
   write_input("OUTPUT INPOINT SHAPEFILE: ", inPoints)
   write_input("OUTPUT OUTPOINT SHAPEFILE: ", outPoints)
   write_input("OUTPUT MASK RASTER: ", outMask)
+  write_input("OUTPUT INITIATION ZONE RASTER: ", outInit)
   write_input("OUTPUT TABLE: ", table)
   write_input("SCRATCH DIRECTORY: ", scratchDir)
   

@@ -17,6 +17,7 @@ samplePointInput(
   inPoints,
   outPoints,
   outMask,
+  outInit,
   table,
   scratchDir
 )
@@ -51,6 +52,8 @@ represents a nominal class, e.g., landform type.}
 \item{outPoints}{Character: output shapefile name (full path) for the outside points.}
 
 \item{outMask}{Character: output raster (.flt) name (full path) for the mask.}
+
+\item{outInit}{Character: output raster (.flt) name (full path) for the initiation zones sampled.}
 
 \item{table}{Character: output table name (full path) for the binning results.}
 
