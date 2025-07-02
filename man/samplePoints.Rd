@@ -69,7 +69,7 @@ represents a nominal class, e.g., landform type.}
 returnCode, a value of zero indicates success
 }
 \description{
-#' SamplePoints is written to generate point samples for zones inside and
+SamplePoints is written to generate point samples for zones inside and
 outside of mapped landslide initiation zones. It is written specifically
 for working with output files from LS_poly, which I've been developing for 
 analysis of the Tongass landslide inventory on Wrangell Island. 

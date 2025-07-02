@@ -1543,9 +1543,178 @@ LShunter <- function(
   
 }
 #---------------------------------------------------------
+#' LS_poly
+#' 
+#' LS_poly reads a polygon shapefile of landslide scars. 
+#' It generates centerlines through each polygon and builds a 
+#' linked-node list through the centerlines. A likely initiation zone
+#' is delineated from the upslope end of each polygon, extending downslope
+#' from the top of the polygon a distance equal to the average polygon width.
+#' Statistics are calculated for the initiation zones, including the metrics
+#' for gradient, tangential curvature, profile curvature, and Factor-of-Safety
+#' (FoS). Gradient and curvature rasters can be read from disk or calculated.
+#' If calculated by LS_poly, radius values must be provided. The calculated
+#' rasters may be written to disk for use on subsequent runs of LS_poly.
+#' A FoS input raster must be specified. This may be generated with the 
+#' FoS program.
+#' 
+#' @param DEM Character: input DEM (.flt or .tif), full path name
+#' @param polyFile Character: input landslide polygon shapefile
+#' @param polyID Character: name of the ID field for the input polygons
+#' @param inGrad Character: input gradient raster (.flt or .tif), full path name
+#' @param inTan Character: input tangential curvature raster (.flt or .tif), full path name
+#' @param inProf Character: input profile curvature raster (.flt or .tif), full path name
+#' @param inFoS Character: input factor of safety (FoS) raster (.flt or .tif), full path name
+#' @param outGrad Character: output gradient raster (.flt or .tif), full path name
+#' @param gradRadius Numeric (dbl): radius in meters for calculating gradient
+#' @param outTan Character: output tangential curvature raster (.flt or .tif), full path name
+#' @param tanRadius Numeric (dbl): radius in meters for calculating tangential curvature
+#' @param outProf Character: output profile curvature raster (.flt or .tif), full path name
+#' @param profRadius Numeric (dbl): radius in meters for calculating profile curvature
+#' @param outNodes Character: output node point shapefile (.shp), full path name
+#' @param outCsv Character: output csv file with patch statistics, full path name
+#' @param outInit Character: output initiation zone raster (.flt or .tif), full path name
+#' @param scratchDir Character: scratch directory, full path name
+#' @returns returnCode, a value of zero indicates success
+#' @export
+#' 
+LS_poly <- function(
+  DEM = "nofile",
+  polyFile = "nofile",
+  polyID = "none",
+  inGrad = "nofile",
+  inTan = "nofile",
+  inProf = "nofile",
+  inFoS = "nofile",
+  outGrad = "nofile",
+  gradRadius = -9999.,
+  outTan = "nofile",
+  tanRadius = -9999.,
+  outProf = "nofile",
+  profRadius = -9999.,
+  outNodes = "nofile",
+  outCsv = "nofile",
+  outInit = "nofile",
+  scratchDir = "none",
+  executableDir = "none") {
+  
+  returnCode <- -1
+  
+  if (!dir.exists(scratchDir)) {
+    stop("invalid scratch folder: ", scratchDir)
+  }
+  
+  err <- 0
+  
+  if (!file.exists(DEM)) {
+    print("Input DEM not found")
+    err <- -1
+  }
+  
+  if (!file.exists(polyFile)) {
+    print("Input polygon shapefile not found")
+    err <- -1
+  }
+  
+  if (polyID == "none") {
+    print("PolyID not specified")
+    err <- -1
+  }
+  
+  if (inGrad != "nofile") {
+    if (!file.exists(inGrad)) {
+      print("Input gradient raster not found")
+      err <- -1
+    }
+  }
+  
+  if (inTan != "nofile") {
+    if (!file.exists(inTan)) {
+      print("Input tangential curvature raster not found")
+      err <- -1
+    }
+  }
+  
+  if (inProf != "nofile") {
+    if (!file.exists(inProf)) {
+      print("Input profile curvature raster not found")
+      err <- -1
+    }
+  } 
+  
+  if (!file.exists(inFoS)) {
+    print("Input factor of safety raster not found")
+    err <- -1
+  }
+  
+  if (outGrad != "nofile") {
+    if (gradRadius <= 0.) { 
+      print("Gradient radius not specified")
+      err <- -1
+    }
+  }
+  
+  if (outTan != "nofile") {
+    if (tanRadius <= 0.) {
+      print("Tangential curvature radius not specified")
+      err <- -1
+    }
+  }
+  
+  if (outProf != "nofile") {
+    if (profRadius <= 0.) {
+      print("Profile curvature radius not specified")
+      err <- -1
+    }
+  }
+  
+  if (err != 0) {
+    returnCode <- -1
+    return(returnCode)
+    stop("Error with input arguments")
+  }
+  
+  returnCode <- TerrainWorksUtils::LS_poly_input(
+    DEM,
+    polyFile,
+    polyID,
+    inGrad,
+    inTan,
+    inProf,
+    inFoS,
+    outGrad,
+    gradRadius,
+    outTan,
+    tanRadius,
+    outProf,
+    profRadius,
+    outNodes,
+    outCsv,
+    outInit,
+    scratchDir)
+  
+  if (returnCode != 0) {
+    return(returnCode)
+    stop("Error writing input file")
+  } 
+  
+  input_file <- paste0(scratchDir, "/input_LS_poly.txt")
+  
+  LS_poly <- file.path(paste0(executableDir, "\\LS_poly.exe"))
+  command <- paste0(LS_poly, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    returnCode <- -1
+    return(returnCode)
+    stop("LS_poly aborted")
+  }
+  
+  returnCode <- 0 
+}
+#--------------------------------------------------------
 #' samplePoints
 #' 
-#' #' SamplePoints is written to generate point samples for zones inside and
+#' SamplePoints is written to generate point samples for zones inside and
 #' outside of mapped landslide initiation zones. It is written specifically
 #' for working with output files from LS_poly, which I've been developing for 
 #' analysis of the Tongass landslide inventory on Wrangell Island. 
@@ -1674,6 +1843,12 @@ samplePoints <- function(
     err <- -1
   }
   
+  if (err != 0) {
+    returnCode <- -1
+    return(returnCode)
+    stop("Error with input arguments")
+  }
+  
   returnCode <- TerrainWorksUtils::samplePointInput(
     inRaster,
     areaPerSample,
@@ -1708,8 +1883,6 @@ samplePoints <- function(
     stop("Problem sampling")
   }
   returnCode <- 0
-  return(returnCode)
-  
 }   
 #-------------
 #' Quantiles

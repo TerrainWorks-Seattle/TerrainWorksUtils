@@ -681,6 +681,169 @@ LShunterInput <- function(
  return(returnCode)
 }
 #-------------------------------------------------------------------------
+#' Create an input file for Fortran program LS_poly
+#' 
+#' @param DEM Character: input DEM (.flt or .tif), full path name
+#' @param polyFile Character: input landslide polygon shapefile
+#' @param polyID Character: name of the ID field for the input polygons
+#' @param inGrad Character: input gradient raster (.flt or .tif), full path name
+#' @param inTan Character: input tangential curvature raster (.flt or .tif), full path name
+#' @param inProf Character: input profile curvature raster (.flt or .tif), full path name
+#' @param inFoS Character: input factor of safety (FoS) raster (.flt or .tif), full path name
+#' @param outGrad Character: output gradient raster (.flt or .tif), full path name
+#' @param gradRadius Numeric (dbl): radius in meters for calculating gradient
+#' @param outTan Character: output tangential curvature raster (.flt or .tif), full path name
+#' @param tanRadius Numeric (dbl): radius in meters for calculating tangential curvature
+#' @param outProf Character: output profile curvature raster (.flt or .tif), full path name
+#' @param profRadius Numeric (dbl): radius in meters for calculating profile curvature
+#' @param outNodes Character: output node point shapefile (.shp), full path name
+#' @param outCsv Character: output csv file with patch statistics, full path name
+#' @param outInit Character: output initiation zone raster (.flt or .tif), full path name
+#' @param scratchDir Character: scratch directory, full path name
+#' @returns returnCode, a value of zero indicates success
+#' @export
+
+LS_poly_input <- function(
+  DEM,
+  polyFile,
+  polyID,
+  inGrad = "nofile",
+  inTan = "nofile",
+  inProf = "nofile",
+  inFoS,
+  outGrad = "nofile",
+  gradRadius = 0.,
+  outTan = "nofile",
+  tanRadius = 0.,
+  outProf = "nofile",
+  profRadius = 0.,
+  outNodes,
+  outCsv,
+  outInit,
+  scratchDir) {
+
+  returnCode = -1
+  
+  if (!dir.exists(scratchDir)) {
+    stop("invalid scratch folder: ", scratchDir)
+  }
+  
+  # Normalize paths
+  suppressWarnings(DEM <- normalizePath(DEM))
+  suppressWarnings(polyFile <- normalizePath(polyFile))
+  if (inGrad != "nofile") {
+    suppressWarnings(inGrad <- normalizePath(inGrad))
+  }
+  if (inTan != "nofile") {
+    suppressWarnings(inTan <- normalizePath(inTan))
+  }
+  if (inProf != "nofile") {
+    suppressWarnings(inProf <- normalizePath(inProf))
+  }
+  suppressWarnings(inFoS <- normalizePath(inFoS))
+  if (outGrad != "nofile") {
+    suppressWarnings(outGrad <- normalizePath(outGrad))
+  }
+  if (outTan!= "nofile") {
+    suppressWarnings(outTan <- normalizePath(outTan))
+  }
+  if (outProf != "nofile") {
+    suppressWarnings(outProf <- normalizePath(outProf))
+  }
+  suppressWarnings(outInit <- normalizePath(outInit))
+  
+  
+  if (str_detect(DEM, ".flt$") == TRUE) {
+    n <- str_length(DEM)
+    DEM <- str_sub(DEM, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(polyFile, ".shp$") == TRUE) {
+    n <- str_length(polyFile)
+    polyFile <- str_sub(polyFile, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(inGrad, ".flt$") == TRUE) {
+    n <- str_length(inGrad)
+    inGrad <- str_sub(inGrad, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(inTan, ".flt$") == TRUE) {
+    n <- str_length(inTan)
+    inTan <- str_sub(inTan, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(inProf, ".flt$") == TRUE) {
+    n <- str_length(inProf)
+    inProf <- str_sub(inProf, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(inFoS, ".flt$") == TRUE) {
+    n <- str_length(inFoS)
+    inFoS <- str_sub(inFoS, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(outGrad, ".flt$") == TRUE) {
+    n <- str_length(outGrad)
+    outGrad <- str_sub(outGrad, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(outTan, ".flt$") == TRUE) {
+    n <- str_length(outTan)
+    outTan <- str_sub(outTan, 1, n[[1]]-4)
+  }
+  
+  if (str_detect(outProf, ".flt$") == TRUE) {
+    n <- str_length(outProf)
+    outProf <- str_sub(outProf, 1, n[[1]]-4)
+  }
+  
+ out_file <- paste0(scratchDir, "\\input_LS_poly.txt")
+ 
+ write_input <- function(...,
+                         append = TRUE) {
+   cat(..., "\n",
+       file = out_file,
+       sep = "",
+       append = append
+   )
+ }
+ 
+ write_input("# Input file for LS_poly\n",
+             "# Creating by input_file_utils.R\n",
+             "# On ", as.character(Sys.time()),
+             append = FALSE
+ )
+ 
+ write_input("DEM: ", DEM)
+ write_input("LANDSLIDE POLYGON FILE: ", polyFile, ", ID FIELD = ", polyID)
+ if (!inGrad == "nofile") {
+   write_input("INPUT GRADIENT RASTER: ", inGrad)
+ }
+ if (inTan != "nofile") {
+   write_input("INPUT TANGENTIAL CURVATURE RASTER: ", inTan)
+ }
+ if (inProf != "nofile") {
+   write_input("INPUT PROFILE CURVATURE RASTER: ", inProf)
+ }
+ if (outGrad != "nofile") {
+   write_input("OUTPUT GRADIENT RASTER: ", outGrad, ", RADIUS = ", gradRadius)
+ }
+ if (outTan != "nofile") {
+   write_input("OUTPUT TANGENTIAL CURVATURE RASTER: ", outTan, ", RADIUS = ", tanRadius)
+ }
+ if (outProf != "nofile") {
+   write_input("OUTPUT PROFILE CURVATURE RASTER: ", outProf, ", RADIUS = ", profRadius)
+ }
+ write_input("INPUT FOS RASTER: ", inFoS)
+ write_input("OUTPUT NODE POINT SHAPEFILE: ", outNodes)
+ write_input("OUTPUT CSV FILE: ", outCSV)
+ write_input("OUTPUT INITIATION RASTER: ", outInit)
+ write_input("SCRATCH DIRECTORY: ", scratchDir)
+ 
+ returnCode = 0
+}
+#-------------------------------------------------------------------------
 #' Create an input file for Fortan program SamplePoints
 #' 
 #' SamplePoints is written to generate point samples for zones inside and
@@ -699,7 +862,7 @@ LShunterInput <- function(
 #' These are used to compare the frequency distribution of values both 
 #' between inside and outside the initiation zones and between the total area
 #' and the sample points.
-#' 
+
 #' @param inRaster Character: input initiation zone raster (.flt) generated by LS_poly.
 #' @param areaPerSample Numeric (dbl): area in square meters for each sample point. This
 #' determines the target number of points inside initiation zones.
@@ -830,7 +993,6 @@ samplePointInput <- function(
   write_input("SCRATCH DIRECTORY: ", scratchDir)
   
   returnCode = 0
-  return(returnCode)
 }
 #---------------------------------------------------------
  #' Create an input file for Fortran program Quantiles.
@@ -920,7 +1082,7 @@ quantiles_input <- function(in_raster = "nofile",
     in_raster <- str_sub(in_raster, 1, n[[1]]-4)
   }
   
-  out_file <- paste0(scratch_dir, "\\input_quantiles.txt")
+  out_file <- paste0(scratch_dir, "/input_quantiles.txt")
   
   write_input <- function(...,
                           append = TRUE) {
