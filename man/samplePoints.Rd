@@ -19,6 +19,7 @@ samplePoints(
   outPoints = "nofile",
   outMask = "nofile",
   outInit = "nofile",
+  outInitPoints = "nofile",
   table = "nofile",
   scratchDir = "nofile",
   executableDir = "none"
@@ -57,7 +58,8 @@ represents a nominal class, e.g., landform type.}
 
 \item{outMask}{Character: output raster (.flt) name (full path) for the mask.}
 
-\item{outInit}{Character: output raster (.flt) name (full path) for the initiation zones sampled.}
+\item{outInit}{Character: output raster (.flt) name (full path) for the initiation zones sampled.
+param outInitPoints Character: output point shapefile of initiation points from the initiation zones.}
 
 \item{table}{Character: output table name (full path) for the binning results.}
 

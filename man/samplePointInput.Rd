@@ -17,6 +17,7 @@ samplePointInput(
   minPatch,
   inPoints,
   outPoints,
+  outInitPoints = "nofile",
   outMask,
   outInit,
   table,
@@ -53,6 +54,8 @@ represents a nominal class, e.g., landform type.}
 \item{inPoints}{Character: output shapefile name (full path) for the inside points.}
 
 \item{outPoints}{Character: output shapefile name (full path) for the outside points.}
+
+\item{outInitPoints}{Character: output point shapefile of initiation point within each initiation zone}
 
 \item{outMask}{Character: output raster (.flt) name (full path) for the mask.}
 
