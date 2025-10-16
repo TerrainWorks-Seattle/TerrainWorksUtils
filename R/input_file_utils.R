@@ -176,6 +176,16 @@ convert_to_flt <- function(in_raster) {
     convert_hdr(paste0(out_name, ".hdr"))
   }
 }
+#---------------------------------------------------
+strip_flt <- function(in_raster) {
+  if (stringr::str_detect(in_raster, ".flt")) {
+    n <- stringr::str_length(in_raster)
+    this_raster <- stringr::str_sub(in_raster, 1, n[[1]]-4)
+  } else {
+    this_raster <- in_raster
+  }
+  return(this_raster)
+}
 #--------------------------------------------------
 #' Create an input file for Fortran program makegrids
 #'
@@ -881,6 +891,7 @@ LS_poly_input <- function(
 #' @param minPatch Numeric (dbl): minimum size in square meters for patches delineated in the raster mask.
 #' @param inPoints Character: output shapefile name (full path) for the inside points.
 #' @param outPoints Character: output shapefile name (full path) for the outside points.
+#' @param outInitPoints Character: output point shapefile of initiation point within each initiation zone
 #' @param outMask Character: output raster (.flt) name (full path) for the mask.
 #' @param outInit Character: output raster (.flt) name (full path) for the initiation zones sampled.
 #' @param table Character: output table name (full path) for the binning results.
@@ -902,6 +913,7 @@ samplePointInput <- function(
   minPatch,
   inPoints,
   outPoints,
+  outInitPoints = "nofile",
   outMask,
   outInit,
   table,
@@ -914,36 +926,36 @@ samplePointInput <- function(
   }
   
   # Normalize paths
-  suppressWarnings(inRaster <- normalizePath(inRaster))
-  suppressWarnings(inPoints <- normalizePath(inPoints))
-  suppressWarnings(outPoints <- normalizePath(outPoints))
-  suppressWarnings(outMask <- normalizePath(outMask))
+#  suppressWarnings(inRaster <- normalizePath(inRaster))
+#  suppressWarnings(inPoints <- normalizePath(inPoints))
+#  suppressWarnings(outPoints <- normalizePath(outPoints))
+#  suppressWarnings(outMask <- normalizePath(outMask))
   
-  if (length(R4rasters) > 0) {
-    for (i in 1:length(R4rasters)) {
-      suppressWarnings(R4rasters[[i]][[2]] <- normalizePath(R4rasters[[i]][[2]]))
-      if (str_detect(R4rasters[[i]][[2]], ".flt$") == TRUE) {
-        n <- str_length(R4rasters[[i]][[2]])
-        R4rasters[[i]][[2]] <- str_sub(R4rasters[[i]][[2]], 1, n[[1]]-4)
-      }
-    }
-  }
+#  if (length(R4rasters) > 0) {
+#    for (i in 1:length(R4rasters)) {
+#      suppressWarnings(R4rasters[[i]][2] <- normalizePath(R4rasters[[i]][2]))
+#      if (str_detect(R4rasters[[i]][2], ".flt$") == TRUE) {
+#        n <- str_length(R4rasters[[i]][2])
+#        R4rasters[[i]][2] <- str_sub(R4rasters[[i]][2], 1, n[[1]]-4)
+#      }
+#    }
+#  }
   
-  if (length(I4rasters) > 0) {
-    for (i in length(I4rasters)) {
-      suppressWarnings(I4rasters[[i]][[2]] <- normalizePath(I4rasters[[i]][[2]]))
-      if (str_detect(I4rasters[[i]][[2]], ".flt$") == TRUE) {
-        n <- str_length(I4rasters[[i]][[2]])
-        I4rasters[[i]][[2]] <- str_sub(I4rasters[[i]][[2]], 1, n[[1]]-4)
-      }    
-    }
-  }
+#  if (length(I4rasters) > 0) {
+#    for (i in length(I4rasters)) {
+#      suppressWarnings(I4rasters[[i]][2] <- normalizePath(I4rasters[[i]][2]))
+#      if (str_detect(I4rasters[[i]][2], ".flt$") == TRUE) {
+#        n <- str_length(I4rasters[[i]][2])
+#        I4rasters[[i]][2] <- str_sub(I4rasters[[i]][2], 1, n[[1]]-4)
+#      }    
+#    }
+#  }
   
   # Do not include ".flt" in raster file names
-  if (str_detect(inRaster, ".flt$") == TRUE) {
-    n <- str_length(inRaster)
-    inRaster <- str_sub(inRaster, 1, n[[1]]-4)
-  }
+#  if (str_detect(inRaster, ".flt$") == TRUE) {
+#    n <- str_length(inRaster)
+#    inRaster <- str_sub(inRaster, 1, n[[1]]-4)
+#  }
   
   out_file <- paste0(scratchDir, "\\input_samplePoints.txt")
   
@@ -973,20 +985,34 @@ samplePointInput <- function(
   if (n > 0) {
     write_input("R4 RASTERS: ", n)
     for (i in 1:n) {
-      write_input("  ",R4rasters[[i]][[1]], ": ", R4rasters[[i]][[2]], ", lower = ",
-                  R4rasters[[i]][[3]], ", upper = ", R4rasters[[i]][[4]])
+      text <- paste0("  ",R4rasters[[i]][1], ": ", R4rasters[[i]][2], ", lower = ",
+                     R4rasters[[i]][3], ", upper = ", R4rasters[[i]][4])
+      if (R4rasters[[i]][5] == "MASK") {
+        text <- paste0(text, ", MASK")
+      }
+      if (R4rasters[[i]][6] == "SELECT") {
+        text <- paste0(text, ", SELECT")
+      }
+      write_input(text)
     }
   }
   n <- length(I4rasters)
   if (n > 0) {
     write_input("I4 RASTERS: ", n)
     for (i in 1:n) {
-      write_input("  ",I4rasters[[i]][[1]], ": ", I4rasters[[i]][[2]])
+      text <- paste0("  ",I4rasters[[i]][1], ": ", I4rasters[[i]][2])
+      if (I4rasters[[i]][3] == "MASK") {
+        text <- paste0(text, ", MASK")
+      }
+      write_input(text)
     }
   }
   write_input("MINIMUM MASK PATCH: ", minPatch)
   write_input("OUTPUT INPOINT SHAPEFILE: ", inPoints)
   write_input("OUTPUT OUTPOINT SHAPEFILE: ", outPoints)
+  if (!outInitPoints == "nofile") {
+    write_input("OUTPUT INITIATION POINT SHAPEFILE: ", outInitPoints)
+  }
   write_input("OUTPUT MASK RASTER: ", outMask)
   write_input("OUTPUT INITIATION ZONE RASTER: ", outInit)
   write_input("OUTPUT TABLE: ", table)
@@ -994,6 +1020,143 @@ samplePointInput <- function(
   
   returnCode = 0
 }
+#---------------------------------------------------------
+#' Create an input file for Fortran program modelDensity
+#' 
+#' modelDensity builds a density raster for a Poisson Point model.
+#' The model covariate rasters and coefficients are specified in this 
+#' input file, along with the points used to build the model.
+#' ModelDensity also provides:
+#' - an ROC curve csv file using the modeled density and input points
+#' - a proportion-of-points raster calculated from the density raster
+#' - a csv file showing the actual proportion of points in 
+#'   each 10% increment of the proportion raster
+#' 
+#' @param mask Character: Input mask raster (.flt)
+#' @param init_pnts Character: initiation points (.shp)
+#' @param intercept Numeric (dpl): Model intercept
+#' @param R4rasters list: Covariate rasters. Name, file, number of coefficients,
+#' list of coefficient values
+#' @param I4rasters list: Integer raster, used as factors. Name, file, number of
+#' classes, minimum and maximum class values, list of class value and coefficient
+#' @param unit Character: "KM" to convert units to kilometers
+#' @param prop_raster Character: output proportion raster (.flt)
+#' @param density_raster Character: Output density raster (.flt)
+#' @param ROC Character: Output ROC csv file
+#' @param scratch_dir Character: Folder to use as scratch space on disk
+#' 
+#' @returns returnCode, a value of zero indicates success
+#' @export 
+#' 
+modelDensity_input <- function(
+   mask,
+   init_pnts,
+   intercept,
+   R4rasters,
+   I4rasters,
+   unit,
+   prop_raster,
+   density_raster,
+   ROC,
+   scratch_dir) {
+   
+   returnCode = -1
+   
+   if (!dir.exists(scratch_dir)) {
+     stop("invalid scratch folder: ", scratch_dir)
+   }
+   
+   # Normalize paths
+   suppressWarnings(mask <- normalizePath(mask))
+   suppressWarnings(init_pnts <- normalizePath(init_pnts))
+   suppressWarnings(prop_raster <- normalizePath(prop_raster))
+   suppressWarnings(density_raster <- normalizePath(density_raster))
+   
+   nR4 <- length(R4rasters)
+   if (nR4 > 0) {
+     for (i in 1:nR4) {
+       suppressWarnings(R4rasters[[i]][[2]] <- normalizePath(R4rasters[[i]][[2]]))
+       thisRaster <- R4rasters[[i]][[2]]
+       thisRaster <- strip_flt(thisRaster)
+       R4rasters[[i]][[2]] <- thisRaster
+     }
+   }
+   
+   nI4 <- length(I4rasters)
+   if (nI4 > 0) {
+     for (i in 1:nI4) {
+       suppressWarnings(I4rasters[[i]][[2]] <- normalizePath(I4rasters[[i]][[2]]))
+       thisRaster <- I4rasters[[i]][[2]]
+       thisRaster <- strip_flt(thisRaster)
+       I4rasters[[i]][[2]] <- thisRaster
+     }
+   }
+   
+   # Do not include ".flt" in raster file names
+   prop_raster <- strip_flt(prop_raster)
+   density_raster <- strip_flt(density_raster)
+   
+   out_file <- paste0(scratchDir, "\\input_modelDensity.txt")
+   
+   write_input <- function(...,
+                           append = TRUE) {
+     cat(..., "\n",
+         file = out_file,
+         sep = "",
+         append = append
+     )
+   }
+   
+   write_input("# Input file for modelDensity\n",
+               "# Creating by input_file_utils.R\n",
+               "# On ", as.character(Sys.time()),
+               append = FALSE
+   )
+   
+   write_input("MASK RASTER: ", mask)
+   write_input("INITIATION POINT SHAPEFILE: ",init_pnts)
+   write_input("INTERCEPT: ", intercept)
+
+# R4rasters, list of continuous covariate rasters. Each line lists: 
+#  Covariate name, file, polynomial order, list of coefficients
+   if (nR4 > 0) {
+     write_input("R4 RASTERS: ", nR4)
+     for (i in 1:nR4) {
+       m <- R4rasters[[i]][[3]]
+       text <- paste0("  ",R4rasters[[i]][[1]], ": ", R4rasters[[i]][[2]], ", ", m)
+       for (j in 1:m) {
+         text <- paste0(text, ", ",R4rasters[[i]][[j+3]])
+       }
+       write_input(text)
+     }
+   }
+   
+# I4rasters, list of integer factor covariates. Each raster requires:
+#   Covariate name, file, number of classes, minimum class value, maximum class value
+#   List of class values and coefficient. Keyword is sequential number, first
+#   argument is class value, second argument is coefficient value
+   if (nI4 > 0) {
+     write_input("I4 RASTERS: ", nI4)
+     for (i in 1:nI4) {
+       m <- I4rasters[[i]][[3]]
+       text <- paste0("  ",I4rasters[[i]][[1]],": ",I4rasters[[i]][[2]],", ",m)
+       text <- paste0(text, ",", I4rasters[[i]][[4]], ",", I4rasters[[i]][[5]])
+       write_input(text)
+       k = 5
+       for (j in 1:m) {
+         write_input("  ",j,": ",I4rasters[[i]][[k+1]], ", ", I4rasters[[i]][[k+2]])
+         k = k + 2
+       }
+     }
+   }
+   write_input("UNITS: ", unit)
+   write_input("OUTPUT PROPORTION RASTER: ", prop_raster)
+   write_input("OUTPUT DENSITY RASTER: ", density_raster)
+   write_input("OUTPUT ROC CSV: ", ROC)
+   write_input("SCRATCH DIRECTORY: ", scratch_dir)
+   
+   returnCode = 0
+ }
 #---------------------------------------------------------
  #' Create an input file for Fortran program Quantiles.
 #' 
