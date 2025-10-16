@@ -1751,6 +1751,7 @@ LS_poly <- function(
 #' @param outPoints Character: output shapefile name (full path) for the outside points.
 #' @param outMask Character: output raster (.flt) name (full path) for the mask.
 #' @param outInit Character: output raster (.flt) name (full path) for the initiation zones sampled.
+#' param outInitPoints Character: output point shapefile of initiation points from the initiation zones.
 #' @param table Character: output table name (full path) for the binning results.
 #' @param scratchDir Character: scratch directory.
 #' @param executableDir Character: The directory where the executable file is located.
@@ -1773,6 +1774,7 @@ samplePoints <- function(
     outPoints = "nofile",
     outMask = "nofile",
     outInit = "nofile",
+    outInitPoints = "nofile",
     table = "nofile",
     scratchDir = "nofile",
     executableDir = "none") {
@@ -1862,6 +1864,7 @@ samplePoints <- function(
     minPatch,
     inPoints,
     outPoints,
+    outInitPoints,
     outMask,
     outInit,
     table,
@@ -1885,6 +1888,146 @@ samplePoints <- function(
   returnCode <- 0
 }   
 #-------------
+#' modelDensity
+#' 
+#' modelDensity builds a density raster for a Poisson Point model.
+#' The model covariate rasters and coefficients are specified in this 
+#' input file, along with the points used to build the model.
+#' ModelDensity also provides:
+#' - an ROC curve csv file using the modeled density and input points
+#' - a proportion-of-points raster calculated from the density raster
+#' - a csv file showing the actual proportion of points in 
+#'   each 10% increment of the proportion raster
+#' 
+#' @param mask Character: Input mask raster (.flt)
+#' @param init_pnts Character: initiation points (.shp)
+#' @param intercept Numeric (dpl): Model intercept
+#' @param R4rasters list: Continuous covariate rasters. 
+#' Name, file, number of coefficients, list of coefficient values
+#' @param I4rasters list: Integer factor covariate rasters.
+#' Name, file, number of classes, minimum class, maximum class,
+#' list of class values and associated coefficient value
+#' @param unit Character: "KM" to convert units to kilometers
+#' @param prop_raster Character: output proportion raster (.flt)
+#' @param density_raster Character: Output density raster (.flt)
+#' @param ROC Character: Output ROC csv file
+#' @param scratch_dir Character: Folder to use as scratch space on disk
+#' @param executable_dir Character: Folder where executable file is located
+#' 
+#' @returns returnCode, a value of zero indicates success
+#' @export 
+#' 
+modelDensity <- function(
+    mask = "nofile",
+    init_pnts = "nofile",
+    intercept = -1.e30,
+    R4rasters,
+    I4rasters,
+    unit = "unknown",
+    prop_raster = "nofile",
+    density_raster = "nofile",
+    ROC = "nofile",
+    scratch_dir = "none",
+    executable_dir = "none") {
+  
+  returnCode <- -1
+  
+  if (!dir.exists(scratchDir)) {
+    stop("invalid scratch folder: ", scratchDir)
+  }
+  err <- 0
+  
+  if (mask == "nofile") {
+    print("Input initiation zone mask raster not specified")
+    err = -1
+  } else if (!file.exists(mask)) {
+    if (!file.exists(paste0(mask, ".flt"))) {
+      print("Input initiation zone mask raster not found")
+      print(mask)
+      err <- -1
+    }
+  }
+  
+  if (init_pnts == "nofile") {
+    print("Input initiation point shapefile not specified")
+    err = -1
+  } else if (!file.exists(init_pnts)) {
+    if (!file.exists(paste0(init_pnts, ".shp"))) {
+      print("Input initiation point shapefile not found")
+      err = -1
+    }
+  }
+  
+  if (intercept == -1.e30) {
+    print("Model intercept not specified")
+    err = -1
+  }
+  
+  if (unit == "unknown") {
+    print("Length units not specified")
+    err = -1
+  }
+  
+  if (prop_raster == "nofile") {
+    print("Output proportion raster not specified")
+    err = -1
+  }
+  
+  if (density_raster == "nofile") {
+    print("Output density raster not specified")
+    err = -1
+  }
+  
+  if (ROC == "nofile") {
+    print("Output ROC csv file not spceified")
+    err = -1
+  }
+  
+  if (scratch_dir == "none") {
+    print("Scratch directory not specified")
+  } else if (!dir.exists(scratchDir)) {
+    print("invalid scratch folder: ", scratchDir)
+    err = -1
+  }
+  
+  if (err != 0) {
+    returnCode <- -1
+    print("Error with input arguments")
+    return(returnCode)
+  }
+  
+  returnCode <- modelDensity_input(
+    mask,
+    init_pnts,
+    intercept,
+    R4rasters,
+    I4rasters,
+    unit,
+    prop_raster,
+    density_raster,
+    ROC,
+    scratch_dir
+  )
+  
+  if (returnCode != 0) {
+    print("Error writing input file")
+    return(returnCode)
+  }
+  
+  input_file <- paste0(scratchDir, "/input_modelDensity.txt")
+  
+  modelDensity <- file.path(paste0(executable_dir, "/modelDensity.exe"))
+  command <- paste0(modelDensity, " ", input_file)
+  output <- system(command, wait = TRUE)
+  if (output != 0) {
+    print("Problem with modelDensity")
+    returnCode <- -1
+    return(returnCode)
+  }
+  
+  returnCode <- 0
+}
+#----------------------------------------------------------------
 #' Quantiles
 #' 
 #' Program Quantiles reads a raster file and computes quantiles
