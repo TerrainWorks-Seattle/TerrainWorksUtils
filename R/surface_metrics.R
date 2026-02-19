@@ -1423,6 +1423,8 @@ LShunter <- function(
     Accum = "nofile",
     maxAccum1 = -9999.,
     maxAccum2 = -9999.,
+    Roads = "nofile",
+    road_buffer = -9999.,
     minSize = -9999.,
     OutPatch = "nofile",
     ScratchDir = "none",
@@ -1487,6 +1489,13 @@ LShunter <- function(
     err <- -1
   }
   
+  if (Roads != "nofile") {
+    if (road_buffer <= 0.) {
+      print("Road buffer not specified")
+      err <- -1
+    }
+  }
+  
   if (minSize < 0.) {
     print("Minimum patch size not specified")
     err <- -1
@@ -1519,6 +1528,8 @@ LShunter <- function(
     Accum,
     maxAccum1,
     maxAccum2,
+    Roads,
+    road_buffer,
     minSize,
     OutPatch,
     ScratchDir)

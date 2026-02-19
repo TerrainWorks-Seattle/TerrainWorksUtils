@@ -15,6 +15,8 @@ LShunter(
   Accum = "nofile",
   maxAccum1 = -9999,
   maxAccum2 = -9999,
+  Roads = "nofile",
+  road_buffer = -9999,
   minSize = -9999,
   OutPatch = "nofile",
   ScratchDir = "none",

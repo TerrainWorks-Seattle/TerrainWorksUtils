@@ -15,6 +15,8 @@ LShunterInput(
   Accum,
   maxAccum1,
   maxAccum2,
+  Roads,
+  road_buffer,
   MinSize,
   OutPatch,
   ScratchDir
@@ -40,6 +42,10 @@ LShunterInput(
 \item{maxAccum1}{Numeric (dbl): Maximum flow accumulation for a patch, 1st round.}
 
 \item{maxAccum2}{Numeric (dbl): Maximum flow accumulation for a patch, 2nd round.}
+
+\item{Roads}{Character: Input road-layer shapefile, optional}
+
+\item{road_buffer}{Numberic(dbl): Buffer in meters for road layer}
 
 \item{MinSize}{Numeric (dbl): Minimum size of a patch in square meters.}
 

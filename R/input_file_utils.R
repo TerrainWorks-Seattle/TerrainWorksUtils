@@ -605,6 +605,8 @@ align_input <- function(refDTM,
 #' @param Accum Character: Input flow accumulation raster (.flt) created by bldgrds.
 #' @param maxAccum1 Numeric (dbl): Maximum flow accumulation for a patch, 1st round.
 #' @param maxAccum2 Numeric (dbl): Maximum flow accumulation for a patch, 2nd round.
+#' @param Roads Character: Input road-layer shapefile, optional
+#' @param road_buffer Numberic(dbl): Buffer in meters for road layer
 #' @param MinSize Numeric (dbl): Minimum size of a patch in square meters.
 #' @param OutPatch Character: Output patch raster (.flt)
 #' @param ScratchDir Character: Scratch directory.
@@ -623,6 +625,8 @@ LShunterInput <- function(
   Accum,
   maxAccum1,
   maxAccum2,
+  Roads,
+  road_buffer,
   MinSize,
   OutPatch,
   ScratchDir) {
@@ -683,6 +687,9 @@ LShunterInput <- function(
  write_input("OUTLIER: ", Outlier, ", THRESHOLD1 = ", threshold1, ", THRESHOLD2 = ", threshold2)
  write_input("GRADIENT: ", Gradient, ", MIN1 = ", min1, ", MIN2 = ", min2)
  write_input("FLOW ACCUMULATION: ", Accum, ", MAX1 = ", maxAccum1, ", MAX2 = ", maxAccum2)
+ if (Roads != "nofile") {
+   write_input("ROAD SHAPEFILE: ", Roads , ", BUFFER = ", road_buffer)
+ }
  write_input("MINIMUM SIZE: ", MinSize)
  write_input("OUTPUT PATCH RASTER: ", OutPatch)
  write_input("SCRATCH DIRECTORY: ", ScratchDir)
