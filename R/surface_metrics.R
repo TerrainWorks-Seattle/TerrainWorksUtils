@@ -1394,6 +1394,7 @@ huntLS <- function(DEM = "nofile",
 #' "outlier patches" on a DoD (DEM of Difference) delineated on
 #' an "outlier" raster created by Program Align. 
 #' 
+#' @param DEM Character: Elevation raster, only needed if a gradient raster is not provided.
 #' @param DoD Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.
 #' @param Outlier Character: The outlier raster (.flt) created by Align.
 #' @param threshold1 Numeric (dbl): Outlier threshold for the 1st round.
@@ -1405,6 +1406,7 @@ huntLS <- function(DEM = "nofile",
 #' @param maxAccum1 Numeric (dbl): Maximum flow accumulation for the 1st round.
 #' @param maxAccum2 Numeric (dbl): Maximum flow accumulation for the 2nd round.
 #' @param MinSize Numeric (dbl): Minimum size of a patch in square meters.
+#' @param GradLength Numeric (dbl): Length in meters over which to calculate gradient.
 #' @param OutPatch Character: Output patch raster (.flt)
 #' @param ScratchDir Character: Scratch directory.
 #' @param Executable_dir Character: The directory where the executable file is located
@@ -1413,6 +1415,7 @@ huntLS <- function(DEM = "nofile",
 #' @export
 #' 
 LShunter <- function(
+    DEM = "nofile",
     DoD = "nofile",
     Outlier = "nofile",
     threshold1 = -9999.,
@@ -1426,6 +1429,7 @@ LShunter <- function(
     Roads = "nofile",
     road_buffer = -9999.,
     minSize = -9999.,
+    GradLength = -9999.,
     OutPatch = "nofile",
     ScratchDir = "none",
     Executable_dir = "none") {
@@ -1460,8 +1464,17 @@ LShunter <- function(
   }
   
   if (!file.exists(Gradient)) {
-    print("Input Gradient raster not found")
-    err <- -1
+    if (GradLength <= 0.) {
+      print("No gradient raster was specified")
+      print("  so we need a Gradient Length")
+      print("  which is not present")
+      err <- -1
+    }
+    if (DEM == "nofile") {
+      print("No gradient raster was specified")
+      print("  so we need a DEM to calculate gradient")
+      err <- -1
+    }
   }
   
   if (min1 <= 0.) {
@@ -1518,6 +1531,7 @@ LShunter <- function(
   }
   
   returnCode <- TerrainWorksUtils::LShunterInput(
+    DEM,
     DoD,
     Outlier,
     threshold1,
@@ -1531,6 +1545,7 @@ LShunter <- function(
     Roads,
     road_buffer,
     minSize,
+    GradLength,
     OutPatch,
     ScratchDir)
  

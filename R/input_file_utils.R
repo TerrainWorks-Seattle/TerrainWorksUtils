@@ -595,7 +595,8 @@ align_input <- function(refDTM,
 #' "outlier patches" on a DoD (DEM of Difference) delineated on
 #' an "outlier" raster created by Program Align. 
 #' 
-#' @param DoD Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.
+#' @param DEM Character: Elevation raster, only needed if a Gradient file is not provided
+#'  @param DoD Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.
 #' @param Outlier Character: The outlier raster (.flt) created by Align.
 #' @param threshold1 Numeric (dbl): Maximum k value for a patch (e.g., -5.0), 1st round.
 #' @param threshold2 Numeric (dbl): Maximum k value for a patch (e.g., -1.5), 2nd round.
@@ -608,6 +609,7 @@ align_input <- function(refDTM,
 #' @param Roads Character: Input road-layer shapefile, optional
 #' @param road_buffer Numberic(dbl): Buffer in meters for road layer
 #' @param MinSize Numeric (dbl): Minimum size of a patch in square meters.
+#' @param GradLength Numeric (dbl): Length in meters over which to calculate gradient
 #' @param OutPatch Character: Output patch raster (.flt)
 #' @param ScratchDir Character: Scratch directory.
 #' 
@@ -615,6 +617,7 @@ align_input <- function(refDTM,
 #' @export
 #' 
 LShunterInput <- function(
+  DEM,
   DoD,
   Outlier,
   threshold1,
@@ -628,6 +631,7 @@ LShunterInput <- function(
   Roads,
   road_buffer,
   MinSize,
+  GradLength,
   OutPatch,
   ScratchDir) {
  
@@ -638,9 +642,22 @@ LShunterInput <- function(
  }
  
  # Normalize paths
+ if (DEM != "nofile") {
+   suppressWarnings(DEM <- normalizePath(DEM))
+   if (str_detect(DEM, ".flt$") == TRUE) {
+     n <- str_length(DEM)
+     DEM <- str_sub(DEM, 1, n[[1]]-4)
+   }
+ }
  suppressWarnings(DoD <- normalizePath(DoD))
  suppressWarnings(Outlier <- normalizePath(Outlier))
- suppressWarnings(Gradient <- normalizePath(Gradient))
+ if (Gradient != "nofile") {
+   suppressWarnings(Gradient <- normalizePath(Gradient))
+   if (str_detect(Gradient, ".flt$") == TRUE) {
+     n <- str_length(Gradient)
+     Gradient <- str_sub(Gradient, 1, n[[1]]-4)
+   } 
+ }
  suppressWarnings(Accum <- normalizePath(Accum)) 
  suppressWarnings(OutPatch <- normalizePath(OutPatch))
  suppressWarnings(ScratchDir <- normalizePath(ScratchDir))
@@ -654,11 +671,6 @@ LShunterInput <- function(
  if (str_detect(Outlier, ".flt$") == TRUE) {
    n <- str_length(Outlier)
    Outlier <- str_sub(Outlier, 1, n[[1]]-4)
- }
- 
- if (str_detect(Gradient, ".flt$") == TRUE) {
-   n <- str_length(Gradient)
-   Gradient <- str_sub(Gradient, 1, n[[1]]-4)
  }
  
  if (str_detect(Accum, ".flt$") == TRUE) {
@@ -682,10 +694,17 @@ LShunterInput <- function(
              "# On ", as.character(Sys.time()),
              append = FALSE
  )
- 
+ if (DEM != "nofile") {
+   write_input("DEM: ", DEM)
+ }
  write_input("DoD: ", DoD)
  write_input("OUTLIER: ", Outlier, ", THRESHOLD1 = ", threshold1, ", THRESHOLD2 = ", threshold2)
- write_input("GRADIENT: ", Gradient, ", MIN1 = ", min1, ", MIN2 = ", min2)
+ if (Gradient != "nofile") {
+   write_input("GRADIENT: FILE = ", Gradient, ", MIN1 = ", min1, ", MIN2 = ", min2)
+ } else {
+   write_input("GRADIENT: MIN1 = ", min1, ", MIN2 = ", min2)
+   write_input("GRADIENT LENGTH SCALE: ",GradLength)
+ }
  write_input("FLOW ACCUMULATION: ", Accum, ", MAX1 = ", maxAccum1, ", MAX2 = ", maxAccum2)
  if (Roads != "nofile") {
    write_input("ROAD SHAPEFILE: ", Roads , ", BUFFER = ", road_buffer)

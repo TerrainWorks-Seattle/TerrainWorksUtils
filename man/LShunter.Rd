@@ -5,6 +5,7 @@
 \title{LShunter}
 \usage{
 LShunter(
+  DEM = "nofile",
   DoD = "nofile",
   Outlier = "nofile",
   threshold1 = -9999,
@@ -18,12 +19,15 @@ LShunter(
   Roads = "nofile",
   road_buffer = -9999,
   minSize = -9999,
+  GradLength = -9999,
   OutPatch = "nofile",
   ScratchDir = "none",
   Executable_dir = "none"
 )
 }
 \arguments{
+\item{DEM}{Character: Elevation raster, only needed if a gradient raster is not provided.}
+
 \item{DoD}{Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.}
 
 \item{Outlier}{Character: The outlier raster (.flt) created by Align.}
@@ -43,6 +47,8 @@ LShunter(
 \item{maxAccum1}{Numeric (dbl): Maximum flow accumulation for the 1st round.}
 
 \item{maxAccum2}{Numeric (dbl): Maximum flow accumulation for the 2nd round.}
+
+\item{GradLength}{Numeric (dbl): Length in meters over which to calculate gradient.}
 
 \item{OutPatch}{Character: Output patch raster (.flt)}
 

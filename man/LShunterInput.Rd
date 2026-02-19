@@ -5,6 +5,7 @@
 \title{Create an input file for Fortran program LShunter}
 \usage{
 LShunterInput(
+  DEM,
   DoD,
   Outlier,
   threshold1,
@@ -18,12 +19,14 @@ LShunterInput(
   Roads,
   road_buffer,
   MinSize,
+  GradLength,
   OutPatch,
   ScratchDir
 )
 }
 \arguments{
-\item{DoD}{Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.}
+\item{DEM}{Character: Elevation raster, only needed if a Gradient file is not provided
+@param DoD Character: The reference DoD (DEM of Difference) raster (.flt) created by Align.}
 
 \item{Outlier}{Character: The outlier raster (.flt) created by Align.}
 
@@ -48,6 +51,8 @@ LShunterInput(
 \item{road_buffer}{Numberic(dbl): Buffer in meters for road layer}
 
 \item{MinSize}{Numeric (dbl): Minimum size of a patch in square meters.}
+
+\item{GradLength}{Numeric (dbl): Length in meters over which to calculate gradient}
 
 \item{OutPatch}{Character: Output patch raster (.flt)}
 
